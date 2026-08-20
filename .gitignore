@@ -1,0 +1,16 @@
+# Este repositório é somente uma vitrine pública.
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+backups/
+anexos/
+uploads/
+__pycache__/
+.venv/
