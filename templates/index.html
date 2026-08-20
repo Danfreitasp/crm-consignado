@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% set titulo = 'Propostas' %}
+{% set subtitulo = 'Lista geral com filtros, importação e exportação.' %}
+{% block content %}
+<section class="card filters-card">
+    <form method="get" class="filters">
+        <input name="nome" placeholder="Nome" value="{{ filtros.nome }}">
+        <input name="cpf" placeholder="CPF" value="{{ filtros.cpf }}">
+        <input type="month" name="mes" value="{{ filtros.mes }}">
+        <select name="status">
+            <option value="">Todos os status</option>
+            {% for status in STATUS_LIST %}
+                <option value="{{ status }}" {% if filtros.status == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+        </select>
+        <input name="banco_atual" placeholder="Banco atual" value="{{ filtros.banco_atual }}">
+        <input name="banco_digitado" placeholder="Banco digitado" value="{{ filtros.banco_digitado }}">
+        <select name="tipo_cliente">
+            <option value="">Tipo</option>
+            {% for tipo in TIPOS_CLIENTE %}
+                <option value="{{ tipo }}" {% if filtros.tipo_cliente == tipo %}selected{% endif %}>{{ tipo }}</option>
+            {% endfor %}
+        </select>
+        <select name="produto">
+            <option value="">Produto</option>
+            {% for produto in PRODUTOS %}
+                <option value="{{ produto }}" {% if filtros.produto == produto %}selected{% endif %}>{{ produto }}</option>
+            {% endfor %}
+        </select>
+        <input name="promotora" placeholder="Promotora" value="{{ filtros.promotora }}">
+        <select name="beneficio_bloqueado">
+            <option value="">Benefício bloqueado</option>
+            <option value="SIM" {% if filtros.beneficio_bloqueado == 'SIM' %}selected{% endif %}>SIM</option>
+            <option value="NÃO" {% if filtros.beneficio_bloqueado == 'NÃO' %}selected{% endif %}>NÃO</option>
+        </select>
+        <select name="valor_caiu_promotora">
+            <option value="">Caiu na promotora</option>
+            <option value="SIM" {% if filtros.valor_caiu_promotora == 'SIM' %}selected{% endif %}>SIM</option>
+            <option value="NÃO" {% if filtros.valor_caiu_promotora == 'NÃO' %}selected{% endif %}>NÃO</option>
+        </select>
+        <select name="valor_sacado">
+            <option value="">Sacado</option>
+            <option value="SIM" {% if filtros.valor_sacado == 'SIM' %}selected{% endif %}>SIM</option>
+            <option value="NÃO" {% if filtros.valor_sacado == 'NÃO' %}selected{% endif %}>NÃO</option>
+        </select>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar</span></button>
+        <a class="btn" href="{{ url_for('index') }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Limpar</span></a>
+    </form>
+</section>
+
+<section class="toolbar card">
+    <div>
+        <a class="btn" href="{{ url_for('exportar_csv') }}"><i class="bi bi-download" aria-hidden="true"></i><span>Exportar CSV</span></a>
+        <a class="btn" href="{{ url_for('exportar_xlsx') }}"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i><span>Exportar Excel</span></a>
+    </div>
+    <div class="import-area">
+        <form action="{{ url_for('importar') }}" method="post" enctype="multipart/form-data" class="import-form">
+            <label class="compact-label">O que importar
+                <select name="escopo_importacao" data-import-scope>
+                    <option value="todas" selected>Planilha inteira</option>
+                    <option value="mes">Somente um mês</option>
+                </select>
+            </label>
+            <label class="compact-label" data-import-month hidden>Mês da importação
+                <input type="month" name="mes_importacao" value="{{ mes_atual() }}" disabled>
+            </label>
+            <input type="file" name="arquivo" accept=".csv,.xlsx" required>
+            <button class="btn" type="submit"><i class="bi bi-upload" aria-hidden="true"></i><span>Importar</span></button>
+        </form>
+        <small class="muted import-help">Na planilha inteira, o CRM importa todas as abas mensais e ignora abas auxiliares, despesas e senhas.</small>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const scope = document.querySelector('[data-import-scope]');
+    const monthField = document.querySelector('[data-import-month]');
+    const monthInput = monthField?.querySelector('input');
+    if (!scope || !monthField || !monthInput) return;
+
+    const updateImportScope = () => {
+        const wholeWorkbook = scope.value === 'todas';
+        monthField.hidden = wholeWorkbook;
+        monthInput.disabled = wholeWorkbook;
+        monthInput.required = !wholeWorkbook;
+    };
+    scope.addEventListener('change', updateImportScope);
+    updateImportScope();
+});
+</script>
+
+<section class="card table-card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>CPF</th>
+                    <th>Tipo</th>
+                    <th>Banco atual</th>
+                    <th>Banco digitado</th>
+                    <th>Produto</th>
+                    <th>Promotora</th>
+                    <th>Benefício bloqueado</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>% comissão</th>
+                    <th>Comissão</th>
+                    <th>Caiu na promotora</th>
+                    <th>Sacado</th>
+                    <th>Criação</th>
+                    <th>Previsão de saldo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in propostas %}
+                <tr>
+                    <td>{{ p.nome }}</td>
+                    <td>{{ p.cpf }}{% if p.cpf %}<button class="mini-btn copy-btn table-copy" type="button" data-copy="{{ p.cpf }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar</span></button>{% endif %}</td>
+                    <td>{{ p.tipo_cliente }}</td>
+                    <td>{{ p.banco_atual }}</td>
+                    <td>{{ banco_digitado_exibicao(p) }}</td>
+                    <td>{{ p.produto }}</td>
+                    <td>{{ p.promotora }}</td>
+                    <td>{{ p.beneficio_bloqueado or 'NÃO' }}</td>
+                    <td><span class="badge">{{ p.status }}</span></td>
+                    <td>{{ br_moeda(p.troco) }}</td>
+                    <td>{{ br_percentual(p.comissao_percentual) }}</td>
+                    <td>{{ br_moeda(p.comissao) }}</td>
+                    <td>{{ p.valor_caiu_promotora or 'NÃO' }}</td>
+                    <td>{{ p.valor_sacado or 'NÃO' }}</td>
+                    <td>{{ br_data(p.data_criacao) }}</td>
+                    <td>{{ br_data(p.data_retorno) }}</td>
+                    <td class="row-actions">
+                        <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=p.id, origem=url_origem_atual()) }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Ver</span></a>
+                        <a class="mini-btn" href="{{ url_for('editar_proposta', proposta_id=p.id, origem=url_origem_atual()) }}"><i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span></a>
+                        <form method="post" action="{{ url_for('mudar_status', proposta_id=p.id) }}" class="inline-form">
+                            <select name="status" onchange="this.form.submit()">
+                                {% for status in STATUS_LIST %}
+                                    <option value="{{ status }}" {% if p.status == status %}selected{% endif %}>{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        <form method="post" action="{{ url_for('excluir_proposta', proposta_id=p.id) }}" class="inline-form" onsubmit="return confirm('Excluir esta proposta?')">
+                            <button class="mini-btn danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir</span></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="16" class="empty">Nenhuma proposta encontrada.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

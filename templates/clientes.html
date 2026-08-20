@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% set titulo = 'Base de Clientes' %}
+{% set subtitulo = 'Consulte todos os cadastros e remova com segurança os clientes sem propostas.' %}
+{% block content %}
+<section class="summary-grid client-summary-grid">
+    <div class="summary-card highlight-summary">
+        <small>Total de clientes</small>
+        <strong>{{ resumo.total or 0 }}</strong>
+    </div>
+    <div class="summary-card">
+        <small>Com propostas</small>
+        <strong>{{ resumo.com_propostas or 0 }}</strong>
+    </div>
+    <div class="summary-card">
+        <small>Sem propostas</small>
+        <strong>{{ resumo.sem_propostas or 0 }}</strong>
+    </div>
+</section>
+
+<section class="card filters-card">
+    <form method="get" class="client-filters">
+        <label>
+            Pesquisar cliente
+            <input
+                type="search"
+                name="q"
+                value="{{ filtros.q }}"
+                placeholder="Nome, CPF, telefone, matrícula ou banco"
+                autocomplete="off"
+            >
+        </label>
+        <label>
+            Vínculo com propostas
+            <select name="vinculo">
+                <option value="" {% if not filtros.vinculo %}selected{% endif %}>Todos os clientes</option>
+                <option value="com" {% if filtros.vinculo == 'com' %}selected{% endif %}>Com propostas</option>
+                <option value="sem" {% if filtros.vinculo == 'sem' %}selected{% endif %}>Sem propostas</option>
+            </select>
+        </label>
+        <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <span>Pesquisar</span>
+        </button>
+        <a class="btn" href="{{ url_for('lista_clientes') }}">
+            <i class="bi bi-x-circle" aria-hidden="true"></i>
+            <span>Limpar</span>
+        </a>
+    </form>
+</section>
+
+<section class="card table-card">
+    <div class="client-list-heading">
+        <div>
+            <h2>Clientes cadastrados</h2>
+            <small>{{ total_filtrado }} cliente(s) encontrado(s).</small>
+        </div>
+        <span class="client-safety-note">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            Clientes com propostas ficam protegidos
+        </span>
+    </div>
+    <div class="table-wrap">
+        <table class="clients-table">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>CPF</th>
+                    <th>Matrícula</th>
+                    <th>Telefone</th>
+                    <th>Tipo</th>
+                    <th>Dados bancários</th>
+                    <th>Propostas</th>
+                    <th>Atualização</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>
+                        <a class="client-name-link" href="{{ url_for('detalhe_cliente', cliente_id=cliente.id, origem=url_origem_atual()) }}">
+                            {{ cliente.nome }}
+                        </a>
+                    </td>
+                    <td>
+                        {{ cliente.cpf }}
+                        {% if cliente.cpf %}
+                        <button class="mini-btn copy-btn table-copy" type="button" data-copy="{{ cliente.cpf }}">
+                            <i class="bi bi-clipboard" aria-hidden="true"></i>
+                            <span>Copiar</span>
+                        </button>
+                        {% endif %}
+                    </td>
+                    <td>{{ cliente.nb_matricula or '-' }}</td>
+                    <td>{{ cliente.telefone or '-' }}</td>
+                    <td>{{ cliente.tipo_cliente or '-' }}</td>
+                    <td class="client-bank-data">{{ cliente.dados_bancarios or '-' }}</td>
+                    <td>
+                        {% if cliente.propostas_total %}
+                            <span class="badge">{{ cliente.propostas_total }} vinculada(s)</span>
+                        {% else %}
+                            <span class="badge client-free-badge">Sem proposta</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ br_data_hora(cliente.data_atualizacao) }}</td>
+                    <td class="row-actions client-row-actions">
+                        <a class="mini-btn" href="{{ url_for('detalhe_cliente', cliente_id=cliente.id, origem=url_origem_atual()) }}">
+                            <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                            <span>Ver</span>
+                        </a>
+                        <a class="mini-btn" href="{{ url_for('editar_cliente', cliente_id=cliente.id, origem=url_origem_atual()) }}">
+                            <i class="bi bi-pencil" aria-hidden="true"></i>
+                            <span>Editar</span>
+                        </a>
+                        <a class="mini-btn" href="{{ url_for('nova_proposta', cliente_id=cliente.id) }}">
+                            <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                            <span>Proposta</span>
+                        </a>
+                        {% if cliente.propostas_total %}
+                            <button class="mini-btn danger" type="button" disabled title="Este cliente possui propostas vinculadas">
+                                <i class="bi bi-lock" aria-hidden="true"></i>
+                                <span>Protegido</span>
+                            </button>
+                        {% else %}
+                            <form
+                                method="post"
+                                action="{{ url_for('excluir_cliente', cliente_id=cliente.id) }}"
+                                class="inline-form"
+                                onsubmit="return confirm('Excluir este cliente da base? Esta ação não pode ser desfeita.')"
+                            >
+                                <input type="hidden" name="next" value="{{ url_origem_atual() }}">
+                                <button class="mini-btn danger" type="submit">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                    <span>Excluir</span>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="empty">Nenhum cliente encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total_paginas > 1 %}
+    <nav class="pagination" aria-label="Paginação da base de clientes">
+        {% if pagina > 1 %}
+            <a class="btn" href="{{ url_for('lista_clientes', q=filtros.q, vinculo=filtros.vinculo, pagina=pagina-1) }}">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                <span>Anterior</span>
+            </a>
+        {% endif %}
+        <span>Página {{ pagina }} de {{ total_paginas }}</span>
+        {% if pagina < total_paginas %}
+            <a class="btn" href="{{ url_for('lista_clientes', q=filtros.q, vinculo=filtros.vinculo, pagina=pagina+1) }}">
+                <span>Próxima</span>
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}

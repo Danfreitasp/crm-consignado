@@ -1,0 +1,12 @@
+<section class="proposal-form-free-section">
+    <h3>Endereço do cliente</h3>
+    <label class="full-label">
+        <textarea id="proposta-endereco" name="endereco" rows="4" placeholder="Endereço&#10;RUA EXEMPLO 123&#10;CEP 00000000&#10;Bairro CENTRO&#10;Cidade - UF EXEMPLO - ES">{{ proposta.endereco or proposta['endereco'] or '' }}</textarea>
+    </label>
+</section>
+<section class="proposal-form-free-section">
+    <h3>Dados bancários do cliente</h3>
+    <label class="full-label">
+        <textarea id="proposta-dados-bancarios" name="dados_bancarios" rows="4" placeholder="BANCO EXEMPLO&#10;Agência: 123&#10;Conta Corrente: 000000000">{{ proposta.dados_bancarios or proposta['dados_bancarios'] or '' }}</textarea>
+    </label>
+</section>

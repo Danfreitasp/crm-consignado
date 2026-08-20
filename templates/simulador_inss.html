@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% set titulo = 'Simulador INSS' %}
+{% set subtitulo = 'Simule empréstimo novo ou portabilidade com refinanciamento sem criar proposta.' %}
+{% set modo = dados.modo_simulacao or 'novo' %}
+{% block content %}
+{% include '_portal_import_panel.html' %}
+<section class="card simulator-card">
+    <div class="section-title-row">
+        <div>
+            <h2>Escolha a simulação</h2>
+            <small>Os cálculos ficam somente nesta tela. Nada é enviado ao banco nem salvo como proposta.</small>
+        </div>
+    </div>
+
+    <form method="post" class="stack simulator-form" id="simuladorInssForm">
+        <div hidden aria-hidden="true">
+            <input name="nome" value="{{ dados.nome }}">
+            <input name="cpf" value="{{ dados.cpf }}">
+            <input name="nascimento" value="{{ dados.nascimento }}">
+            <input name="nb_matricula" value="{{ dados.nb_matricula }}">
+            <input name="especie" value="{{ dados.especie }}">
+            <input name="endereco" value="{{ dados.endereco }}">
+            <textarea name="dados_bancarios">{{ dados.dados_bancarios }}</textarea>
+        </div>
+        <input type="hidden" name="tipo_operacao" id="simTipoOperacao" value="{{ dados.tipo_operacao or 'novo_valor' }}">
+        <div class="simulator-mode-switch" role="radiogroup" aria-label="Tipo de simulação">
+            <label class="simulator-mode-option">
+                <input type="radio" name="modo_simulacao" value="novo" {% if modo == 'novo' %}checked{% endif %}>
+                <span><i class="bi bi-cash-coin" aria-hidden="true"></i> Empréstimo novo</span>
+            </label>
+            <label class="simulator-mode-option">
+                <input type="radio" name="modo_simulacao" value="port_refin" {% if modo == 'port_refin' %}checked{% endif %}>
+                <span><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Portabilidade + refinanciamento</span>
+            </label>
+        </div>
+
+        <div data-simulator-panel="novo" {% if modo != 'novo' %}hidden{% endif %}>
+            <div class="form-grid form-grid-three">
+                <div class="simulator-prazo-field">
+                    <label>Prazo
+                        <select name="prazo" id="simPrazo">
+                            {% for codigo, item in prazos.items() %}
+                                <option value="{{ codigo }}" data-coef="{{ item.coeficiente }}" data-label="{{ item.label }}" {% if dados.prazo == codigo %}selected{% endif %}>{{ item.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button class="btn" type="button" id="simAdicionarPrazo"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar prazo</span></button>
+                </div>
+                <label>Valor desejado
+                    <input name="valor_base" id="simValorBase" class="money-mask" value="{{ br_moeda(dados.valor_base) }}" placeholder="Ex.: 5000">
+                    <small>Digite aqui para calcular a parcela.</small>
+                </label>
+                <label>Parcela / margem disponível
+                    <input name="margem" id="simMargem" class="money-mask" value="{{ br_moeda(dados.margem) }}" placeholder="Ex.: 500">
+                    <small>Digite aqui para calcular o valor liberado.</small>
+                </label>
+            </div>
+
+            <section class="simulator-results simulator-results-new">
+                <div class="summary-card highlight-card"><small>Valor estimado</small><strong id="simValorEstimado">{{ br_moeda(resultado.valor_estimado if resultado and modo == 'novo' else 0) }}</strong></div>
+                <div class="summary-card highlight-card"><small>Parcela estimada</small><strong id="simParcelaEstimativa">{{ br_moeda(resultado.parcela_estimativa if resultado and modo == 'novo' else 0) }}</strong></div>
+                <div class="summary-card">
+                    <div class="simulator-coef-header"><small>Coeficiente</small><button class="mini-btn" type="button" id="simEditarCoeficiente"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar</span></button></div>
+                    <strong id="simCoeficiente">{{ '%.6f'|format(resultado.coeficiente) if resultado and modo == 'novo' else '-' }}</strong>
+                </div>
+            </section>
+
+            <section class="simulator-rate-editor hidden" id="simPrazoEditor">
+                <label>Nome do prazo<input type="text" id="simPrazoLabel" placeholder="Ex.: 120x com carência 90d"></label>
+                <label>Coeficiente<input type="text" id="simPrazoCoeficiente" inputmode="decimal" placeholder="Ex.: 0.024088"></label>
+                <div class="actions">
+                    <button class="btn btn-primary" type="button" id="simSalvarPrazo"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar prazo</span></button>
+                    <button class="btn" type="button" id="simCancelarPrazo"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></button>
+                </div>
+            </section>
+            <small class="muted" id="simPrazoStatus" role="status"></small>
+        </div>
+
+        <div class="stack" data-simulator-panel="port_refin" {% if modo != 'port_refin' %}hidden{% endif %}>
+            <section class="simulator-input-section">
+                <div class="simulator-section-heading"><div><small>1. Contrato atual</small><h3>Dados da portabilidade</h3></div><span class="simulator-step-chip">Contrato portado</span></div>
+                <div class="form-grid form-grid-four">
+                    <label>Banco atual<input name="banco_atual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
+                    <label>Nº do contrato<input name="numero_contrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
+                    <label>Parcela atual<input name="parcela_atual" id="portParcelaAtual" class="money-mask" value="{{ br_moeda(dados.parcela_atual) }}" placeholder="R$ 0,00"></label>
+                    <label>Saldo para quitação<input name="saldo_quitacao" id="portSaldoQuitacao" class="money-mask" value="{{ br_moeda(dados.saldo_quitacao) }}" placeholder="R$ 0,00"></label>
+                    <label>Prazo original<input name="prazo_contrato" value="{{ dados.prazo_contrato or '' }}" type="number" min="0" step="1" placeholder="Ex.: 84"></label>
+                    <label>Parcelas pagas<input name="parcelas_pagas" value="{{ dados.parcelas_pagas or '' }}" type="number" min="0" step="1" placeholder="Ex.: 25"></label>
+                </div>
+            </section>
+
+            <section class="simulator-input-section">
+                <div class="simulator-section-heading"><div><small>2. Nova operação</small><h3>Condições do refinanciamento</h3></div><span class="simulator-step-chip">Banco destino</span></div>
+                <div class="form-grid form-grid-four">
+                    <label>Tabela Quali
+                        <select name="tabela_port_refin" id="portTabela">
+                            <option value="">Cálculo livre (sem tabela)</option>
+                            {% for codigo, tabela in tabelas_port_refin.items() %}
+                            <option value="{{ codigo }}" data-taxa="{{ tabela.taxa }}" data-prazo="{{ tabela.prazo }}" data-coeficiente="{{ tabela.coeficiente }}" data-fator-saldo="{{ tabela.fator_saldo }}" {% if dados.tabela_port_refin == codigo %}selected{% endif %}>{{ codigo }} - {{ tabela.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <small>Selecionar a tabela preenche taxa, prazo e coeficiente.</small>
+                    </label>
+                    <label>Banco destino<input name="banco_destino" value="QUALI" readonly aria-readonly="true"></label>
+                    <label>Novo prazo<input name="novo_prazo" id="portNovoPrazo" value="{{ dados.novo_prazo or 84 }}" type="number" min="1" step="1"></label>
+                    <label>Nova parcela<input name="nova_parcela" id="portNovaParcela" class="money-mask" value="{{ br_moeda(dados.nova_parcela) if dados.nova_parcela else '' }}" placeholder="Em branco: usa a atual"><small>Se ficar em branco, usa a parcela atual.</small></label>
+                    <label>Taxa mensal (%)<input name="taxa_nova" id="portTaxaNova" value="{{ br_percentual(dados.taxa_nova)|replace('%', '') if dados.taxa_nova else '' }}" inputmode="decimal" placeholder="Ex.: 1,80"></label>
+                    <label>Coeficiente do banco<input name="coeficiente_port_refin" id="portCoeficiente" value="{{ ('%.8f'|format(dados.coeficiente_port_refin)).rstrip('0').rstrip('.') if dados.coeficiente_port_refin else '' }}" inputmode="decimal" placeholder="Ex.: 0,024119"><small>Quando informado, prevalece sobre a taxa.</small></label>
+                </div>
+                <p class="simulator-parameter-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Nas tabelas Quali, o cálculo com saldo devedor usa o coeficiente da tabela e considera 96,64% do saldo para quitação. No cálculo livre, o saldo é considerado integralmente.</p>
+            </section>
+
+            <section class="simulator-results port-refin-results" aria-live="polite">
+                <div class="summary-card"><small>Novo contrato</small><strong id="portValorContrato">{{ br_moeda(resultado.valor_contrato if resultado and modo == 'port_refin' else 0) }}</strong></div>
+                <div class="summary-card highlight-card"><small>Troco estimado</small><strong id="portTroco">{{ br_moeda(resultado.troco if resultado and modo == 'port_refin' else 0) }}</strong></div>
+                <div class="summary-card"><small>Coeficiente usado</small><strong id="portCoeficienteUsado">{{ '%.8f'|format(resultado.coeficiente) if resultado and modo == 'port_refin' and resultado.coeficiente else '-' }}</strong><small id="portOrigemCoeficiente">{{ resultado.origem_coeficiente if resultado and modo == 'port_refin' else 'Informe taxa ou coeficiente' }}</small></div>
+            </section>
+            <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}">
+                <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{{ 'Operação com troco positivo.' if resultado.operacao_viavel else (resultado.erros|join(' ') if resultado.erros else 'O novo contrato não cobre o saldo para quitação.') }}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
+            </div>
+        </div>
+
+        <div class="actions simulator-actions">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-calculator" aria-hidden="true"></i><span>Calcular</span></button>
+            <button class="btn" id="portInserirProposta" type="submit" formaction="{{ url_for('simulador_inss_criar_proposta') }}" {% if not (resultado and modo == 'port_refin' and resultado.operacao_viavel) %}hidden{% endif %}>
+                <i class="bi bi-plus-circle" aria-hidden="true"></i><span>Inserir proposta com esses dados</span>
+            </button>
+            <button class="btn copy-btn" id="simCopiarResumo" type="button" data-copy="{{ resultado.mensagem if resultado else '' }}" data-copy-target="#simResumoTexto"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar resumo</span></button>
+        </div>
+    </form>
+</section>
+
+{% if resultado %}
+<section class="card">
+    <h2>Resumo da simulação</h2>
+    <div class="message-box"><p id="simResumoTexto">{{ resultado.mensagem|replace('\n', '<br>')|safe }}</p></div>
+</section>
+{% endif %}
+
+<script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20260817-first-bank-name') }}"></script>
+{% endblock %}

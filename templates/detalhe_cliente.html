@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% set titulo = cliente.nome %}
+{% set subtitulo = 'Cadastro do cliente e benefícios vinculados.' %}
+{% block content %}
+<section class="proposal-page stack">
+    <div class="card stack proposal-main-card">
+        <div class="detail-header">
+            <div>
+                <span class="badge">Cliente cadastrado</span>
+                <h2>{{ cliente.nome }}</h2>
+                <p>{{ cliente.tipo_cliente or 'Tipo não informado' }} · {{ cliente.nb_matricula or 'Sem matrícula' }}</p>
+            </div>
+            <div class="detail-actions">
+                <a class="btn" href="{{ url_for('editar_cliente', cliente_id=cliente.id, origem=url_retorno_padrao()) }}">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                    <span>Editar cliente</span>
+                </a>
+                <a class="btn btn-primary" href="{{ url_for('nova_proposta', cliente_id=cliente.id) }}">
+                    <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                    <span>Nova proposta</span>
+                </a>
+                {% if propostas %}
+                    <button class="btn btn-danger" type="button" disabled title="Este cliente possui propostas vinculadas">
+                        <i class="bi bi-lock" aria-hidden="true"></i>
+                        <span>Cliente protegido</span>
+                    </button>
+                {% else %}
+                    <form
+                        method="post"
+                        action="{{ url_for('excluir_cliente', cliente_id=cliente.id) }}"
+                        onsubmit="return confirm('Excluir este cliente da base? Esta ação não pode ser desfeita.')"
+                    >
+                        <input type="hidden" name="next" value="{{ url_for('lista_clientes') }}">
+                        <button class="btn btn-danger" type="submit">
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                            <span>Excluir cliente</span>
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <section class="summary-grid">
+            <div class="summary-card highlight-summary">
+                <small>CPF</small>
+                <strong>{{ cliente.cpf }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>NB ou matrícula</small>
+                <strong>{{ cliente.nb_matricula or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Data de nascimento</small>
+                <strong>{{ cliente.nascimento or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Espécie do benefício</small>
+                <strong>{{ cliente.especie or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Telefone</small>
+                <strong>{{ cliente.telefone or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Tipo de cliente</small>
+                <strong>{{ cliente.tipo_cliente or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Endereço</small>
+                <strong>{{ cliente.endereco or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Dados bancários</small>
+                <strong>{{ cliente.dados_bancarios or '-' }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Cadastrado em</small>
+                <strong>{{ br_data_hora(cliente.data_criacao) }}</strong>
+            </div>
+            <div class="summary-card">
+                <small>Atualizado em</small>
+                <strong>{{ br_data_hora(cliente.data_atualizacao) }}</strong>
+            </div>
+        </section>
+    </div>
+
+    <div class="card stack">
+        <div class="section-title-row compact-row">
+            <div>
+                <h2>Propostas vinculadas</h2>
+                <small>{{ propostas|length }} proposta(s) encontrada(s) para este CPF e matrícula.</small>
+            </div>
+        </div>
+        {% if propostas %}
+            <div class="linked-list">
+                {% for proposta in propostas %}
+                    <a class="linked-item" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id) }}">
+                        <div>
+                            <strong>{{ proposta.produto or 'Proposta' }}</strong>
+                            <small>{{ proposta.status }} · {{ br_data_hora(proposta.data_atualizacao) }}</small>
+                        </div>
+                        <span>Abrir proposta</span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">Este cliente ainda não possui proposta cadastrada no CRM.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

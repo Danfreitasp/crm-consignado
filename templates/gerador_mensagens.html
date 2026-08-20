@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card page-intro">
+    <div>
+        <h2>Gerador de mensagens</h2>
+        <p>Preencha os dados comerciais, escolha um modelo salvo e copie a mensagem pronta para o WhatsApp.</p>
+    </div>
+</section>
+
+<section class="generator-layout" id="geradorMensagens" data-modelos='{{ modelos_gerador|tojson }}'>
+    <div class="form-card generator-panel">
+        <div class="section-title-row">
+            <div>
+                <h2>Dados da mensagem</h2>
+                <small>Baseado no gerador antigo, agora centralizado no CRM.</small>
+            </div>
+        </div>
+
+        <div class="form-grid two">
+            <label>Modelo salvo
+                <select id="gerModeloSelect">
+                    {% for nome in modelos_gerador.keys() %}
+                        <option value="{{ nome }}" {% if nome == 'Anuência - Qualibanking (Port + Refin)' %}selected{% endif %}>{{ nome }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label data-ger-variables="{atendente}">Atendente
+                <input id="gerAtendente" type="text" value="Poliana" placeholder="Nome do atendente">
+            </label>
+            <label data-ger-variables="{nome}|{nome_maiusculo}">Nome do cliente
+                <input id="gerNome" type="text" placeholder="Nome do cliente">
+            </label>
+            <label data-ger-variables="{cpf}">CPF
+                <input id="gerCpf" class="cpf-mask" type="text" inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
+            </label>
+            <label data-ger-variables="{banco}">Banco atual / originador
+                <input id="gerBanco" type="text" placeholder="Ex.: C6">
+            </label>
+            <label data-ger-variables="{parcela_antiga}">Parcela ativa
+                <input id="gerParcelaAntiga" class="money-mask" type="text" placeholder="Ex.: 421,00">
+            </label>
+            <label data-ger-variables="{parcela_nova}">Nova parcela
+                <input id="gerParcelaNova" class="money-mask" type="text" placeholder="Ex.: 520,00">
+            </label>
+            <label data-ger-variables="{troco}|{valor}">Valor / troco liberado
+                <input id="gerTroco" class="money-mask" type="text" placeholder="Ex.: 1.229,77">
+            </label>
+            <label data-ger-variables="{prazo}">Prazo (meses)
+                <input id="gerPrazo" type="number" min="1" step="1" value="108" placeholder="Ex.: 108">
+            </label>
+            <label data-ger-variables="{economia}">Economia mensal
+                <input id="gerEconomia" type="text" readonly placeholder="Calculada automaticamente">
+            </label>
+        </div>
+
+        <div class="inline-actions generator-actions">
+            <button type="button" class="btn btn-primary" id="gerarMensagemBtn"><i class="bi bi-chat-left-text" aria-hidden="true"></i><span>Gerar mensagem</span></button>
+            <button type="button" class="btn" id="limparGeradorBtn"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Limpar campos</span></button>
+        </div>
+    </div>
+
+    <div class="form-card generator-panel generated-message-panel">
+        <div class="section-title-row">
+            <div>
+                <h2>Mensagem gerada</h2>
+                <small>Revise antes de enviar. Os valores são estimativos.</small>
+            </div>
+            <button type="button" class="btn btn-primary copy-btn" id="copiarGeradorBtn" data-copy=""><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar mensagem</span></button>
+        </div>
+        <textarea id="gerMensagemResultado" class="generator-output" rows="18" placeholder="A mensagem aparecerá aqui após preencher os campos."></textarea>
+    </div>
+</section>
+
+<section class="form-card message-management-page">
+    <div class="section-title-row">
+        <div>
+            <h2>Adicionar modelo ao gerador</h2>
+            <small>Use as variáveis abaixo para reaproveitar os campos preenchidos.</small>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('adicionar_modelo_gerador') }}" class="message-model-form">
+        <label>Nome do modelo
+            <input type="text" name="nome_modelo" placeholder="Ex.: Portabilidade apenas com troco" required>
+        </label>
+        <label>Texto do modelo
+            <textarea name="texto_modelo" rows="8" placeholder="Olá, {nome}. Tenho uma proposta para seu contrato do banco {banco}..." required></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar modelo</span></button>
+    </form>
+</section>
+
+<section class="form-card message-management-page">
+    <div class="section-title-row">
+        <div>
+            <h2>Editar modelos do gerador</h2>
+            <small>Esses modelos são exclusivos desta tela e ficam salvos no banco de dados.</small>
+        </div>
+        <small>{{ modelos_gerador|length }} modelo(s)</small>
+    </div>
+
+    <div class="model-editor-list standalone">
+        {% for nome, modelo in modelos_gerador.items() %}
+            <article class="model-editor-item">
+                <form method="post" action="{{ url_for('editar_modelo_gerador') }}" class="stack">
+                    <input type="hidden" name="nome_original" value="{{ nome }}">
+                    <label>Nome do modelo
+                        <input type="text" name="nome_modelo" value="{{ nome }}" required>
+                    </label>
+                    <label>Texto
+                        <textarea name="texto_modelo" rows="7" required>{{ modelo }}</textarea>
+                    </label>
+                    <div class="inline-actions">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+                    </div>
+                </form>
+                <form method="post" action="{{ url_for('excluir_modelo_gerador') }}" onsubmit="return confirm('Excluir este modelo do gerador?');" class="model-delete-form">
+                    <input type="hidden" name="nome_modelo" value="{{ nome }}">
+                    <button class="btn btn-danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir modelo</span></button>
+                </form>
+            </article>
+        {% else %}
+            <p class="empty">Nenhum modelo cadastrado ainda.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card muted-help">
+    <h3>Variáveis disponíveis no gerador</h3>
+    <p>Use estas variáveis nos modelos salvos. O CRM troca automaticamente pelos campos preenchidos acima.</p>
+    <div class="variable-grid">
+        <code>{nome}</code>
+        <code>{nome_maiusculo}</code>
+        <code>{cpf}</code>
+        <code>{banco}</code>
+        <code>{parcela_antiga}</code>
+        <code>{parcela_nova}</code>
+        <code>{troco}</code>
+        <code>{valor}</code>
+        <code>{economia}</code>
+        <code>{atendente}</code>
+        <code>{prazo}</code>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% set titulo = 'Editar cliente' %}
+{% set subtitulo = 'Atualize os dados cadastrais com o mesmo padrão da Nova Proposta.' %}
+{% block content %}
+<section class="card stack proposal-entry-card">
+    <div class="detail-header">
+        <div>
+            <span class="badge">Cadastro do cliente</span>
+            <h2>{{ cliente.nome }}</h2>
+            <p class="muted">CPF e matrícula identificam cada benefício cadastrado.</p>
+        </div>
+    </div>
+
+    {% if erros %}
+        <div class="alerts">
+            {% for erro in erros %}
+                <div class="alert erro">
+                    <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                    <span>{{ erro }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="alert info">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <span>Os dados do cliente também serão atualizados nas propostas vinculadas. A importação do Corban não altera o telefone.</span>
+    </div>
+
+    {% include '_portal_import_panel.html' %}
+
+    <form method="post" class="stack proposal-entry-form">
+        <input type="hidden" name="origem" value="{{ origem }}">
+        {% set proposta = formulario %}
+        {% set modo_editar_cliente = true %}
+        <div class="form-grid" id="propostaFormGrid" data-cliente-only="true" data-refin-vinculado="false">
+            {% include '_dados_cliente_campos.html' %}
+        </div>
+        {% include '_dados_cliente_complementares.html' %}
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>
+                <span>Salvar alterações</span>
+            </button>
+            <a class="btn" href="{{ url_for('detalhe_cliente', cliente_id=cliente.id, origem=origem) }}">
+                <i class="bi bi-x-circle" aria-hidden="true"></i>
+                <span>Cancelar</span>
+            </a>
+        </div>
+    </form>
+</section>
+<script src="{{ url_for('static', filename='portal_import.js') }}"></script>
+{% endblock %}

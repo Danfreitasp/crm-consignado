@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CRM Consig{% if titulo %} · {{ titulo }}{% endif %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <meta name="application-name" content="CRM Consig">
+    <meta name="theme-color" content="#111827">
+    <script>
+        (function () {
+            let temaSalvo = 'claro';
+            try {
+                temaSalvo = localStorage.getItem('crmTema') || 'claro';
+            } catch (error) {
+                // O CRM usa as preferências padrão quando o armazenamento local não está disponível.
+            }
+            document.documentElement.setAttribute('data-theme', temaSalvo);
+            try {
+                if (localStorage.getItem('crmSidebarRecolhida') === 'true') {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (error) {
+                // O menu continua expandido quando o armazenamento local não está disponível.
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260813-contract-picker') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260817-full-only') }}">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            <img class="brand-mark brand-icon" src="{{ url_for('static', filename='icons/navigation/funil.png') }}" alt="" aria-hidden="true">
+            <div class="brand-copy">
+                <p>CRM Consig</p>
+                <small>Funil local</small>
+            </div>
+        </div>
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-expanded="true" aria-controls="sidebarNavigation">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            <span>Minimizar menu</span>
+        </button>
+        <nav id="sidebarNavigation">
+		<a href="{{ url_for('funil') }}" class="nav-link {% if request.endpoint == 'funil' %}active{% endif %}" title="Funil"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/funil.png') }}" alt="" aria-hidden="true"><span>Funil</span></a>
+		<a href="{{ url_for('nova_proposta') }}" class="nav-link {% if request.endpoint == 'nova_proposta' %}active{% endif %}" title="Nova Proposta"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/nova_proposta.png') }}" alt="" aria-hidden="true"><span>Nova Proposta</span></a>
+		<a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" title="Propostas"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/propostas.png') }}" alt="" aria-hidden="true"><span>Propostas</span></a>
+		<a href="{{ url_for('lista_clientes') }}" class="nav-link {% if request.endpoint in ['lista_clientes', 'detalhe_cliente', 'editar_cliente'] %}active{% endif %}" title="Base de Clientes"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/base_clientes.png') }}" alt="" aria-hidden="true"><span>Base de Clientes</span></a>
+		<a href="{{ url_for('agenda') }}" class="nav-link {% if request.endpoint == 'agenda' %}active{% endif %}" data-agenda-nav title="{% if agenda_alerta_ativo %}{{ agenda_alerta_total }} compromisso(s) com horário próximo(s) ou vencido(s){% else %}Agenda{% endif %}" aria-label="{% if agenda_alerta_ativo %}Agenda: {{ agenda_alerta_total }} compromisso(s) com horário próximo(s) ou vencido(s){% else %}Agenda{% endif %}"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/agenda.png') }}" alt="" aria-hidden="true"><span>Agenda</span><span class="agenda-alert-badge" data-agenda-alert {% if not agenda_alerta_ativo %}hidden{% endif %} aria-hidden="true">!</span></a>
+		<a href="{{ url_for('simulador_inss') }}" class="nav-link {% if request.endpoint == 'simulador_inss' %}active{% endif %}" title="Simulador INSS"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/simulador_inss.png') }}" alt="" aria-hidden="true"><span>Simulador INSS</span></a>
+		<a href="{{ url_for('gerador_mensagens_page') }}" class="nav-link {% if request.endpoint == 'gerador_mensagens_page' %}active{% endif %}" title="Gerador de Mensagens"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/gerador_mensagens.png') }}" alt="" aria-hidden="true"><span>Gerador de Mensagens</span></a>
+		<a href="{{ url_for('converter_contatos') }}" class="nav-link {% if request.endpoint == 'converter_contatos' %}active{% endif %}" title="Converter Contatos"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/converter_contatos.png') }}" alt="" aria-hidden="true"><span>Converter Contatos</span></a>
+		<a href="{{ url_for('encerradas') }}" class="nav-link {% if request.endpoint == 'encerradas' %}active{% endif %}" title="Encerradas"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/encerradas.png') }}" alt="" aria-hidden="true"><span>Encerradas</span></a>
+		<a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Dashboard"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/dashboard.png') }}" alt="" aria-hidden="true"><span>Dashboard</span></a>
+		<a href="{{ url_for('configuracoes') }}" class="nav-link {% if request.endpoint in ['configuracoes', 'configurar_status', 'configurar_dashboard'] %}active{% endif %}" title="Configurações"><img class="nav-icon" src="{{ url_for('static', filename='icons/navigation/configuracoes.png') }}" alt="" aria-hidden="true"><span>Configurações</span></a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <h1>{{ titulo or 'CRM Consignado' }}</h1>
+                <p>{{ subtitulo or 'Controle local de propostas, clientes e funis.' }}</p>
+            </div>
+            <div class="topbar-actions">
+                <a class="btn btn-back" href="{{ url_retorno_padrao() }}" title="Voltar para a origem"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Voltar</span></a>
+                <div class="quick-search" data-search-url="{{ url_for('api_pesquisa_global') }}">
+                    <i class="bi bi-search quick-search-icon" aria-hidden="true"></i>
+                    <input id="quickSearchInput" type="search" placeholder="Pesquisar cliente, CPF ou telefone..." autocomplete="off">
+                    <div id="quickSearchResults" class="quick-search-results" hidden></div>
+                </div>
+                {% if request.endpoint == 'funil' %}
+                    {% set ajuda_pagina = 'Funil em andamento: aqui aparecem apenas propostas abertas. Ao mover para Pago ou Perdido / Cancelado, o card sai deste funil e aparece em Encerradas.' %}
+                    {% set ajuda_rotulo = 'Ajuda sobre o Funil em andamento' %}
+                {% elif request.endpoint == 'encerradas' %}
+                    {% set ajuda_pagina = 'Encerradas: propostas pagas ficam separadas entre falta cair na promotora, disponível para saque e já sacado. Perdidas ficam em uma coluna própria.' %}
+                    {% set ajuda_rotulo = 'Ajuda sobre as propostas encerradas' %}
+                {% elif request.endpoint in ['lista_clientes', 'detalhe_cliente', 'editar_cliente'] %}
+                    {% set ajuda_pagina = 'Base de Clientes: pesquise todos os cadastros. Clientes sem propostas podem ser excluídos; os vinculados ficam protegidos para preservar o histórico.' %}
+                    {% set ajuda_rotulo = 'Ajuda sobre a Base de Clientes' %}
+                {% elif request.endpoint == 'configurar_status' %}
+                    {% set ajuda_pagina = 'Editor visual de funil: ajuste a ordem, renomeie etapas e ative/desative colunas sem mexer no código. Arraste os cards para reordenar e clique em Salvar alterações uma única vez.' %}
+                    {% set ajuda_rotulo = 'Ajuda sobre o Editor visual de funil' %}
+                {% endif %}
+                {% if ajuda_pagina %}
+                    <button type="button" class="btn notification-button" title="{{ ajuda_pagina }}" aria-label="{{ ajuda_rotulo }}">
+                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                    </button>
+                {% endif %}
+                <details class="notification-menu">
+                    <summary class="btn notification-button" title="Notificações importantes">
+                        <i class="bi bi-bell" aria-hidden="true"></i>
+                        <span class="notification-badge" {% if not notificacoes_importantes_total %}hidden{% endif %}>{{ notificacoes_importantes_total }}</span>
+                    </summary>
+                    <div class="notification-panel" id="notificationPanelContent">
+                        {% set notificacoes_origem = url_origem_atual() %}
+                        {% include '_notificacoes_panel.html' %}
+                    </div>
+                </details>
+                <button type="button" id="themeToggle" class="btn theme-toggle" title="Alternar modo claro/escuro"><i class="bi bi-moon" aria-hidden="true"></i><span>Modo escuro</span></button>
+                <a class="btn btn-primary" href="{{ url_for('nova_proposta') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Nova Proposta</span></a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="alerts">
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}" {% if category == 'ok' %}data-toast="true"{% endif %}>
+                            <i class="bi {% if category == 'ok' %}bi-check-circle{% elif category == 'erro' %}bi-exclamation-circle{% elif category == 'aviso' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" aria-hidden="true"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+    <script src="{{ url_for('static', filename='script.js', v='20260817-port-summary-bank') }}"></script>
+</body>
+</html>

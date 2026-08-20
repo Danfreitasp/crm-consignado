@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% set titulo = 'Dashboard' %}
+{% set subtitulo = 'Resumo mensal de propostas, valores e conversões.' %}
+{% block content %}
+<section class="card">
+    <div class="toolbar">
+        <form method="get" class="month-filter">
+            <label>Mês de análise
+                <input type="month" name="mes" value="{{ dados.mes }}">
+            </label>
+            <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i><span>Atualizar</span></button>
+        </form>
+        <a class="btn" href="{{ url_for('configurar_dashboard') }}"><i class="bi bi-gear" aria-hidden="true"></i><span>Personalizar Dashboard</span></a>
+    </div>
+</section>
+
+<section class="metrics dashboard-standard-metrics">
+    {% for item in metricas_dashboard %}
+    <div class="metric-card dashboard-managed-card color-{{ item.cor }}{% if item.chave == 'valor_a_sacar' %} highlight-card{% endif %}{% if item.chave == 'saldo_em_conta' %} saldo-conta-card{% endif %}">
+        <div class="metric-label-row">
+            <small>{{ item.nome }}</small>
+            {% if item.ajuda %}
+            <button type="button" class="metric-help-button" title="{{ item.ajuda }}" aria-label="Ajuda sobre {{ item.nome }}"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+            {% endif %}
+            <div class="dashboard-item-actions">
+                {% if item.chave == 'saldo_em_conta' %}
+                <details class="metric-edit-menu">
+                    <summary class="metric-edit-button" title="Editar valor" aria-label="Editar valor de {{ item.nome }}"><i class="bi bi-cash-coin" aria-hidden="true"></i></summary>
+                    <form method="post" action="{{ url_for('atualizar_saldo_dashboard') }}" class="metric-edit-form">
+                        <input type="hidden" name="mes" value="{{ dados.mes }}">
+                        <label>Saldo atual<input type="text" name="saldo_em_conta" value="{{ '%.2f'|format(saldo_em_conta)|replace('.', ',') }}" inputmode="decimal" required></label>
+                        <button class="btn btn-primary" type="submit">Salvar</button>
+                    </form>
+                </details>
+                {% endif %}
+                <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar cartão" aria-label="Editar cartão {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
+                <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este cartão do Dashboard? Você poderá restaurá-lo depois.');">
+                    <input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">
+                    <button class="dashboard-card-action danger" type="submit" title="Excluir cartão" aria-label="Excluir cartão {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                </form>
+            </div>
+        </div>
+        <strong>{{ item.valor }}</strong>
+    </div>
+    {% else %}<p class="empty">Todos os indicadores padrão estão ocultos. Use Personalizar Dashboard para restaurá-los.</p>{% endfor %}
+</section>
+
+{% if campos_dashboard %}
+<section class="dashboard-custom-section">
+    <div class="section-title-row">
+        <div><h2>Indicadores personalizados</h2><small>Valores calculados para {{ dados.mes[5:7] }}/{{ dados.mes[:4] }}.</small></div>
+    </div>
+    <div class="metrics dashboard-custom-metrics">
+        {% for campo in campos_dashboard %}
+        <div class="metric-card dashboard-custom-card color-{{ campo.cor }}">
+            <div class="metric-label-row">
+                <small>{{ campo.nome }}</small>
+                <div class="dashboard-item-actions">
+                {% if campo.modalidade == 'manual' %}
+                <details class="metric-edit-menu">
+                    <summary class="metric-edit-button" title="Editar valor" aria-label="Editar valor de {{ campo.nome }}"><i class="bi bi-cash-coin" aria-hidden="true"></i></summary>
+                    <form method="post" action="{{ url_for('atualizar_valor_dashboard', campo_id=campo.id) }}" class="metric-edit-form">
+                        <input type="hidden" name="mes" value="{{ dados.mes }}">
+                        <label>Valor de {{ dados.mes[5:7] }}/{{ dados.mes[:4] }}
+                            <input type="text" name="valor" value="{{ ('%.2f'|format(campo.valor))|replace('.', ',') }}" inputmode="decimal" required>
+                        </label>
+                        <button class="btn btn-primary" type="submit">Salvar</button>
+                    </form>
+                </details>
+                {% endif %}
+                <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar=campo.id) }}" title="Editar cartão" aria-label="Editar cartão {{ campo.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
+                <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Excluir este cartão e seus valores mensais?');">
+                    <input type="hidden" name="acao" value="excluir"><input type="hidden" name="campo_id" value="{{ campo.id }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">
+                    <button class="dashboard-card-action danger" type="submit" title="Excluir cartão" aria-label="Excluir cartão {{ campo.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                </form>
+                </div>
+            </div>
+            <strong>{{ campo.valor_formatado }}</strong>
+            <span class="dashboard-card-origin">
+                {% if campo.modalidade == 'manual' %}Valor manual mensal{% elif campo.modalidade == 'agregado' %}Calculado pelas propostas{% else %}Fórmula personalizada{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<div class="dashboard-charts-grid">
+{% for item in graficos_dashboard %}
+{% if item.tipo == 'grafico_promotoras' %}
+<section class="card promoter-comparison dashboard-managed-chart color-{{ item.cor }}" data-promoter-comparison>
+    <div class="promoter-comparison-heading">
+        <div>
+            <h2>{{ item.nome }}</h2>
+            <p>Comparativo entre Única e Vieira em {{ dados.mes[5:7] }}/{{ dados.mes[:4] }}.</p>
+        </div>
+        <div class="dashboard-chart-tools">
+            <div class="promoter-chart-toggle" role="group" aria-label="Indicador do gráfico">
+                <button type="button" class="is-active" data-promoter-mode="comissao" aria-pressed="true">Comissão paga</button>
+                <button type="button" data-promoter-mode="propostas" aria-pressed="false">Propostas digitadas</button>
+            </div>
+            <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
+            <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}"><button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
+        </div>
+    </div>
+
+    <div class="promoter-comparison-body">
+        <div class="promoter-pie-shell">
+            <svg class="promoter-pie" viewBox="0 0 220 220" role="img" aria-labelledby="promoterPieTitle promoterPieDescription">
+                <title id="promoterPieTitle">Produção de Única e Vieira</title>
+                <desc id="promoterPieDescription">Gráfico interativo da participação de cada promotora.</desc>
+                <g data-promoter-slices></g>
+                <circle class="promoter-pie-hole" cx="110" cy="110" r="55"></circle>
+            </svg>
+            <div class="promoter-pie-center" aria-hidden="true">
+                <strong data-promoter-total>R$ 0,00</strong>
+                <span data-promoter-total-label>comissão paga</span>
+            </div>
+            <div class="promoter-chart-tooltip" data-promoter-tooltip hidden></div>
+        </div>
+        <div class="promoter-chart-legend" data-promoter-legend></div>
+    </div>
+
+    <p class="promoter-comparison-note" data-promoter-note>
+        Comissão paga considera somente propostas encerradas como Pago no mês selecionado. Todo nome iniciado por “Única” — como “Unica - Sub” ou “Unica - Adriano” — é agrupado em Única; Vieira permanece separada.
+    </p>
+    <script type="application/json" data-promoter-comparison-data>{{ dados.comparativo_promotoras | tojson }}</script>
+</section>
+{% else %}
+<section class="card stack dashboard-managed-chart dashboard-bar-chart color-{{ item.cor }}">
+    <div class="dashboard-chart-heading"><h2>{{ item.nome }}</h2><div class="dashboard-item-actions"><a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a><form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}"><button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form></div></div>
+    {% for barra in item.itens %}<div class="bar-row"><span>{{ barra.nome }}</span><div><b style="width: {{ barra.percentual }}%"></b></div><small>{{ barra.qtd }}</small></div>{% else %}<p class="empty">Sem dados neste mês.</p>{% endfor %}
+</section>
+{% endif %}
+{% endfor %}
+</div>
+{% endblock %}

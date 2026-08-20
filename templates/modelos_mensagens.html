@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card page-intro">
+    <div>
+        <h2>Modelos de mensagens</h2>
+        <p>Cadastre textos padrão para usar dentro das propostas. As variáveis são preenchidas automaticamente quando você copia uma mensagem na aba Mensagens da proposta.</p>
+    </div>
+</section>
+
+<section class="form-card message-management-page">
+    <div class="section-title-row">
+        <div>
+            <h2>Adicionar novo modelo</h2>
+            <small>Exemplo: Portabilidade com redução de parcela, Portabilidade apenas com troco, Recontato.</small>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('adicionar_modelo_mensagem') }}" class="message-model-form">
+        <input type="hidden" name="next" value="{{ url_for('modelos_mensagens_page') }}">
+        <label>Nome do modelo
+            <input type="text" name="nome_modelo" placeholder="Ex.: Portabilidade com redução de parcela" required>
+        </label>
+        <label>Texto do modelo
+            <textarea name="texto_modelo" rows="7" placeholder="Olá, {nome}. Tenho uma proposta para seu contrato do banco {banco_atual}..." required></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar modelo</span></button>
+    </form>
+</section>
+
+<section class="form-card message-management-page">
+    <div class="section-title-row">
+        <div>
+            <h2>Modelos cadastrados</h2>
+            <small>Edite ou exclua modelos. As alterações ficam salvas no banco de dados.</small>
+        </div>
+        <small>{{ modelos_mensagens|length }} modelo(s)</small>
+    </div>
+
+    <div class="model-editor-list standalone">
+        {% for nome, modelo in modelos_mensagens.items() %}
+            <article class="model-editor-item">
+                <form method="post" action="{{ url_for('editar_modelo_mensagem') }}" class="stack">
+                    <input type="hidden" name="next" value="{{ url_for('modelos_mensagens_page') }}">
+                    <input type="hidden" name="nome_original" value="{{ nome }}">
+                    <label>Nome do modelo
+                        <input type="text" name="nome_modelo" value="{{ nome }}" required>
+                    </label>
+                    <label>Texto
+                        <textarea name="texto_modelo" rows="7" required>{{ modelo }}</textarea>
+                    </label>
+                    <div class="inline-actions">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+                    </div>
+                </form>
+                <form method="post" action="{{ url_for('excluir_modelo_mensagem') }}" onsubmit="return confirm('Excluir este modelo de mensagem?');" class="model-delete-form">
+                    <input type="hidden" name="next" value="{{ url_for('modelos_mensagens_page') }}">
+                    <input type="hidden" name="nome_modelo" value="{{ nome }}">
+                    <button class="btn btn-danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir modelo</span></button>
+                </form>
+            </article>
+        {% else %}
+            <p class="empty">Nenhum modelo cadastrado ainda.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card muted-help">
+    <h3>Variáveis disponíveis</h3>
+    <p>Você pode usar estas variáveis nos modelos. Na proposta, o CRM troca automaticamente pelos dados cadastrados.</p>
+    <div class="variable-grid">
+        <code>{nome}</code>
+        <code>{cpf}</code>
+        <code>{telefone}</code>
+        <code>{produto}</code>
+        <code>{status}</code>
+        <code>{banco_atual}</code>
+        <code>{banco_digitado}</code>
+        <code>{banco_digitado}</code>
+        <code>{valor}</code>
+        <code>{troco}</code>
+        <code>{parcela_atual}</code>
+        <code>{nova_parcela}</code>
+        <code>{comissao}</code>
+        <code>{numero_proposta}</code>
+        <code>{promotora}</code>
+    </div>
+</section>
+{% endblock %}

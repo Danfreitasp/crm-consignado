@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card task-form-card">
+    <form method="post" class="stack">
+        <input type="hidden" name="origem" value="{{ next_url }}">
+        <input type="hidden" name="proposta_id" id="taskPropostaId" value="{{ tarefa.proposta_id or '' }}">
+
+        <div class="form-grid two">
+            <label>Título
+                <input type="text" name="titulo" value="{{ tarefa.titulo or '' }}" required autofocus>
+            </label>
+            <label>Categoria
+                <select name="categoria">
+                    {% for categoria in TAREFA_CATEGORIAS %}
+                        <option value="{{ categoria }}" {% if (tarefa.categoria or 'Retorno') == categoria %}selected{% endif %}>{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <label>Descrição
+            <textarea name="descricao" rows="3">{{ tarefa.descricao or '' }}</textarea>
+        </label>
+
+        <div class="form-grid">
+            <label>Data
+                <input type="date" name="data_tarefa" value="{{ tarefa.data_tarefa or hoje_iso() }}" required>
+            </label>
+            <label>Horário
+                <input type="time" name="horario" value="{{ tarefa.horario or '' }}">
+            </label>
+            <label>Prioridade
+                <select name="prioridade">
+                    {% for prioridade in TAREFA_PRIORIDADES %}
+                        <option value="{{ prioridade }}" {% if (tarefa.prioridade or 'normal') == prioridade %}selected{% endif %}>{{ prioridade|capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Status
+                <select name="status">
+                    {% for status in TAREFA_STATUS %}
+                        <option value="{{ status }}" {% if (tarefa.status or 'pendente') == status %}selected{% endif %}>{{ status|capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <label class="notification-option">
+            <input type="checkbox" name="notificar" id="taskNotify" value="1" {% if tarefa.notificar %}checked{% endif %}>
+            <span><strong>Gerar notificação</strong><small id="notificationPermission">O CRM lembrará este compromisso no horário informado.</small></span>
+        </label>
+        <button class="mini-btn notification-test-button" type="button" id="notificationTest"><i class="bi bi-bell" aria-hidden="true"></i><span>Testar notificação</span></button>
+
+        <section class="task-link-box" data-proposta-search-url="{{ url_for('api_buscar_propostas') }}">
+            <div class="section-title-row compact-row">
+                <div>
+                    <h2>Proposta vinculada</h2>
+                    <small id="taskSelectedProposal">
+                        {% if proposta_vinculada %}
+                            {{ proposta_vinculada.nome }}{% if proposta_vinculada.cpf %} · {{ proposta_vinculada.cpf }}{% endif %}
+                        {% else %}
+                            Nenhuma proposta vinculada.
+                        {% endif %}
+                    </small>
+                </div>
+                <button class="mini-btn" type="button" id="clearTaskProposal"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Remover vínculo</span></button>
+            </div>
+            <input type="search" id="taskProposalSearch" placeholder="Buscar por nome, CPF, telefone ou nº proposta..." autocomplete="off">
+            <div class="task-proposal-results" id="taskProposalResults" hidden></div>
+        </section>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>{{ 'Criar tarefa' if modo == 'nova' else 'Salvar tarefa' }}</span></button>
+            <a class="btn" href="{{ next_url }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></a>
+        </div>
+    </form>
+</section>
+{% endblock %}

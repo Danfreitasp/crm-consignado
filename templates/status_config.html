@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <div class="section-title-row">
+        <div>
+            <h2>Prévia do funil</h2>
+            <p class="muted">Esta linha mostra como as etapas aparecerão na proposta e no funil.</p>
+        </div>
+    </div>
+    <div class="status-preview-line" id="statusPreviewLine">
+        {% for etapa in etapas %}
+            <div class="status-preview-step {% if not etapa.ativo %}inactive{% endif %}" data-preview-id="{{ etapa.id }}">
+                <div class="status-preview-dot">{{ loop.index }}</div>
+                <span>{{ etapa.nome }}</span>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card">
+    <h2>Adicionar nova etapa</h2>
+    <form method="post" class="status-add-form">
+        <input type="hidden" name="acao" value="adicionar">
+        <label>Nome da etapa
+            <input name="nome" placeholder="Ex.: Saldo do dia">
+        </label>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar etapa</span></button>
+    </form>
+</section>
+
+<section class="card">
+    <form method="post" id="statusBulkForm">
+        <input type="hidden" name="acao" value="salvar_todas">
+        <div class="section-title-row sticky-actions-row">
+            <div>
+                <h2>Etapas cadastradas</h2>
+                <p class="muted">Use o marcador de arrastar. Depois salve tudo de uma vez.</p>
+            </div>
+            <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+        </div>
+
+        <div class="status-editor-list" id="statusEditorList">
+            {% for etapa in etapas %}
+            <article class="status-editor-card" draggable="true" data-status-card="true" data-etapa-id="{{ etapa.id }}">
+                <input type="hidden" name="etapa_id" value="{{ etapa.id }}">
+                <div class="drag-handle" title="Arraste para reordenar"><i class="bi bi-grip-vertical" aria-hidden="true"></i></div>
+
+                <label class="status-order-field">Ordem
+                    <input type="number" name="ordem" value="{{ loop.index }}" min="1" title="Ordem" readonly>
+                </label>
+
+                <label class="status-name-field">Nome da etapa
+                    <input name="nome" value="{{ etapa.nome }}" title="Nome da etapa" data-status-name-input>
+                </label>
+
+                <label class="status-active-field">Ativa
+                    <select name="ativo" title="Ativa" data-status-active-select>
+                        <option value="1" {% if etapa.ativo %}selected{% endif %}>Sim</option>
+                        <option value="0" {% if not etapa.ativo %}selected{% endif %}>Não</option>
+                    </select>
+                </label>
+
+                <span class="status-card-hint">{% if etapa.nome in ['Pago', 'Perdido / Cancelado'] %}Etapa especial{% else %}Etapa comum{% endif %}</span>
+            </article>
+            {% else %}
+            <p class="empty">Nenhuma etapa cadastrada.</p>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions bulk-save-bottom">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+        </div>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Excluir etapa</h2>
+    <p class="muted">Para excluir uma etapa com segurança, escolha a etapa e para onde as propostas dela devem ser movidas.</p>
+    <form method="post" class="status-delete-panel" onsubmit="return confirm('Excluir esta etapa? As propostas serão movidas para a etapa de destino.');">
+        <input type="hidden" name="acao" value="excluir">
+        <label>Etapa que será excluída
+            <select name="etapa_id" required>
+                <option value="">Selecione a etapa...</option>
+                {% for etapa in etapas %}
+                    <option value="{{ etapa.id }}">{{ etapa.nome }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Mover propostas para
+            <select name="destino_status" required>
+                <option value="">Selecione o destino...</option>
+                {% for status in STATUS_LIST %}
+                    <option value="{{ status }}">{{ status }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button class="btn danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir etapa</span></button>
+    </form>
+</section>
+{% endblock %}

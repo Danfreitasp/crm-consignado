@@ -1,16 +1,68 @@
-# Este repositório é somente uma vitrine pública.
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Ferramentas locais
+.agents/
+.codex/
+
+# Banco de dados local
+database.db
 *.db
 *.db-*
 *.sqlite
 *.sqlite3
+*.sqlite-*
+
+# Backups
+backups/
+*.bak
+
+# Anexos e documentos
+uploads/
+anexos/
+documentos/
+clientes/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Configurações locais
+.env
+.env.*
+instance/
+crm.bat
 *.pem
 *.key
 *.p12
 *.pfx
-.env
-.env.*
-backups/
-anexos/
-uploads/
-__pycache__/
-.venv/
+*.crx
+*.rar
+
+# Documentação local
+*.md
+!README.md
+!readme.md
+!DESIGN_SYSTEM.md
+
+# VS Code
+.vscode/
+
+# Logs e temporários
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini

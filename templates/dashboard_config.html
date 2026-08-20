@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% macro formula_operation_row(operacao=None) %}
+{% set operacao = operacao or {} %}
+<div class="dashboard-formula-row" data-formula-row>
+    <label>Operação
+        <select name="operador">
+            {% for chave, nome in formula_operacoes.items() %}<option value="{{ chave }}" {% if operacao.get('operador', 'somar') == chave %}selected{% endif %}>{{ nome }}</option>{% endfor %}
+        </select>
+    </label>
+    <label>Usar
+        <select name="operando_tipo" data-formula-operand-type>
+            {% for chave, nome in formula_operando_tipos.items() %}<option value="{{ chave }}" {% if operacao.get('operando_tipo', 'indicador') == chave %}selected{% endif %}>{{ nome }}</option>{% endfor %}
+        </select>
+    </label>
+    <label data-formula-indicator-wrap>Indicador
+        <select name="indicador_b">
+            {% for indicador in indicadores %}<option value="{{ indicador.chave }}" {% if operacao.get('indicador') == indicador.chave %}selected{% endif %}>{{ indicador.nome }}</option>{% endfor %}
+        </select>
+    </label>
+    <label data-formula-fixed-wrap>Valor <span data-formula-fixed-suffix></span>
+        <input type="text" name="valor_fixo" value="{{ operacao.get('valor_exibicao', '') }}" inputmode="decimal" placeholder="0,00">
+    </label>
+    <button class="mini-btn danger dashboard-formula-remove" type="button" data-remove-formula-operation title="Remover operação" aria-label="Remover operação"><i class="bi bi-trash" aria-hidden="true"></i></button>
+</div>
+{% endmacro %}
+{% block content %}
+<section class="card">
+    <div class="section-title-row">
+        <div><h2>Itens padrão do Dashboard</h2><p class="muted">Renomeie, mude a cor e a ordem, ou remova qualquer cartão e gráfico. Itens removidos podem ser restaurados.</p></div>
+        <a class="btn" href="{{ url_for('dashboard') }}"><i class="bi bi-grid" aria-hidden="true"></i><span>Ver Dashboard</span></a>
+    </div>
+    <div class="dashboard-fields-list dashboard-standard-fields">
+        {% for item in componentes %}
+        <article class="dashboard-field-row color-{{ item.cor }}{% if not item.ativo %} is-hidden{% endif %}" id="componente-{{ item.chave }}">
+            <div>
+                <strong>{{ item.nome }}</strong>
+                <small>{{ 'Cartão de indicador' if item.tipo == 'metrica' else 'Gráfico' }} · Ordem {{ item.ordem }}{% if not item.ativo %} · Removido do Dashboard{% endif %}</small>
+            </div>
+            <div class="actions dashboard-standard-field-actions">
+                <details class="dashboard-standard-editor" {% if editar_padrao == item.chave %}open{% endif %}>
+                    <summary class="mini-btn"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar</span></summary>
+                    <form method="post" class="dashboard-standard-edit-form">
+                        <input type="hidden" name="acao" value="salvar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
+                        <label>Nome<input name="nome" value="{{ item.nome }}" required></label>
+                        <label>Cor<select name="cor">{% for cor in cores %}<option value="{{ cor }}" {% if item.cor == cor %}selected{% endif %}>{{ cor|capitalize }}</option>{% endfor %}</select></label>
+                        <label>Ordem<input type="number" name="ordem" min="1" value="{{ item.ordem }}" required></label>
+                        <button class="btn btn-primary" type="submit">Salvar alterações</button>
+                    </form>
+                </details>
+                <form method="post" onsubmit="return confirm('{{ 'Restaurar este item no Dashboard?' if not item.ativo else 'Remover este item do Dashboard? Você poderá restaurá-lo depois.' }}');">
+                    <input type="hidden" name="acao" value="{{ 'restaurar_padrao' if not item.ativo else 'ocultar_padrao' }}"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
+                    <button class="mini-btn {{ '' if not item.ativo else 'danger' }}" type="submit"><i class="bi {{ 'bi-arrow-clockwise' if not item.ativo else 'bi-trash' }}" aria-hidden="true"></i><span>{{ 'Restaurar' if not item.ativo else 'Excluir' }}</span></button>
+                </form>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card dashboard-builder-card">
+    <div class="section-title-row">
+        <div>
+            <h2>{{ 'Editar campo' if campo.id else 'Novo campo do Dashboard' }}</h2>
+            <p class="muted">O campo vira um cartão na área de indicadores personalizados.</p>
+        </div>
+        {% if campo.id %}<a class="btn" href="{{ url_for('configurar_dashboard') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Criar outro</span></a>{% endif %}
+    </div>
+
+    <form method="post" class="stack" id="dashboardFieldForm">
+        <input type="hidden" name="acao" value="{{ 'salvar' if campo.id else 'criar' }}">
+        <input type="hidden" name="campo_id" value="{{ campo.id or '' }}">
+        <div class="form-grid dashboard-builder-basics">
+            <label>Nome do campo
+                <input name="nome" value="{{ campo.nome }}" placeholder="Ex.: Despesas do mês" required>
+            </label>
+            <label>Tipo de valor
+                <select name="tipo">
+                    <option value="numero" {% if campo.tipo == 'numero' %}selected{% endif %}>Número</option>
+                    <option value="moeda" {% if campo.tipo == 'moeda' %}selected{% endif %}>Moeda</option>
+                    <option value="percentual" {% if campo.tipo == 'percentual' %}selected{% endif %}>Percentual</option>
+                </select>
+            </label>
+            <label>Origem do valor
+                <select name="modalidade" id="dashboardFieldMode">
+                    <option value="manual" {% if campo.modalidade == 'manual' %}selected{% endif %}>Preenchimento manual mensal</option>
+                    <option value="agregado" {% if campo.modalidade == 'agregado' %}selected{% endif %}>Cálculo sobre propostas</option>
+                    <option value="formula" {% if campo.modalidade == 'formula' %}selected{% endif %}>Fórmula entre indicadores</option>
+                </select>
+            </label>
+            <label>Cor
+                <select name="cor">
+                    {% for cor in cores %}<option value="{{ cor }}" {% if campo.cor == cor %}selected{% endif %}>{{ cor|capitalize }}</option>{% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <div class="dashboard-config-group info-box" data-dashboard-mode="manual">
+            <strong>Valor manual mensal</strong>
+            <p>Depois de criar o cartão, informe o valor diretamente no Dashboard. Cada mês mantém seu próprio valor.</p>
+        </div>
+
+        <div class="dashboard-config-group" data-dashboard-mode="agregado">
+            <div class="form-grid">
+                <label>Cálculo
+                    <select name="agregacao" id="dashboardAggregation">
+                        <option value="contagem" {% if campo.configuracao.get('agregacao', 'contagem') == 'contagem' %}selected{% endif %}>Contar propostas</option>
+                        <option value="soma" {% if campo.configuracao.get('agregacao') == 'soma' %}selected{% endif %}>Somar valores</option>
+                        <option value="media" {% if campo.configuracao.get('agregacao') == 'media' %}selected{% endif %}>Calcular média</option>
+                    </select>
+                </label>
+                <label data-aggregation-value-field>Valor utilizado
+                    <select name="campo_valor">
+                        {% for chave, nome in campos_agregacao.items() %}<option value="{{ chave }}" {% if campo.configuracao.get('campo_valor') == chave %}selected{% endif %}>{{ nome }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label>Referência do mês
+                    <select name="base_data">
+                        <option value="criacao" {% if campo.configuracao.get('base_data', 'criacao') == 'criacao' %}selected{% endif %}>Propostas criadas no mês</option>
+                        <option value="encerramento" {% if campo.configuracao.get('base_data') == 'encerramento' %}selected{% endif %}>Propostas encerradas no mês</option>
+                    </select>
+                </label>
+                <label>Filtrar propostas por
+                    <select name="filtro_campo" id="dashboardFilterField">
+                        {% for chave, nome in campos_filtro.items() %}<option value="{{ chave }}" {% if campo.configuracao.get('filtro_campo', '') == chave %}selected{% endif %}>{{ nome }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+            <fieldset id="dashboardFilterValueWrap" class="dashboard-filter-values-wrap">
+                <legend>Valores do filtro</legend>
+                <small class="muted">Marque um ou mais valores. Quando houver vários, todos entram na mesma soma.</small>
+                <div id="dashboardFilterValue" class="dashboard-filter-values" data-current-values='{{ campo.configuracao.get("filtro_valores", []) | tojson }}'></div>
+            </fieldset>
+        </div>
+
+        <div class="dashboard-config-group" data-dashboard-mode="formula">
+            <label class="dashboard-formula-first">Começar com
+                <select name="indicador_a">
+                    {% for indicador in indicadores %}<option value="{{ indicador.chave }}" {% if campo.formula.primeiro == indicador.chave %}selected{% endif %}>{{ indicador.nome }}</option>{% endfor %}
+                </select>
+            </label>
+            <div class="dashboard-formula-rows" id="dashboardFormulaRows">
+                {% for operacao in campo.formula.operacoes %}{{ formula_operation_row(operacao) }}{% endfor %}
+            </div>
+            <div class="dashboard-formula-actions">
+                <button class="mini-btn" type="button" id="addDashboardFormulaOperation"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar operação</span></button>
+                <label class="notification-option dashboard-formula-clamp">
+                    <input type="checkbox" name="limitar_zero" value="1" {% if campo.formula.limitar_zero %}checked{% endif %}>
+                    <span><strong>Não permitir resultado negativo</strong><small>Quando o cálculo ficar abaixo de zero, o cartão mostrará zero.</small></span>
+                </label>
+            </div>
+            <small class="muted">As operações são calculadas na ordem exibida, de cima para baixo. Use “Percentual de” para calcular quanto o resultado atual representa do próximo valor.</small>
+            <template id="dashboardFormulaRowTemplate">{{ formula_operation_row() }}</template>
+        </div>
+
+        <div class="form-grid two dashboard-builder-footer">
+            <label>Ordem no Dashboard
+                <input type="number" name="ordem" min="1" value="{{ campo.ordem }}">
+            </label>
+            <label class="notification-option dashboard-active-option">
+                <input type="checkbox" name="ativo" value="1" {% if campo.ativo %}checked{% endif %}>
+                <span><strong>Exibir no Dashboard</strong><small>Desmarque para guardar o campo sem mostrar o cartão.</small></span>
+            </label>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>{{ 'Salvar campo' if campo.id else 'Criar campo' }}</span></button>
+            {% if campo.id %}<a class="btn" href="{{ url_for('configurar_dashboard') }}">Cancelar edição</a>{% endif %}
+        </div>
+    </form>
+    <script type="application/json" id="dashboardFilterOptions">{{ filtros_valores|tojson }}</script>
+</section>
+
+<section class="card">
+    <div class="section-title-row">
+        <div><h2>Campos criados</h2><p class="muted">Edite a definição, oculte ou remova os cartões personalizados.</p></div>
+    </div>
+    <div class="dashboard-fields-list">
+        {% for item in campos %}
+        <article class="dashboard-field-row color-{{ item.cor }}">
+            <div>
+                <strong>{{ item.nome }}</strong>
+                <small>
+                    {% if item.modalidade == 'manual' %}Manual por mês{% elif item.modalidade == 'agregado' %}Cálculo sobre propostas{% else %}Fórmula entre indicadores{% endif %}
+                    · {{ item.tipo|capitalize }} · Ordem {{ item.ordem }}{% if not item.ativo %} · Oculto{% endif %}
+                </small>
+            </div>
+            <div class="actions">
+                <a class="mini-btn" href="{{ url_for('configurar_dashboard', editar=item.id) }}"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar</span></a>
+                <form method="post" onsubmit="return confirm('Excluir este campo do Dashboard e seus valores mensais?');">
+                    <input type="hidden" name="acao" value="excluir">
+                    <input type="hidden" name="campo_id" value="{{ item.id }}">
+                    <button class="mini-btn danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir</span></button>
+                </form>
+            </div>
+        </article>
+        {% else %}<p class="empty">Nenhum campo personalizado criado.</p>{% endfor %}
+    </div>
+</section>
+{% endblock %}

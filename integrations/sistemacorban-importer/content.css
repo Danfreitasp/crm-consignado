@@ -1,0 +1,31 @@
+#crm-sistemacorban-importer {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483646;
+  display: grid;
+  gap: 8px;
+  width: min(320px, calc(100vw - 36px));
+  padding: 12px;
+  border: 1px solid #2563eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .22);
+  color: #172033;
+  font: 14px/1.4 Arial, sans-serif;
+}
+#crm-sistemacorban-importer button {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+#crm-sistemacorban-importer button:disabled { cursor: wait; opacity: .65; }
+#crm-sistemacorban-importer [data-status] { margin: 0; color: #475569; }
+#crm-sistemacorban-importer [data-status="erro"] { color: #b91c1c; }
+#crm-sistemacorban-importer [data-status="sucesso"] { color: #166534; }

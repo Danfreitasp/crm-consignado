@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="kanban" data-modulo="funil">
+    {% for status, itens in por_status.items() %}
+    <div class="kanban-column" data-status="{{ status }}">
+        <div class="column-title">
+            <span>{{ status }}</span>
+            <div class="column-meta">
+                <small data-column-count>{{ itens|length }} {{ 'operação' if itens|length == 1 else 'operações' }}</small>
+                <small data-column-commission>{{ br_moeda(totais_status[status].comissao) }}</small>
+            </div>
+        </div>
+        <div class="kanban-cards" data-status="{{ status }}">
+            {% for p in itens %}
+            <article class="kanban-card{% if p.port_refin_unificado %} port-refin-card{% endif %}" draggable="true" data-proposta-id="{{ p.id }}"{% if p.refin_vinculado %} data-refin-proposta-id="{{ p.refin_vinculado.id }}"{% endif %}>
+                <div class="card-topline">
+                    <span class="verification-dot {% if verificado_hoje(p) %}dot-ok{% else %}dot-pending{% endif %}" title="{{ status_verificacao_texto(p) }}"></span>
+                    <a href="{{ url_for('detalhe_proposta', proposta_id=p.id, origem=url_origem_atual()) }}" data-card-client-name="{{ p.nome }}" title="{{ p.nome }}">{{ p.nome }}</a>
+                    {% if p.beneficio_bloqueado == 'SIM' %}
+                    <span class="benefit-blocked-alert" role="img" tabindex="0" aria-label="Benefício Bloqueado" data-tooltip="Benefício Bloqueado">!</span>
+                    {% endif %}
+                </div>
+                {% if p.cpf %}<small>CPF: {{ p.cpf }} <button class="mini-btn copy-btn card-copy" type="button" data-copy="{{ p.cpf }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar</span></button></small>{% endif %}
+                {% if p.produto %}<small class="product-label">{{ rotulo_produto_card(p.produto) }}</small>{% endif %}
+                {% if p.port_refin_unificado %}
+                    <div class="card-values compact-card-values port-refin-values">
+                        <span><small>Portabilidade</small><strong>{{ br_moeda(p.valor_portabilidade) }}</strong></span>
+                        <span><small>Troco</small><strong>{{ br_moeda(p.troco_refinanciamento) }}</strong></span>
+                        <span><small>Comissão</small><strong>{{ br_moeda(p.comissao_total) }}</strong></span>
+                    </div>
+                    <span class="card-date-line">Previsão de saldo: {{ br_data(p.previsao_saldo) or 'sem data' }}</span>
+                {% else %}
+                    <div class="card-values compact-card-values">
+                        <span><small>Valor</small><strong>{{ br_moeda(p.troco) }}</strong></span>
+                        <span><small>Comissão</small><strong>{{ br_moeda(p.comissao) }}</strong></span>
+                    </div>
+                    <span class="card-date-line">Previsão de saldo: {{ br_data(p.data_retorno) or 'sem data' }}</span>
+                {% endif %}
+            </article>
+            {% else %}
+            <p class="empty small" data-empty-message>Sem propostas.</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

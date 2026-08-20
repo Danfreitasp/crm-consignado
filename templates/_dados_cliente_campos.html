@@ -1,0 +1,30 @@
+<label>Nome do cliente{% if modo_nova or modo_editar_cliente %} *{% endif %}
+    <input id="proposta-nome" name="nome" value="{{ proposta.nome or proposta['nome'] or '' }}" {% if modo_nova or modo_editar_cliente %}required{% endif %}>
+</label>
+<label>CPF{% if modo_nova or modo_editar_cliente %} *{% endif %}
+    <input id="proposta-cpf" name="cpf" class="cpf-mask" value="{{ proposta.cpf or proposta['cpf'] or '' }}" placeholder="000.000.000-00" {% if modo_nova or modo_editar_cliente %}required{% endif %}>
+</label>
+<label>Data de nascimento
+    <input id="proposta-nascimento" name="nascimento" value="{{ proposta.nascimento or proposta['nascimento'] or '' }}" placeholder="DD/MM/AAAA">
+</label>
+<label>NB ou matrícula{% if modo_nova %} *{% endif %}
+    <input id="proposta-nb-matricula" name="nb_matricula" value="{{ proposta.nb_matricula or proposta['nb_matricula'] or '' }}" {% if modo_nova %}required{% endif %}>
+    <small class="muted cliente-sugestao-ajuda">Digite o CPF para consultar matrículas já cadastradas.</small>
+    <select id="cliente-matricula-select" class="cliente-matricula-select hidden" aria-label="Matrículas encontradas para este CPF">
+        <option value="">Selecione uma matrícula cadastrada</option>
+    </select>
+</label>
+<label>Espécie do benefício
+    <input id="proposta-especie" name="especie" value="{{ proposta.especie or proposta['especie'] or '' }}" placeholder="Ex.: 21, 32, 41">
+</label>
+<label>Tipo de cliente
+    <select name="tipo_cliente">
+        <option value="">Selecione</option>
+        {% for tipo in TIPOS_CLIENTE %}
+            <option value="{{ tipo }}" {% if (proposta.tipo_cliente or proposta['tipo_cliente'] or '') == tipo %}selected{% endif %}>{{ tipo }}</option>
+        {% endfor %}
+    </select>
+</label>
+<label>Telefone/WhatsApp{% if modo_nova %} *{% endif %}
+    <input id="proposta-telefone" name="telefone" value="{{ proposta.telefone or proposta['telefone'] or '' }}" {% if modo_nova %}required{% endif %}>
+</label>

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="calendar-toolbar">
+    <div class="calendar-summary">
+        <span><i class="bi bi-check2-square" aria-hidden="true"></i> {{ total_tarefas_semana if visao_agenda == 'semana' else total_tarefas_mes }} tarefa(s)</span>
+        <span><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ total_retornos_semana if visao_agenda == 'semana' else total_retornos_mes }} retorno(s) de proposta</span>
+    </div>
+    <div class="calendar-actions">
+        {% if visao_agenda == 'semana' %}
+        <a class="btn" href="{{ url_for('agenda', visao='semana', data=semana_anterior) }}" aria-label="Semana anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+        <a class="btn" href="{{ url_for('agenda', visao='semana') }}"><i class="bi bi-calendar-date" aria-hidden="true"></i><span>Hoje</span></a>
+        <a class="btn" href="{{ url_for('agenda', visao='semana', data=proxima_semana) }}" aria-label="Próxima semana"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        {% else %}
+        <a class="btn" href="{{ url_for('agenda', mes=mes_anterior) }}" aria-label="Mês anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+        <a class="btn" href="{{ url_for('agenda') }}"><i class="bi bi-calendar-date" aria-hidden="true"></i><span>Hoje</span></a>
+        <a class="btn" href="{{ url_for('agenda', mes=proximo_mes) }}" aria-label="Próximo mês"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        {% endif %}
+        <a class="btn btn-primary" href="{{ url_for('nova_tarefa', origem=url_origem_atual()) }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Novo compromisso</span></a>
+        <nav class="calendar-view-switch" aria-label="Alternar visualização da agenda">
+            <a class="{% if visao_agenda == 'mes' %}active{% endif %}" href="{{ url_for('agenda') }}"><i class="bi bi-calendar3" aria-hidden="true"></i> Mês</a>
+            <a class="{% if visao_agenda == 'semana' %}active{% endif %}" href="{{ url_for('agenda', visao='semana') }}"><i class="bi bi-calendar-week" aria-hidden="true"></i> Semana</a>
+        </nav>
+    </div>
+</section>
+
+{% if visao_agenda == 'mes' %}
+<section class="card calendar-card">
+    <div class="section-title-row">
+        <div><h2>{{ titulo_mes_agenda }}</h2><small>Os retornos vêm diretamente da data de retorno cadastrada na proposta.</small></div>
+    </div>
+    <div class="calendar-weekdays" aria-hidden="true">
+        {% for dia in ('Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb') %}<span>{{ dia }}</span>{% endfor %}
+    </div>
+    <div class="calendar-grid">
+        {% for semana in semanas_calendario %}
+            {% for dia in semana %}
+            <article class="calendar-day {% if not dia.do_mes %}calendar-day-muted{% endif %} {% if dia.hoje %}calendar-day-today{% endif %}">
+                <header><strong>{{ dia.numero }}</strong><a href="{{ url_for('nova_tarefa', data=dia.data, origem=url_origem_atual()) }}" title="Criar compromisso neste dia"><i class="bi bi-plus-lg" aria-hidden="true"></i></a></header>
+                <div class="calendar-events">
+                    {% for evento in dia.eventos %}
+                        {% if evento.tipo == 'tarefa' %}
+                        <div class="calendar-task priority-{{ evento.prioridade }} {% if evento.status == 'concluida' %}is-done{% endif %}">
+                            <a class="calendar-event task" href="{{ url_for('editar_tarefa', tarefa_id=evento.id, origem=url_origem_atual()) }}" title="Editar: {{ evento.titulo }}">
+                                {% if evento.horario %}<time>{{ evento.horario }}</time>{% endif %}<span>{{ evento.titulo }}</span>
+                            </a>
+                            <div class="calendar-event-actions">
+                                {% if evento.status != 'concluida' %}
+                                <form method="post" action="{{ url_for('concluir_tarefa', tarefa_id=evento.id) }}">
+                                    <input type="hidden" name="next" value="{{ url_origem_atual() }}">
+                                    <button type="submit" title="Marcar como concluída" aria-label="Marcar {{ evento.titulo }} como concluída"><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{{ url_for('excluir_tarefa', tarefa_id=evento.id) }}" onsubmit="return confirm('Excluir esta tarefa?');">
+                                    <input type="hidden" name="next" value="{{ url_origem_atual() }}">
+                                    <button type="submit" title="Excluir tarefa" aria-label="Excluir {{ evento.titulo }}"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                        {% else %}
+                        <a class="calendar-event return" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}" title="{{ evento.proposta_nome }}: {{ evento.titulo }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>{{ evento.proposta_nome }}</span></a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </article>
+            {% endfor %}
+        {% endfor %}
+    </div>
+</section>
+{% else %}
+<section class="card week-calendar-card">
+    <div class="section-title-row"><div><h2>{{ titulo_semana_agenda }}</h2><small>Visão semanal dos compromissos e retornos.</small></div></div>
+    <div class="week-timeline-shell" data-week-timeline>
+        <div class="week-timeline-header">
+            <span class="week-time-corner">Horário</span>
+            {% for dia in dias_semana %}
+            <div class="week-day-heading {% if dia.hoje %}week-calendar-today{% endif %}"><span>{{ dia.nome }}</span><strong>{{ dia.numero }}</strong><a href="{{ url_for('nova_tarefa', data=dia.data, origem=url_origem_atual()) }}" title="Criar compromisso neste dia"><i class="bi bi-plus-lg" aria-hidden="true"></i></a></div>
+            {% endfor %}
+        </div>
+        <div class="week-all-day-row">
+            <span class="week-all-day-label">Sem horário</span>
+            {% for dia in dias_semana %}
+            <div class="week-all-day-cell">
+                {% for evento in dia.eventos_dia_inteiro %}
+                    {% if evento.tipo == 'tarefa' %}
+                    <a class="week-all-day-event task priority-{{ evento.prioridade }} {% if evento.status == 'concluida' %}is-done{% endif %}" href="{{ url_for('editar_tarefa', tarefa_id=evento.id, origem=url_origem_atual()) }}"><strong>{{ evento.titulo }}</strong></a>
+                    {% else %}
+                    <a class="week-all-day-event return" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><strong>{{ evento.proposta_nome }}</strong></a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="week-timeline-body">
+            <aside class="week-time-labels">{% for hora in horas_semana %}<span style="top: {{ loop.index0 * 64 - 7 }}px">{{ '%02d'|format(hora) }}:00</span>{% endfor %}</aside>
+            <div class="week-day-lanes">
+                {% for dia in dias_semana %}
+                <div class="week-day-lane {% if dia.hoje %}week-calendar-today{% endif %}" data-week-day="{{ dia.data }}">
+                    <a class="week-empty-slot" href="{{ url_for('nova_tarefa', data=dia.data, origem=url_origem_atual()) }}" aria-label="Criar compromisso em {{ dia.nome }}"></a>
+                    {% for evento in dia.eventos_horarios %}
+                    <article class="week-timed-event priority-{{ evento.prioridade }} {% if evento.status == 'concluida' %}is-done{% endif %}" style="--top: {{ evento.top }}px">
+                        <a href="{{ url_for('editar_tarefa', tarefa_id=evento.id, origem=url_origem_atual()) }}"><time>{{ evento.horario }}</time><strong>{{ evento.titulo }}</strong></a>
+                        <div class="week-event-actions">
+                            {% if evento.status != 'concluida' %}<form method="post" action="{{ url_for('concluir_tarefa', tarefa_id=evento.id) }}"><input type="hidden" name="next" value="{{ url_origem_atual() }}"><button title="Concluir" aria-label="Concluir {{ evento.titulo }}"><i class="bi bi-check-lg" aria-hidden="true"></i></button></form>{% endif %}
+                            <form method="post" action="{{ url_for('excluir_tarefa', tarefa_id=evento.id) }}" onsubmit="return confirm('Excluir esta tarefa?');"><input type="hidden" name="next" value="{{ url_origem_atual() }}"><button title="Excluir" aria-label="Excluir {{ evento.titulo }}"><i class="bi bi-trash3" aria-hidden="true"></i></button></form>
+                        </div>
+                    </article>
+                    {% endfor %}
+                    {% if dia.hoje %}<span class="week-now-line" data-week-now-line></span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+<p class="calendar-legend"><span class="legend-task">Tarefa</span><span class="legend-return">Retorno de proposta</span><span>Concluído fica riscado.</span></p>
+{% endblock %}

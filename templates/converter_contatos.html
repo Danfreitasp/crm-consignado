@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% set titulo = 'Converter contatos' %}
+{% set subtitulo = 'Transforme uma planilha em uma lista simples com nome e número já com DDI 55.' %}
+{% block content %}
+<section class="card converter-hero">
+    <div>
+        <h2>Converter planilha para modelo de contatos</h2>
+        <p>Envie um arquivo CSV ou XLSX. O CRM vai manter apenas <strong>NOME</strong> e o primeiro telefone, <strong>TELEFONE1 / TELEFONE 1</strong>, adicionando o DDI <strong>55</strong> antes do número.</p>
+    </div>
+</section>
+
+<section class="card converter-grid">
+    <form method="post" enctype="multipart/form-data" class="stack converter-form">
+        <label>Arquivo original
+            <input type="file" name="arquivo" accept=".csv,.xlsx" required>
+        </label>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Converter e baixar Excel</span></button>
+    </form>
+
+    <div class="converter-preview">
+        <h3>Modelo de saída</h3>
+        <div class="table-wrap small-table-wrap">
+            <table class="small-table">
+                <thead>
+                    <tr>
+                        <th>nome</th>
+                        <th>numero</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>CLIENTE EXEMPLO 1</td>
+                        <td>5511999990001</td>
+                    </tr>
+                    <tr>
+                        <td>CLIENTE EXEMPLO 2</td>
+                        <td>5521999990002</td>
+                    </tr>
+                    <tr>
+                        <td>CLIENTE EXEMPLO 3</td>
+                        <td>5531999990003</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted-note">Se o número já começar com 55, o CRM não duplica o DDI.</p>
+    </div>
+</section>
+
+<section class="card tips-card">
+    <h3>Regras usadas na conversão</h3>
+    <ul>
+        <li>Coluna de nome esperada: <strong>NOME</strong>.</li>
+        <li>Telefone mantido: <strong>TELEFONE1</strong> ou <strong>TELEFONE 1</strong>.</li>
+        <li>Demais telefones, código e outras colunas são removidos.</li>
+        <li>Espaços, traços, parênteses e caracteres extras do telefone são removidos.</li>
+        <li>Linhas sem nome ou sem telefone são ignoradas.</li>
+    </ul>
+</section>
+{% endblock %}

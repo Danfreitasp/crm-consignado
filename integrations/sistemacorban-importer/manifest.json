@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Sistemacorban para CRM Consignado",
+  "version": "1.2.2",
+  "description": "Importa manualmente o benefício e seus contratos bancários para o CRM local.",
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://gestao.sistemacorban.com.br/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gestao.sistemacorban.com.br/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

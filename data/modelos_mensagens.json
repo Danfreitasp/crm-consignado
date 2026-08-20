@@ -1,0 +1,15 @@
+{
+  "Mensagem inicial": "Olá, {nome}. Tudo bem? Tenho uma simulação de {produto} para seu contrato do banco {banco_atual}, com possibilidade de redução de parcela e liberação de troco. Posso te passar os detalhes?",
+  "Solicitação de documentos": "Olá, {nome}. Para seguir com sua proposta de {produto}, preciso que me envie os documentos necessários para análise. Assim que receber, dou andamento por aqui.",
+  "Proposta em andamento": "Olá, {nome}. Sua proposta de {produto} está em andamento no banco {banco_digitado}. Status atual: {status}. Assim que houver atualização, te aviso.",
+  "Aguardando CIP": "Olá, {nome}. Sua proposta está aguardando retorno da CIP. Essa etapa depende da comunicação entre os bancos, mas sigo acompanhando de perto.",
+  "Proposta aprovada": "Olá, {nome}. Boa notícia: sua proposta de {produto} foi aprovada no banco {banco_digitado}. Troco previsto: {troco}. Vou te orientar sobre os próximos passos.",
+  "Proposta paga": "Olá, {nome}. Sua proposta consta como paga. Verifique sua conta e me avise caso precise de mais alguma informação.",
+  "Falta de margem": "Olá, {nome}. No momento, a análise indicou falta de margem para seguir com a proposta. Vou manter seu cadastro acompanhado para uma nova oportunidade.",
+  "Recontato": "Olá, {nome}. Passando para saber se ainda tem interesse na simulação de {produto}. Posso atualizar as condições para você sem compromisso.",
+  "Aguardando interação": "Olá, {nome}. Sua proposta já foi digitada e agora precisamos que você conclua a assinatura digital com selfie. Assim que concluir, me avise para seguirmos acompanhando.",
+  "Em análise": "Olá, {nome}. Sua proposta está em análise documental pelo banco {banco_digitado}. Sigo acompanhando e te aviso assim que houver atualização.",
+  "Aguardando averbação": "Olá, {nome}. Sua proposta está aguardando averbação. Essa é uma das etapas finais antes da liberação do pagamento.",
+  "Aguardando pagamento": "Olá, {nome}. Sua proposta já avançou e está aguardando pagamento pelo banco {banco_digitado}. Assim que constar pago, te aviso.",
+  "Aguardando reapresentação": "Olá, {nome}. O pagamento retornou e precisamos ajustar os dados bancários para reapresentar. Pode me confirmar a conta para pagamento?"
+}

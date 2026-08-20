@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+{% set titulo = proposta.nome %}
+{% set subtitulo = 'Detalhes, anotações, histórico e mensagens prontas para WhatsApp.' %}
+{% block content %}
+<section class="proposal-page stack">
+    <div class="card stack proposal-main-card">
+        <div class="detail-header">
+            <div>
+                <span class="badge">{{ proposta.status }}</span>
+                <h2>{{ proposta.nome }}</h2>
+                <p>{{ proposta.produto }} · Banco digitado: {{ banco_digitado_exibicao(proposta) or '-' }}</p>
+            </div>
+            <div class="detail-actions">
+                <form method="post" action="{{ url_for('atualizar_verificacao', proposta_id=proposta.id) }}" class="compact-action-form">
+                    <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+                    {% if verificado_hoje(proposta) %}
+                        <input type="hidden" name="verificado" value="NÃO">
+                        <button class="btn" type="submit"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Marcar não verificada</span></button>
+                    {% else %}
+                        <input type="hidden" name="verificado" value="SIM">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Verificada hoje</span></button>
+                    {% endif %}
+                </form>
+                <div class="quick-close-actions" aria-label="Marcar proposta como paga ou perdida">
+                    <span>Marcar como:</span>
+                    <form method="post" action="{{ url_for('mudar_status', proposta_id=proposta.id) }}" onsubmit="return confirm('Marcar esta proposta como PAGO?');">
+                        <input type="hidden" name="status" value="Pago">
+                        <input type="hidden" name="observacao" value="Marcada como paga pela tela da proposta">
+                        <button class="btn btn-success" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Pago</span></button>
+                    </form>
+                    <form method="post" action="{{ url_for('mudar_status', proposta_id=proposta.id) }}" onsubmit="return confirm('Marcar esta proposta como PERDIDA?');">
+                        <input type="hidden" name="status" value="Perdido / Cancelado">
+                        <input type="hidden" name="observacao" value="Marcada como perdida pela tela da proposta">
+                        <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Perdido</span></button>
+                    </form>
+                </div>
+                <form method="post" action="{{ url_for('excluir_proposta', proposta_id=proposta.id) }}" onsubmit="return confirm('Excluir definitivamente este lead/proposta? Esta ação remove também anotações, histórico e anexos cadastrados no CRM.');">
+                    <input type="hidden" name="next" value="{{ url_retorno_padrao() }}">
+                    <button class="btn btn-danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir lead</span></button>
+                </form>
+            </div>
+        </div>
+
+        <section class="status-progress-box">
+            <div class="section-title-row compact-row">
+                <div>
+                    <h2>Etapas da proposta</h2>
+                    <small>Clique em uma etapa para alterar o status.</small>
+                </div>
+                <small>Status atual: {{ proposta.status }}</small>
+            </div>
+            {% set etapa_atual_indice = STATUS_LIST.index(proposta.status) if proposta.status in STATUS_LIST else -1 %}
+            <div class="status-progress" aria-label="Linha de etapas da proposta">
+                {% for etapa in STATUS_LIST %}
+                    {% set classe_etapa = 'is-pending' %}
+                    {% if loop.index0 < etapa_atual_indice %}
+                        {% set classe_etapa = 'is-done' %}
+                    {% elif loop.index0 == etapa_atual_indice %}
+                        {% set classe_etapa = 'is-current' %}
+                    {% endif %}
+                    <form method="post" action="{{ url_for('mudar_status', proposta_id=proposta.id) }}" class="status-step-form {{ classe_etapa }}">
+                        <input type="hidden" name="status" value="{{ etapa }}">
+                        <input type="hidden" name="observacao" value="Status alterado pela linha de etapas">
+                        <button type="submit" class="status-step-button" title="Mover para {{ etapa }}" {% if etapa == proposta.status %}aria-current="step"{% endif %}>
+                            <span class="status-step-circle">{{ loop.index }}</span>
+                            <span class="status-step-label">{{ etapa }}</span>
+                        </button>
+                    </form>
+                {% endfor %}
+            </div>
+        </section>
+
+        <nav class="proposal-tabs" aria-label="Abas da proposta">
+            <button class="proposal-tab is-active" type="button" data-tab-target="resumo">Resumo</button>
+            <button class="proposal-tab" type="button" data-tab-target="editar">Editar dados</button>
+            <button class="proposal-tab" type="button" data-tab-target="anotacoes">Anotações <span>{{ anotacoes|length }}</span></button>
+            <button class="proposal-tab" type="button" data-tab-target="anexos">Anexos <span>{{ anexos|length }}</span></button>
+            <button class="proposal-tab" type="button" data-tab-target="mensagens">Mensagens</button>
+            {% if anuencia_refin %}
+                <button class="proposal-tab" type="button" data-tab-target="anuencia">Anuência</button>
+            {% endif %}
+            <button class="proposal-tab" type="button" data-tab-target="historico">Histórico</button>
+        </nav>
+
+        <section class="proposal-tab-panel is-active" data-tab-panel="resumo">
+            <div class="summary-grid">
+                <div class="summary-card highlight-summary">
+                    <small>CPF</small>
+                    <strong>{{ proposta.cpf or '-' }}</strong>
+                    {% if proposta.cpf %}<button class="mini-btn copy-btn" type="button" data-copy="{{ proposta.cpf }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar CPF</span></button>{% endif %}
+                </div>
+                <div class="summary-card">
+                    <small>Telefone</small>
+                    <strong>{{ proposta.telefone or '-' }}</strong>
+                    {% if proposta.telefone %}<button class="mini-btn copy-btn" type="button" data-copy="{{ proposta.telefone }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar telefone</span></button>{% endif %}
+                </div>
+                <div class="summary-card">
+                    <small>Banco digitado</small>
+                    <strong>{{ banco_digitado_exibicao(proposta) or '-' }}</strong>
+                </div>
+                <div class="summary-card">
+                    <small>Nº proposta</small>
+                    <strong>{{ proposta.numero_proposta or '-' }}</strong>
+                </div>
+                <div class="summary-card">
+                    <small>Previsão de saldo</small>
+                    <strong>{{ br_data(proposta.data_retorno) }}</strong>
+                </div>
+                <div class="summary-card">
+                    <small>Verificação diária</small>
+                    <strong class="verification-status"><span class="verification-dot {% if verificado_hoje(proposta) %}dot-ok{% else %}dot-pending{% endif %}"></span>{{ status_verificacao_texto(proposta) }}</strong>
+                </div>
+            </div>
+
+            <div class="quick-section-grid">
+                <section class="note-box compact-note finance-side-panel">
+                    <div class="finance-highlight-box">
+                        <div>
+                            <small>{% if refin_vinculado %}Valor da portabilidade{% else %}Valor{% endif %}</small>
+                            <strong>{{ br_moeda(proposta.troco) }}</strong>
+                        </div>
+                        {% if refin_vinculado %}
+                        <div>
+                            <small>Valor do troco</small>
+                            <strong>{{ br_moeda(refin_vinculado.troco) }}</strong>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <small>Comissão</small>
+                            <strong>{{ br_moeda((proposta.comissao or 0) + (refin_vinculado.comissao or 0 if refin_vinculado else 0)) }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="recent-notes-box">
+                        <div class="recent-notes-header">
+                            <strong>Anotações recentes</strong>
+                            <small>{{ anotacoes|length }} registro(s)</small>
+                        </div>
+                        <div class="recent-notes-list">
+                            {% for anotacao in anotacoes[:3] %}
+                                <article class="recent-note-item">
+                                    <small>{{ br_data_hora(anotacao.data_hora) }}</small>
+                                    <p>{{ anotacao.texto }}</p>
+                                </article>
+                            {% else %}
+                                <p class="empty small">Sem anotações ainda.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <details class="complete-data-box">
+                <summary>Ver dados completos da proposta</summary>
+                <div class="info-grid compact-info-grid">
+                    <div><small>NB/Matrícula</small><span>{{ proposta.nb_matricula or '-' }}</span></div>
+                    {% if proposta.nascimento %}<div><small>Nascimento</small><span>{{ proposta.nascimento }}</span></div>{% endif %}
+                    {% if proposta.especie %}<div><small>Espécie do benefício</small><span>{{ proposta.especie }}</span></div>{% endif %}
+                    <div><small>Tipo</small><span>{{ proposta.tipo_cliente or '-' }}</span></div>
+                    {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Banco atual</small><span>{{ proposta.banco_atual or '-' }}</span></div>{% endif %}
+                    <div><small>Promotora</small><span>{{ proposta.promotora or '-' }}</span></div>
+                    <div><small>Benefício bloqueado</small><span>{{ proposta.beneficio_bloqueado or 'NÃO' }}</span></div>
+                    <div><small>Telefone</small><span>{{ proposta.telefone or '-' }}</span></div>
+                    <div class="wide-info"><small>Endereço</small><span>{{ proposta.endereco or '-' }}</span></div>
+                    <div class="wide-info"><small>Dados bancários</small><span>{{ proposta.dados_bancarios or '-' }}</span></div>
+                    <div><small>Parcela atual</small><span>{{ br_moeda(proposta.parcela_atual) }}</span></div>
+                    {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Nova parcela</small><span>{{ br_moeda(proposta.nova_parcela) }}</span></div>{% endif %}
+                    <div><small>{% if refin_vinculado %}Valor da portabilidade{% else %}Valor{% endif %}</small><span>{{ br_moeda(proposta.troco) }}</span></div>
+                    <div><small>{% if refin_vinculado %}% comissão da portabilidade{% else %}% comissão{% endif %}</small><span>{{ br_percentual(proposta.comissao_percentual) }}</span></div>
+                    {% if refin_vinculado %}
+                    <div><small>Valor do troco</small><span>{{ br_moeda(refin_vinculado.troco) }}</span></div>
+                    <div><small>% comissão do refinanciamento</small><span>{{ br_percentual(refin_vinculado.comissao_percentual) }}</span></div>
+                    {% endif %}
+                    <div><small>Valor caiu na promotora</small><span>{{ proposta.valor_caiu_promotora or 'NÃO' }}</span></div>
+                    <div><small>Valor já foi sacado</small><span>{{ proposta.valor_sacado or 'NÃO' }}</span></div>
+                    {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Margem após</small><span>{{ proposta.margem_apos or '-' }}</span></div>{% endif %}
+                    <div><small>Criação</small><span>{{ br_data_hora(proposta.data_criacao) }}</span></div>
+                    <div><small>Atualização</small><span>{{ br_data_hora(proposta.data_atualizacao) }}</span></div>
+                </div>
+            </details>
+
+            {% if proposta.status == 'Pago' %}
+            <form method="post" action="{{ url_for('atualizar_financeiro', proposta_id=proposta.id) }}" class="status-form finance-form compact-finance-form">
+                <label>Valor caiu na promotora
+                    <select name="valor_caiu_promotora">
+                        <option value="NÃO" {% if (proposta.valor_caiu_promotora or 'NÃO') == 'NÃO' %}selected{% endif %}>NÃO</option>
+                        <option value="SIM" {% if proposta.valor_caiu_promotora == 'SIM' %}selected{% endif %}>SIM</option>
+                    </select>
+                </label>
+                <label>Valor já foi sacado
+                    <select name="valor_sacado">
+                        <option value="NÃO" {% if (proposta.valor_sacado or 'NÃO') == 'NÃO' %}selected{% endif %}>NÃO</option>
+                        <option value="SIM" {% if proposta.valor_sacado == 'SIM' %}selected{% endif %}>SIM</option>
+                    </select>
+                </label>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Atualizar financeiro</span></button>
+            </form>
+            {% endif %}
+        </section>
+
+        <section class="proposal-tab-panel" data-tab-panel="editar" hidden>
+            <div class="section-title-row">
+                <div>
+                    <h2>Editar dados desta proposta</h2>
+                    <small>Altere os campos principais sem sair da tela.</small>
+                </div>
+            </div>
+            <form method="post" action="{{ url_for('editar_proposta', proposta_id=proposta.id) }}" class="stack quick-edit-form">
+                <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+                <div class="actions form-actions-top">
+                    <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+                    <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
+                </div>
+                {% include '_form.html' %}
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+                    <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
+                </div>
+            </form>
+        </section>
+
+        <section class="proposal-tab-panel" data-tab-panel="anotacoes" hidden>
+            <div class="section-title-row">
+                <h2>Anotações da proposta</h2>
+                <small>{{ anotacoes|length }} registro(s)</small>
+            </div>
+            <form method="post" action="{{ url_for('adicionar_anotacao', proposta_id=proposta.id) }}" class="annotation-form">
+                <label>Nova anotação
+                    <textarea name="texto" rows="3" placeholder="Ex.: Cliente já solicitou, aguardando atualizar no INSS"></textarea>
+                </label>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar anotação</span></button>
+            </form>
+            <div class="annotation-list">
+                {% for anotacao in anotacoes %}
+                    <article class="annotation-item">
+                        <small>{{ br_data_hora(anotacao.data_hora) }}</small>
+                        <p>{{ anotacao.texto }}</p>
+                    </article>
+                {% else %}
+                    <p class="empty">Sem anotações ainda.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="proposal-tab-panel" data-tab-panel="anexos" hidden>
+            <div class="section-title-row">
+                <div>
+                    <h2>Anexos</h2>
+                    <small>Pasta: {{ pasta_anexos }}</small>
+                </div>
+                <small>{{ anexos|length }} arquivo(s)</small>
+            </div>
+            <form method="post" action="{{ url_for('enviar_anexos', proposta_id=proposta.id) }}" enctype="multipart/form-data" class="attachment-form">
+                <label>Enviar documentos
+                    <input type="file" name="arquivos" multiple>
+                </label>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-upload" aria-hidden="true"></i><span>Enviar anexos</span></button>
+            </form>
+            <div class="attachment-list">
+                {% for anexo in anexos %}
+                    <article class="attachment-item">
+                        <div>
+                            <strong>{{ anexo.nome_original }}</strong>
+                            <small>{{ br_data_hora(anexo.data_upload) }}{% if tamanho_arquivo(anexo.caminho) %} · {{ tamanho_arquivo(anexo.caminho) }}{% endif %}</small>
+                        </div>
+                        <div class="attachment-actions">
+                            <a class="mini-btn" href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}"><i class="bi bi-download" aria-hidden="true"></i><span>Baixar</span></a>
+                            <form method="post" action="{{ url_for('excluir_anexo', anexo_id=anexo.id) }}" onsubmit="return confirm('Remover este anexo?')">
+                                <button class="mini-btn danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir</span></button>
+                            </form>
+                        </div>
+                    </article>
+                {% else %}
+                    <p class="empty small">Nenhum anexo enviado ainda.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="proposal-tab-panel" data-tab-panel="mensagens" hidden>
+            <div class="section-title-row">
+                <div>
+                    <h2>Modelos de mensagens</h2>
+                    <small>Selecione um modelo salvo e copie a mensagem preenchida com os dados da proposta.</small>
+                </div>
+            </div>
+
+            <div class="message-selector-panel">
+                <label>Modelo de mensagem
+                    <select id="modeloMensagemSelect">
+                        {% for nome, texto in mensagens.items() %}
+                            <option value="{{ loop.index0 }}">{{ nome }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <div class="selected-message-box">
+                    {% for nome, texto in mensagens.items() %}
+                        <article class="selected-message-item {% if not loop.first %}hidden{% endif %}" data-message-index="{{ loop.index0 }}">
+                            <div class="message-top">
+                                <span>{{ nome }}</span>
+                                <button class="mini-btn copy-btn" type="button" data-copy="{{ texto|e }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar mensagem</span></button>
+                            </div>
+                            <p>{{ texto }}</p>
+                        </article>
+                    {% else %}
+                        <p class="empty small">Nenhum modelo cadastrado.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="message-management-link">
+                <a class="btn" href="{{ url_for('modelos_mensagens_page') }}"><i class="bi bi-pencil" aria-hidden="true"></i><span>Gerenciar modelos de mensagens</span></a>
+                <small>Os modelos são cadastrados em uma tela separada no menu lateral.</small>
+            </div>
+        </section>
+
+        {% if anuencia_refin %}
+        <section class="proposal-tab-panel" data-tab-panel="anuencia" hidden>
+            <div class="section-title-row consent-title-row">
+                <div>
+                    <h2>Anuência da Port + Refin</h2>
+                    <small>Dados combinados automaticamente da portabilidade e do refinanciamento vinculados.</small>
+                </div>
+                <button class="btn btn-primary copy-btn" type="button" data-copy="{{ anuencia_refin.texto|e }}"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar anuência</span></button>
+            </div>
+
+            <div class="consent-source-grid">
+                <div class="summary-card">
+                    <small>Banco atual da portabilidade</small>
+                    <strong>{{ anuencia_refin.banco_atual or '-' }}</strong>
+                </div>
+                <div class="summary-card">
+                    <small>Banco digitado da portabilidade</small>
+                    <strong>{{ anuencia_refin.banco_digitado or '-' }}</strong>
+                </div>
+                <div class="summary-card">
+                    <small>Parcela da portabilidade</small>
+                    <strong>{{ br_moeda(anuencia_refin.parcela) }}</strong>
+                </div>
+                <form method="post" action="{{ url_for('atualizar_troco_anuencia', proposta_id=proposta.id) }}" class="summary-card consent-value-card consent-value-form">
+                    <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+                    <label for="consentTrocoInput">Troco do refinanciamento</label>
+                    <div class="consent-value-edit-row">
+                        <input id="consentTrocoInput" class="money-mask" type="text" name="troco" value="{{ br_moeda(anuencia_refin.troco) }}" inputmode="decimal" required>
+                        <button class="mini-btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar troco</span></button>
+                    </div>
+                </form>
+            </div>
+
+            {% if anuencia_refin.faltantes %}
+                <div class="alert aviso consent-warning">
+                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    <span>Revise antes de enviar. Dados não preenchidos: {{ anuencia_refin.faltantes|join(', ') }}.</span>
+                </div>
+            {% endif %}
+
+            <textarea class="consent-output" rows="16" readonly aria-label="Mensagem de anuência gerada">{{ anuencia_refin.texto }}</textarea>
+
+            <div class="consent-origin-note">
+                <span><i class="bi bi-link-45deg" aria-hidden="true"></i> Portabilidade de origem nº {{ proposta.numero_port_vinculada }}</span>
+                <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=anuencia_refin.portabilidade_id, origem=url_retorno_padrao()) }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir portabilidade</span></a>
+            </div>
+        </section>
+        {% endif %}
+
+
+        <section class="proposal-tab-panel" data-tab-panel="historico" hidden>
+            <h2>Histórico de status e alterações</h2>
+            <div class="timeline">
+                {% for h in historico %}
+                    <div class="timeline-item">
+                        <small>{{ br_data_hora(h.data_hora) }}</small>
+                        <p>{{ h.status_anterior or 'Início' }} → {{ h.status_novo }}</p>
+                        <span>{{ h.observacao }}</span>
+                    </div>
+                {% else %}
+                    <p class="empty">Sem histórico.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}

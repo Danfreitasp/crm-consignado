@@ -1,0 +1,89 @@
+{% set refin = refin_vinculado if refin_vinculado is defined and refin_vinculado else {} %}
+<div class="form-grid" id="propostaFormGrid">
+    {% include '_dados_cliente_campos.html' %}
+    <label>Nº proposta
+        <input name="numero_proposta" value="{{ proposta.numero_proposta or proposta['numero_proposta'] or '' }}" placeholder="Número desta proposta">
+    </label>
+    <label data-portability-field {% if not produto_tem_campos_portabilidade(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Banco atual
+        <input name="banco_atual" value="{{ proposta.banco_atual or proposta['banco_atual'] or '' }}">
+    </label>
+    <label>Banco digitado
+        <input name="banco_digitado" value="{{ proposta.banco_digitado or proposta['banco_digitado'] or '' }}" placeholder="Banco onde a proposta foi digitada">
+    </label>
+    <label>Produto{% if modo_nova %} *{% endif %}
+        <select name="produto" id="propostaProduto" {% if modo_nova %}required{% endif %}>
+            <option value="">Selecione</option>
+            {% for produto in PRODUTOS %}
+                <option value="{{ produto }}" {% if (proposta.produto or proposta['produto'] or '') == produto %}selected{% endif %}>{{ produto }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Promotora
+        <input name="promotora" value="{{ proposta.promotora or proposta['promotora'] or '' }}" placeholder="Ex.: Única, Vieira">
+    </label>
+    <label>Benefício bloqueado
+        <select name="beneficio_bloqueado">
+            {% set bloqueado = proposta.beneficio_bloqueado or proposta['beneficio_bloqueado'] or 'NÃO' %}
+            <option value="NÃO" {% if bloqueado == 'NÃO' %}selected{% endif %}>NÃO</option>
+            <option value="SIM" {% if bloqueado == 'SIM' %}selected{% endif %}>SIM</option>
+        </select>
+    </label>
+    <label>Valor caiu na promotora
+        <select name="valor_caiu_promotora">
+            {% set caiu = proposta.valor_caiu_promotora or proposta['valor_caiu_promotora'] or 'NÃO' %}
+            <option value="NÃO" {% if caiu == 'NÃO' %}selected{% endif %}>NÃO</option>
+            <option value="SIM" {% if caiu == 'SIM' %}selected{% endif %}>SIM</option>
+        </select>
+    </label>
+    <label>Valor já foi sacado
+        <select name="valor_sacado">
+            {% set sacado = proposta.valor_sacado or proposta['valor_sacado'] or 'NÃO' %}
+            <option value="NÃO" {% if sacado == 'NÃO' %}selected{% endif %}>NÃO</option>
+            <option value="SIM" {% if sacado == 'SIM' %}selected{% endif %}>SIM</option>
+        </select>
+    </label>
+    <label>{% if modo_nova %}Etapa inicial{% else %}Status{% endif %}
+        <select name="status">
+            {% for status in STATUS_LIST %}
+                <option value="{{ status }}" {% if (proposta.status or proposta['status'] or '') == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Parcela atual
+        <input name="parcela_atual" class="money-mask" value="{{ br_moeda(proposta.parcela_atual or proposta['parcela_atual'] or 0) }}">
+    </label>
+    <label data-portability-field {% if not produto_tem_campos_portabilidade(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Nova parcela
+        <input name="nova_parcela" class="money-mask" value="{{ br_moeda(proposta.nova_parcela or proposta['nova_parcela'] or 0) }}">
+    </label>
+    <label><span data-port-value-label>{% if produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}Valor da portabilidade{% else %}Valor{% endif %}</span>
+        <input name="troco" class="money-mask" value="{{ br_moeda(proposta.troco or proposta['troco'] or 0) }}">
+    </label>
+    <label><span data-port-percent-label>{% if produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}% comissão da portabilidade{% else %}% comissão{% endif %}</span>
+        <input name="comissao_percentual" class="percent-mask" value="{{ br_percentual(proposta.comissao_percentual or proposta['comissao_percentual'] or 0) | replace('%', '') }}" placeholder="Ex.: 3,5">
+    </label>
+    <label><span data-port-commission-label>{% if produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}Comissão da portabilidade{% else %}Comissão{% endif %}</span>
+        <input name="comissao" class="money-mask" value="{{ br_moeda(proposta.comissao or proposta['comissao'] or 0) }}">
+    </label>
+    <label class="port-refin-finance-field" data-port-refin-finance-field {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Valor do troco (refinanciamento)
+        <input name="refin_troco" class="money-mask" value="{{ br_moeda(proposta.refin_troco or refin.troco or 0) }}">
+    </label>
+    <label class="port-refin-finance-field" data-port-refin-finance-field {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>% comissão do refinanciamento
+        <input name="refin_comissao_percentual" class="percent-mask" value="{{ br_percentual(proposta.refin_comissao_percentual or refin.comissao_percentual or 0) | replace('%', '') }}" placeholder="Pode ser diferente da portabilidade">
+    </label>
+    <label class="port-refin-finance-field" data-port-refin-finance-field {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Comissão do refinanciamento
+        <input name="refin_comissao" class="money-mask" value="{{ br_moeda(proposta.refin_comissao or refin.comissao or 0) }}">
+    </label>
+    <label data-portability-field {% if not produto_tem_campos_portabilidade(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Margem após operação
+        <input name="margem_apos" value="{{ proposta.margem_apos or proposta['margem_apos'] or '' }}">
+    </label>
+    <label>Previsão de saldo
+        <input type="date" name="data_retorno" value="{{ proposta.data_retorno or proposta['data_retorno'] or '' }}">
+    </label>
+</div>
+{% include '_dados_cliente_complementares.html' %}
+<section class="proposal-form-free-section">
+    <h3>Observação inicial/importada</h3>
+    <label class="full-label">
+        <textarea id="proposta-observacoes" name="observacoes" rows="5" placeholder="Use este campo apenas para a primeira observação. Depois, registre novas anotações na tela de detalhes da proposta.">{{ proposta.observacoes or proposta['observacoes'] or '' }}</textarea>
+    </label>
+</section>

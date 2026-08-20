@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% set titulo = 'Editar proposta' %}
+{% set subtitulo = 'Atualize os dados do cliente e da operação.' %}
+{% block content %}
+<section class="card">
+    <form method="post" class="stack">
+        <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+        <div class="actions form-actions-top">
+            <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+            <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
+            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></a>
+        </div>
+        {% include '_form.html' %}
+        <div class="actions">
+            <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+            <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
+            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></a>
+        </div>
+    </form>
+</section>
+{% endblock %}

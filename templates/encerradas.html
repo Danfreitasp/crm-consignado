@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card filters-card">
+    <form method="get" class="filters encerradas-filter">
+        <label class="compact-label">Mês das encerradas
+            <input type="month" name="mes" value="{{ mes }}">
+        </label>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar mês</span></button>
+        <a class="btn" href="{{ url_for('encerradas') }}"><i class="bi bi-arrow-return-left" aria-hidden="true"></i><span>Mês atual</span></a>
+        <span class="filter-hint">Filtro usado para levantamentos mensais das propostas pagas e perdidas.</span>
+    </form>
+</section>
+
+<section class="kanban encerradas-kanban" data-modulo="encerradas">
+    {% for status, itens in por_status.items() %}
+    <div class="kanban-column encerrada-column {% if 'disponível' in status or 'sacado' in status %}column-paid{% elif 'falta' in status %}column-pending{% else %}column-lost{% endif %}" data-status="{{ status }}">
+        <div class="column-title">
+            <span>{{ status }}</span>
+            <div class="column-meta">
+                <small>{{ itens|length }} proposta(s)</small>
+                <small data-column-commission>{{ br_moeda(totais_status[status].comissao) }}</small>
+            </div>
+        </div>
+        <div class="kanban-cards" data-status="{{ status }}">
+            {% for p in itens %}
+            <article class="kanban-card encerrada-card {% if p.status == 'Pago' %}card-paid{% else %}card-lost{% endif %}" draggable="true" data-proposta-id="{{ p.id }}" data-comissao="{{ p.comissao or 0 }}">
+                <a href="{{ url_for('detalhe_proposta', proposta_id=p.id, origem=url_origem_atual()) }}">{{ p.nome }}</a>
+                <p>{{ p.produto or 'Produto não informado' }}</p>
+                <small>Banco digitado: {{ banco_digitado_exibicao(p) or '-' }}</small>
+                <small>Promotora: {{ p.promotora or '-' }}</small>
+
+                <div class="encerrada-finance-summary" aria-label="Resumo financeiro">
+                    <span><small>Valor</small><strong data-finance-value>{{ br_moeda(p.troco) }}</strong></span>
+                    <span><small>Comissão</small><strong data-finance-commission>{{ br_moeda(p.comissao) }}</strong></span>
+                    <small>Comissão: <span data-finance-percent>{{ br_percentual(p.comissao_percentual) }}</span></small>
+                </div>
+                <details class="encerrada-finance-editor">
+                    <summary><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar valores</span></summary>
+                    <form class="encerrada-finance-form" method="post" action="{{ url_for('atualizar_financeiro_rapido', proposta_id=p.id) }}">
+                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                        <label>Valor
+                            <input type="text" name="troco" value="{{ br_moeda(p.troco) }}">
+                        </label>
+                        <label>Comissão
+                            <input type="text" name="comissao" value="{{ br_moeda(p.comissao) }}">
+                        </label>
+                        <button class="btn btn-small" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar</span></button>
+                    </form>
+                </details>
+
+                <span>Encerrada em: {{ br_data_hora(p.data_encerramento or p.data_atualizacao) }}</span>
+                {% if p.observacoes %}<em>{{ p.observacoes[:90] }}{% if p.observacoes|length > 90 %}...{% endif %}</em>{% endif %}
+            </article>
+            {% else %}
+            <p class="empty small">Sem propostas.</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

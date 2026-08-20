@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurar integração com CRM</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Integração com o CRM</h1>
+    <p>Informe somente a origem onde o CRM está aberto. A extensão solicitará acesso a essa origem quando você salvar.</p>
+    <form id="configForm">
+      <label for="crmBaseUrl">URL base do CRM</label>
+      <input id="crmBaseUrl" name="crmBaseUrl" type="url" required placeholder="http://127.0.0.1:5000">
+      <small>Exemplos: http://127.0.0.1:5000 ou http://192.168.1.20:5000</small>
+      <label class="check-row"><input id="diagnostico" type="checkbox"> Ativar diagnóstico sem valores pessoais</label>
+      <button type="submit">Salvar e autorizar esta origem</button>
+      <p id="status" role="status"></p>
+    </form>
+    <p class="privacy">A configuração guarda apenas a URL do CRM e a preferência de diagnóstico. CPF, endereço e dados bancários não são armazenados. Telefones não são importados.</p>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

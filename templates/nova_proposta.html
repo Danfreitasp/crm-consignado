@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% set titulo = 'Nova Proposta' %}
+{% set subtitulo = 'Cadastre uma proposta com os mesmos dados da edição.' %}
+{% block content %}
+<section class="card proposal-entry-card">
+    {% include '_portal_import_panel.html' %}
+    <form method="post" action="{{ url_for('nova_proposta') }}" enctype="multipart/form-data" class="stack proposal-entry-form">
+        {% if origem_simulador %}
+        <p class="simulator-parameter-note"><i class="bi bi-info-circle" aria-hidden="true"></i>Dados trazidos do Simulador INSS. Revise a operação, informe as comissões e anexe os documentos antes de salvar.</p>
+        {% endif %}
+        {% set modo_nova = true %}
+        {% include '_form.html' %}
+
+        <section class="form-section attachments-box stack">
+            <div class="section-title-row compact-row">
+                <h2>Documentos</h2>
+            </div>
+            <label>Enviar documentos
+                <input type="file" name="arquivos" multiple>
+            </label>
+            <small class="muted">Pasta base: {{ anexos_base_dir }}</small>
+        </section>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar proposta</span></button>
+            <a class="btn" href="{{ url_for('index') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Voltar</span></a>
+        </div>
+    </form>
+</section>
+<script src="{{ url_for('static', filename='portal_import.js') }}"></script>
+{% endblock %}

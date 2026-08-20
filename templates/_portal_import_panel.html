@@ -1,0 +1,16 @@
+<section class="portal-import-panel" aria-labelledby="portalImportTitle">
+    <div>
+        <h2 id="portalImportTitle">Importação do Corban</h2>
+        <p id="portalImportStatus" class="muted" role="status">Abra o benefício no Sistemacorban e deixe esta página aberta.</p>
+        {% if request.endpoint == 'simulador_inss' %}
+        <label class="portal-contract-picker" id="portalContractPicker" hidden>Contrato para simular
+            <select id="portalContractSelect"><option value="">Selecione um contrato</option></select>
+            <small>O banco de destino será sempre Quali.</small>
+        </label>
+        {% endif %}
+    </div>
+    <a class="btn" href="{{ url_for('baixar_extensao_corban') }}" download>
+        <i class="bi bi-download" aria-hidden="true"></i>
+        <span>Baixar extensão (.zip)</span>
+    </a>
+</section>
