@@ -6703,6 +6703,110 @@ def formatar_valor_dashboard(valor: float, tipo: str) -> str:
     return texto.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
+    ajudas = {
+        "total": "Conta as propostas criadas no mês selecionado.",
+        "pagas": "Conta as propostas encerradas como Pago no mês selecionado.",
+        "perdidas": "Conta as propostas encerradas como Perdido ou Cancelado no mês selecionado.",
+        "troco_previsto": "Soma o Troco de todas as propostas criadas no mês selecionado.",
+        "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado.",
+        "comissao_prevista": (
+            "Soma a Comissão atual de todas as propostas nos status: "
+            f"{', '.join(dados['comissao_prevista_status'])}. "
+            "Este indicador considera a carteira atual, sem limitar pelo mês selecionado."
+        ),
+        "comissao_paga": "Soma a Comissão das propostas encerradas como Pago no mês selecionado.",
+        "valor_a_sacar": (
+            "Soma a Comissão das propostas pagas no mês em que Valor caiu na promotora = SIM "
+            "e Valor sacado é diferente de SIM."
+        ),
+        "falta_cair_promotora": (
+            "Soma a Comissão das propostas pagas no mês em que Valor caiu na promotora "
+            "é diferente de SIM."
+        ),
+        "valor_ja_sacado": (
+            "Soma a Comissão das propostas pagas no mês em que Valor sacado = SIM."
+        ),
+        "saldo_em_conta": "Valor informado manualmente no botão de editar deste cartão.",
+        "valor_a_receber": (
+            "Valor a receber = Valor a sacar + Falta cair na promotora + Saldo em conta."
+        ),
+        "valor_previsto": (
+            "Valor previsto = Comissão prevista + Valor a sacar + "
+            "Falta cair na promotora + Saldo em conta."
+        ),
+    }
+    return ajudas.get(chave, "")
+
+
+def ajuda_indicador_personalizado_dashboard(
+    campo: dict[str, Any],
+    mes: str,
+    nomes_indicadores: dict[str, str],
+) -> str:
+    mes_exibicao = f"{mes[5:7]}/{mes[:4]}" if len(mes) >= 7 else mes
+    modalidade = campo.get("modalidade")
+    configuracao = campo.get("configuracao") or {}
+
+    if modalidade == "manual":
+        return f"Valor informado manualmente para {mes_exibicao}; não há cálculo automático."
+
+    if modalidade == "agregado":
+        agregacao = configuracao.get("agregacao")
+        campo_valor = configuracao.get("campo_valor")
+        if agregacao == "contagem":
+            descricao = "Conta as propostas"
+        elif agregacao == "soma":
+            descricao = f"Soma o campo {DASHBOARD_AGREGACAO_CAMPOS.get(campo_valor, campo_valor)} das propostas"
+        else:
+            descricao = f"Calcula a média do campo {DASHBOARD_AGREGACAO_CAMPOS.get(campo_valor, campo_valor)} das propostas"
+
+        if configuracao.get("base_data") == "encerramento":
+            descricao += f" encerradas em {mes_exibicao}"
+        else:
+            descricao += f" criadas em {mes_exibicao}"
+
+        filtro_campo = limpar_texto(configuracao.get("filtro_campo"))
+        filtro_valores = configuracao.get("filtro_valores")
+        if not isinstance(filtro_valores, list):
+            filtro_legado = limpar_texto(configuracao.get("filtro_valor"))
+            filtro_valores = [filtro_legado] if filtro_legado else []
+        filtro_valores = [limpar_texto(valor) for valor in filtro_valores if limpar_texto(valor)]
+        if filtro_campo and filtro_valores:
+            nome_filtro = DASHBOARD_FILTRO_CAMPOS.get(filtro_campo, filtro_campo)
+            descricao += f", filtradas por {nome_filtro}: {', '.join(filtro_valores)}"
+        return descricao + "."
+
+    formula = normalizar_formula_dashboard(configuracao, campo.get("tipo") or "numero")
+    primeiro = nomes_indicadores.get(formula["primeiro"], formula["primeiro"] or "valor não definido")
+    etapas = [f"começa com {primeiro}"]
+    verbos = {
+        "somar": "soma",
+        "subtrair": "subtrai",
+        "multiplicar": "multiplica por",
+        "dividir": "divide por",
+        "percentual_de": "divide por e multiplica o resultado por 100 usando",
+        "variacao_percentual": "calcula a variação percentual em relação a",
+        "media": "calcula a média com",
+        "maior": "mantém o maior valor entre o resultado e",
+        "menor": "mantém o menor valor entre o resultado e",
+        "diferenca_absoluta": "calcula a diferença absoluta para",
+    }
+    for operacao in formula["operacoes"]:
+        if operacao["operando_tipo"] == "indicador":
+            operando = nomes_indicadores.get(operacao["indicador"], operacao["indicador"])
+        elif operacao["operando_tipo"] == "percentual_fixo":
+            operando = f"{operacao['valor_exibicao']}% ({formatar_valor_dashboard(operacao['valor'], 'numero')} no cálculo)"
+        else:
+            operando = formatar_valor_dashboard(operacao["valor"], "numero")
+        verbo = verbos.get(operacao["operador"], operacao["operador"])
+        etapas.append(f"depois {verbo} {operando}")
+    descricao = "Cálculo sequencial: " + "; ".join(etapas)
+    if formula["limitar_zero"]:
+        descricao += "; se o resultado for negativo, exibe zero"
+    return descricao + "."
+
+
 def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str, Any]]:
     todos_campos = carregar_dashboard_campos()
     campos_por_id = {campo["id"]: campo for campo in todos_campos}
@@ -6773,6 +6877,17 @@ def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str,
         cache[chave] = valor
         return valor
 
+    nomes_indicadores = {
+        chave: info["nome"] for chave, info in DASHBOARD_INDICADORES_BASE.items()
+    }
+    nomes_indicadores.update({
+        componente["chave"]: componente["nome"]
+        for componente in carregar_dashboard_componentes()
+        if componente["tipo"] == "metrica"
+    })
+    nomes_indicadores.update({
+        f"personalizado:{campo['id']}": campo["nome"] for campo in todos_campos
+    })
     resultado: list[dict[str, Any]] = []
     for campo in todos_campos:
         if not campo["ativo"]:
@@ -6780,6 +6895,7 @@ def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str,
         item = dict(campo)
         item["valor"] = resolver(f"personalizado:{campo['id']}")
         item["valor_formatado"] = formatar_valor_dashboard(item["valor"], campo["tipo"])
+        item["ajuda"] = ajuda_indicador_personalizado_dashboard(item, mes, nomes_indicadores)
         resultado.append(item)
     return resultado
 
@@ -6791,17 +6907,12 @@ def dashboard():
     componentes = carregar_dashboard_componentes(apenas_ativos=True)
     metricas_dashboard = []
     graficos_dashboard = []
-    ajudas = {
-        "comissao_prevista": f"Comissão prevista: soma atual das comissões em {', '.join(dados['comissao_prevista_status'])}.",
-        "valor_previsto": "Valor Previsto = Comissão Prevista + Valor a Sacar + Falta Cair na Promotora + Saldo em Conta.",
-        "valor_a_receber": "Valor a Receber = Valor a Sacar + Falta Cair na Promotora + Saldo em Conta.",
-    }
     for componente in componentes:
         item = dict(componente)
         if item["tipo"] == "metrica":
             valor = dados.get(item["chave"], 0)
             item["valor"] = formatar_valor_dashboard(valor, item["valor_tipo"])
-            item["ajuda"] = ajudas.get(item["chave"], "")
+            item["ajuda"] = ajuda_indicador_padrao_dashboard(item["chave"], dados)
             metricas_dashboard.append(item)
         else:
             if item["tipo"] == "grafico_barras":
