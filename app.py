@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sqlite3
+import threading
 import zipfile
 from datetime import datetime, date, timedelta
 from pathlib import Path
@@ -36,6 +37,8 @@ BACKUP_DIR = BASE_DIR / "backups"
 EXTENSAO_CORBAN_DIR = BASE_DIR / "integrations" / "sistemacorban-importer"
 MAX_BACKUPS = 30
 _backup_checked_date: str | None = None
+_app_preparada = False
+_app_preparacao_lock = threading.Lock()
 
 # Pasta padrão dos documentos dos clientes. A configuração salva no CRM tem
 # prioridade; CRM_ANEXOS_DIR continua disponível como fallback da instalação.
@@ -565,6 +568,13 @@ def init_db() -> None:
         """
     )
     db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_portabilidade_id ON propostas(portabilidade_id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_data_atualizacao_id ON propostas(data_atualizacao DESC, id DESC)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_data_retorno_id ON propostas(data_retorno ASC, id DESC)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_status_data_retorno ON propostas(status, data_retorno, id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_data_criacao_id ON propostas(data_criacao DESC, id DESC)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_cliente_id ON propostas(cliente_id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_historico_proposta_data ON historico(proposta_id, data_hora, id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_historico_data_id ON historico(data_hora DESC, id DESC)")
 
     colunas_clientes = {
         row["name"] for row in db.execute("PRAGMA table_info(clientes)").fetchall()
@@ -1099,11 +1109,25 @@ def criar_backup_automatico() -> None:
         # Não bloqueia o CRM caso o backup falhe; apenas informa no terminal.
         print(f"Aviso: não foi possível criar backup automático: {exc}")
 
+def preparar_aplicacao() -> None:
+    """Executa a preparação persistente uma única vez por processo do CRM."""
+    global _app_preparada
+    if _app_preparada:
+        return
+    with _app_preparacao_lock:
+        if _app_preparada:
+            return
+        init_db()
+        garantir_modelos()
+        criar_backup_automatico()
+        _app_preparada = True
+
+
 @app.before_request
 def preparar_app() -> None:
-    init_db()
-    garantir_modelos()
-    criar_backup_automatico()
+    # Arquivos estáticos não dependem do banco e devem ser entregues imediatamente.
+    if request.endpoint != "static":
+        preparar_aplicacao()
 
 
 def agora_iso() -> str:
@@ -2568,25 +2592,62 @@ def agrupar_cards_funil(
     refin_por_port: dict[int, sqlite3.Row] = {}
     refins_agrupados: set[int] = set()
 
-    for port in registros:
-        if not produto_eh_portabilidade_com_refin(port):
+    # Indexa os possíveis vínculos uma vez. A versão anterior percorria todas
+    # as propostas para cada Port + Refin e repetia milhares de normalizações.
+    posicao = {registro["id"]: indice for indice, registro in enumerate(registros)}
+    dados_normalizados: dict[int, dict[str, Any]] = {}
+    refins_por_portabilidade_id: dict[int, list[sqlite3.Row]] = {}
+    refins_por_numero_port: dict[str, list[sqlite3.Row]] = {}
+    refins_por_numero: dict[str, list[sqlite3.Row]] = {}
+
+    for registro in registros:
+        registro_id = registro["id"]
+        normalizados = {
+            "produto": remover_acentos(limpar_texto(registro["produto"])).casefold(),
+            "numero": normalizar_numero_proposta(registro["numero_proposta"]),
+            "numero_port": normalizar_numero_proposta(registro["numero_port_vinculada"]),
+            "numero_refin": normalizar_numero_proposta(registro["numero_refin_vinculada"]),
+        }
+        dados_normalizados[registro_id] = normalizados
+        if normalizados["produto"] != "refinanciamento" or not (
+            registro["portabilidade_id"] or normalizados["numero_port"]
+        ):
             continue
-        candidatas = [
-            refin
-            for refin in registros
-            if refin["id"] not in refins_agrupados
-            and propostas_formam_par_port_refin(port, refin)
-        ]
+        if registro["portabilidade_id"]:
+            refins_por_portabilidade_id.setdefault(registro["portabilidade_id"], []).append(registro)
+        if normalizados["numero_port"]:
+            refins_por_numero_port.setdefault(normalizados["numero_port"], []).append(registro)
+        if normalizados["numero"]:
+            refins_por_numero.setdefault(normalizados["numero"], []).append(registro)
+
+    for port in registros:
+        port_id = port["id"]
+        normalizados_port = dados_normalizados[port_id]
+        if normalizados_port["produto"] != "portabilidade com refinanciamento":
+            continue
+
+        candidatas_por_id: dict[int, sqlite3.Row] = {}
+        for refin in refins_por_portabilidade_id.get(port_id, []):
+            candidatas_por_id[refin["id"]] = refin
+        for refin in refins_por_numero_port.get(normalizados_port["numero"], []):
+            candidatas_por_id[refin["id"]] = refin
+        for refin in refins_por_numero.get(normalizados_port["numero_refin"], []):
+            candidatas_por_id[refin["id"]] = refin
+
+        candidatas = sorted(
+            (refin for refin in candidatas_por_id.values() if refin["id"] not in refins_agrupados),
+            key=lambda refin: posicao[refin["id"]],
+        )
         if not candidatas:
             continue
 
-        numero_refin = normalizar_numero_proposta(port["numero_refin_vinculada"])
+        numero_refin = normalizados_port["numero_refin"]
         refin = next(
             (
                 candidata
                 for candidata in candidatas
                 if numero_refin
-                and normalizar_numero_proposta(candidata["numero_proposta"]) == numero_refin
+                and dados_normalizados[candidata["id"]]["numero"] == numero_refin
             ),
             candidatas[0],
         )
@@ -3330,10 +3391,34 @@ def api_prazos_simulador_inss():
 @app.route("/propostas")
 def index():
     sql, params, filtros = filtros_sql()
-    propostas = get_db().execute(
-        f"SELECT * FROM propostas {sql} ORDER BY data_atualizacao DESC, id DESC", params
+    try:
+        pagina = max(int(request.args.get("pagina", "1")), 1)
+    except (TypeError, ValueError):
+        pagina = 1
+    por_pagina = 50
+    db = get_db()
+    total_filtrado = db.execute(f"SELECT COUNT(*) FROM propostas {sql}", params).fetchone()[0]
+    total_paginas = max((total_filtrado + por_pagina - 1) // por_pagina, 1)
+    pagina = min(pagina, total_paginas)
+    offset = (pagina - 1) * por_pagina
+    propostas = db.execute(
+        f"SELECT * FROM propostas {sql} ORDER BY data_atualizacao DESC, id DESC LIMIT ? OFFSET ?",
+        (*params, por_pagina, offset),
     ).fetchall()
-    return render_template("index.html", propostas=propostas, filtros=filtros)
+    argumentos_paginacao = request.args.to_dict(flat=True)
+    argumentos_paginacao.pop("pagina", None)
+    return render_template(
+        "index.html",
+        propostas=propostas,
+        filtros=filtros,
+        pagina=pagina,
+        total_paginas=total_paginas,
+        total_filtrado=total_filtrado,
+        primeiro_registro=offset + 1 if total_filtrado else 0,
+        ultimo_registro=min(offset + por_pagina, total_filtrado),
+        pagina_anterior_url=url_for("index", **argumentos_paginacao, pagina=pagina - 1) if pagina > 1 else "",
+        proxima_pagina_url=url_for("index", **argumentos_paginacao, pagina=pagina + 1) if pagina < total_paginas else "",
+    )
 
 
 @app.route("/nova", methods=["GET", "POST"])
@@ -7626,7 +7711,5 @@ def importar():
 if __name__ == "__main__":
     os.environ.setdefault("FLASK_ENV", "development")
     with app.app_context():
-        init_db()
-        garantir_modelos()
-        criar_backup_automatico()
+        preparar_aplicacao()
     app.run(host="0.0.0.0", port=5000, debug=False)

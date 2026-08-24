@@ -226,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function verificarLembretesAgenda() {
+        if (document.hidden) return;
         try {
             const response = await fetch('/api/agenda/lembretes', { headers: { Accept: 'application/json' } });
             if (!response.ok) return;
@@ -287,7 +288,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.setInterval(atualizarNotificacoesAutomaticamente, 15000);
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) atualizarNotificacoesAutomaticamente();
+        if (!document.hidden) {
+            verificarLembretesAgenda();
+            atualizarNotificacoesAutomaticamente();
+        }
     });
 
     document.querySelectorAll('.cpf-mask').forEach((input) => {

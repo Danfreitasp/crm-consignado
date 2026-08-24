@@ -90,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <section class="card table-card">
+    <div class="table-results-summary">
+        <span>Exibindo {{ primeiro_registro }}–{{ ultimo_registro }} de {{ total_filtrado }} proposta(s)</span>
+    </div>
     <div class="table-wrap">
         <table>
             <thead>
@@ -153,5 +156,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </tbody>
         </table>
     </div>
+    {% if total_paginas > 1 %}
+    <nav class="pagination" aria-label="Paginação das propostas">
+        {% if pagina_anterior_url %}
+        <a class="btn" href="{{ pagina_anterior_url }}"><i class="bi bi-chevron-left" aria-hidden="true"></i><span>Anterior</span></a>
+        {% endif %}
+        <span>Página {{ pagina }} de {{ total_paginas }}</span>
+        {% if proxima_pagina_url %}
+        <a class="btn" href="{{ proxima_pagina_url }}"><span>Próxima</span><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        {% endif %}
+    </nav>
+    {% endif %}
 </section>
 {% endblock %}

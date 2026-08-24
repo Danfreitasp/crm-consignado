@@ -4039,6 +4039,14 @@ html[data-theme="escuro"] .simulator-viability[data-state="ok"] { color: #86efac
     font-size: 13px;
 }
 
+.table-results-summary {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
 html[data-theme="escuro"] .client-free-badge {
     background: #052e16;
     color: #bbf7d0;
