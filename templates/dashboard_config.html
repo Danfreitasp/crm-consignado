@@ -23,37 +23,62 @@
     <button class="mini-btn danger dashboard-formula-remove" type="button" data-remove-formula-operation title="Remover operação" aria-label="Remover operação"><i class="bi bi-trash" aria-hidden="true"></i></button>
 </div>
 {% endmacro %}
+{% macro standard_component_row(item, editar_padrao) %}
+<article class="dashboard-field-row color-{{ item.cor }}{% if not item.ativo %} is-hidden{% endif %}" id="componente-{{ item.chave }}">
+    <div>
+        <strong>{{ item.nome }}</strong>
+        <small>{{ 'Cartão de indicador' if item.tipo == 'metrica' else 'Gráfico' }} · Ordem {{ item.ordem }}{% if not item.ativo %} · Removido do Dashboard{% endif %}</small>
+    </div>
+    <div class="actions dashboard-standard-field-actions">
+        <details class="dashboard-standard-editor" {% if editar_padrao == item.chave %}open{% endif %}>
+            <summary class="mini-btn"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar</span></summary>
+            <form method="post" class="dashboard-standard-edit-form">
+                <input type="hidden" name="acao" value="salvar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
+                <label>Nome<input name="nome" value="{{ item.nome }}" required></label>
+                <label>Cor<select name="cor">{% for cor in cores %}<option value="{{ cor }}" {% if item.cor == cor %}selected{% endif %}>{{ cor|capitalize }}</option>{% endfor %}</select></label>
+                <label>Ordem<input type="number" name="ordem" min="1" value="{{ item.ordem }}" required></label>
+                <button class="btn btn-primary" type="submit">Salvar alterações</button>
+            </form>
+        </details>
+        <form method="post" onsubmit="return confirm('{{ 'Restaurar este item no Dashboard?' if not item.ativo else 'Remover este item do Dashboard? Você poderá restaurá-lo depois.' }}');">
+            <input type="hidden" name="acao" value="{{ 'restaurar_padrao' if not item.ativo else 'ocultar_padrao' }}"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
+            <button class="mini-btn {{ '' if not item.ativo else 'danger' }}" type="submit"><i class="bi {{ 'bi-arrow-clockwise' if not item.ativo else 'bi-trash' }}" aria-hidden="true"></i><span>{{ 'Restaurar' if not item.ativo else 'Excluir' }}</span></button>
+        </form>
+    </div>
+</article>
+{% endmacro %}
 {% block content %}
 <section class="card">
     <div class="section-title-row">
         <div><h2>Itens padrão do Dashboard</h2><p class="muted">Renomeie, mude a cor e a ordem, ou remova qualquer cartão e gráfico. Itens removidos podem ser restaurados.</p></div>
         <a class="btn" href="{{ url_for('dashboard') }}"><i class="bi bi-grid" aria-hidden="true"></i><span>Ver Dashboard</span></a>
     </div>
-    <div class="dashboard-fields-list dashboard-standard-fields">
-        {% for item in componentes %}
-        <article class="dashboard-field-row color-{{ item.cor }}{% if not item.ativo %} is-hidden{% endif %}" id="componente-{{ item.chave }}">
-            <div>
-                <strong>{{ item.nome }}</strong>
-                <small>{{ 'Cartão de indicador' if item.tipo == 'metrica' else 'Gráfico' }} · Ordem {{ item.ordem }}{% if not item.ativo %} · Removido do Dashboard{% endif %}</small>
+    {% set componentes_ativos = componentes|selectattr('ativo')|list %}
+    {% set componentes_ocultos = componentes|rejectattr('ativo')|list %}
+    {% set ocultos_em_edicao = componentes_ocultos|selectattr('chave', 'equalto', editar_padrao)|list %}
+    <div class="dashboard-standard-groups">
+        <details class="dashboard-standard-group" open>
+            <summary>
+                <span class="dashboard-standard-group-title"><i class="bi bi-eye" aria-hidden="true"></i><strong>Ativos</strong><span class="dashboard-standard-count">{{ componentes_ativos|length }}</span></span>
+                <span class="dashboard-standard-group-hint">Exibidos no Dashboard</span>
+                <i class="bi bi-chevron-down dashboard-standard-chevron" aria-hidden="true"></i>
+            </summary>
+            <div class="dashboard-fields-list dashboard-standard-fields">
+                {% for item in componentes_ativos %}{{ standard_component_row(item, editar_padrao) }}
+                {% else %}<p class="empty">Nenhum item padrão ativo.</p>{% endfor %}
             </div>
-            <div class="actions dashboard-standard-field-actions">
-                <details class="dashboard-standard-editor" {% if editar_padrao == item.chave %}open{% endif %}>
-                    <summary class="mini-btn"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar</span></summary>
-                    <form method="post" class="dashboard-standard-edit-form">
-                        <input type="hidden" name="acao" value="salvar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
-                        <label>Nome<input name="nome" value="{{ item.nome }}" required></label>
-                        <label>Cor<select name="cor">{% for cor in cores %}<option value="{{ cor }}" {% if item.cor == cor %}selected{% endif %}>{{ cor|capitalize }}</option>{% endfor %}</select></label>
-                        <label>Ordem<input type="number" name="ordem" min="1" value="{{ item.ordem }}" required></label>
-                        <button class="btn btn-primary" type="submit">Salvar alterações</button>
-                    </form>
-                </details>
-                <form method="post" onsubmit="return confirm('{{ 'Restaurar este item no Dashboard?' if not item.ativo else 'Remover este item do Dashboard? Você poderá restaurá-lo depois.' }}');">
-                    <input type="hidden" name="acao" value="{{ 'restaurar_padrao' if not item.ativo else 'ocultar_padrao' }}"><input type="hidden" name="componente_chave" value="{{ item.chave }}">
-                    <button class="mini-btn {{ '' if not item.ativo else 'danger' }}" type="submit"><i class="bi {{ 'bi-arrow-clockwise' if not item.ativo else 'bi-trash' }}" aria-hidden="true"></i><span>{{ 'Restaurar' if not item.ativo else 'Excluir' }}</span></button>
-                </form>
+        </details>
+        <details class="dashboard-standard-group dashboard-standard-group-hidden" {% if ocultos_em_edicao %}open{% endif %}>
+            <summary>
+                <span class="dashboard-standard-group-title"><i class="bi bi-eye-slash" aria-hidden="true"></i><strong>Ocultos</strong><span class="dashboard-standard-count">{{ componentes_ocultos|length }}</span></span>
+                <span class="dashboard-standard-group-hint">Disponíveis para restaurar</span>
+                <i class="bi bi-chevron-down dashboard-standard-chevron" aria-hidden="true"></i>
+            </summary>
+            <div class="dashboard-fields-list dashboard-standard-fields">
+                {% for item in componentes_ocultos %}{{ standard_component_row(item, editar_padrao) }}
+                {% else %}<p class="empty">Nenhum item padrão oculto.</p>{% endfor %}
             </div>
-        </article>
-        {% endfor %}
+        </details>
     </div>
 </section>
 
