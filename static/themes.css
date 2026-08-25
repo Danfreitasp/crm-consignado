@@ -1,0 +1,120 @@
+.theme-menu {
+    position: relative;
+}
+
+.theme-menu > summary {
+    list-style: none;
+}
+
+.theme-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.theme-menu-panel {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 250px;
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+}
+
+.theme-option {
+    width: 100%;
+    min-height: 54px;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) 20px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.theme-option:hover,
+.theme-option:focus-visible {
+    outline: none;
+    background: var(--primary-soft);
+    border-color: var(--primary);
+}
+
+.theme-option > span:nth-child(2) {
+    display: grid;
+    gap: 3px;
+}
+
+.theme-option strong {
+    color: inherit;
+    font-size: 13px;
+}
+
+.theme-option small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.theme-option > i {
+    opacity: 0;
+    color: var(--primary);
+}
+
+.theme-option[aria-pressed="true"] {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+}
+
+.theme-option[aria-pressed="true"] > i {
+    opacity: 1;
+}
+
+.theme-swatch {
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(127, 127, 127, .55);
+}
+
+.theme-swatch-classico {
+    border-radius: 8px;
+    background: linear-gradient(135deg, #eaf3ff 0 50%, #2563eb 50%);
+}
+
+.theme-swatch-newsprint {
+    background: linear-gradient(90deg, #f9f9f7 0 68%, #111 68% 85%, #cc0000 85%);
+}
+
+.theme-swatch-retro-90s {
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    background: linear-gradient(to bottom, #000080 0 24%, #c0c0c0 24% 72%, #ffff00 72% 86%, #000 86%);
+    box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+}
+
+.theme-swatch-soft-ui {
+    border: 0;
+    border-radius: 9px;
+    background: #e0e5ec;
+    box-shadow: 4px 4px 7px rgba(163, 177, 198, .72), -4px -4px 7px rgba(255, 255, 255, .72);
+}
+
+@media (max-width: 700px) {
+    .theme-menu-panel {
+        position: fixed;
+        top: auto;
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        width: auto;
+    }
+}

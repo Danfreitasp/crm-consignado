@@ -1,0 +1,857 @@
+/* Tema Retro 90s / Windows 95. Isolado do CRM clássico e dos demais temas. */
+html[data-visual-theme="retro-90s"] {
+    --bg: #c0c0c0;
+    --bg-secondary: #c0c0c0;
+    --panel: #c0c0c0;
+    --surface: #c0c0c0;
+    --surface-soft: #e8e8e8;
+    --surface-muted: #c0c0c0;
+    --text: #000;
+    --muted: #4b4b4b;
+    --line: #808080;
+    --border: #000;
+    --primary: #000080;
+    --primary-hover: #0000ff;
+    --primary-soft: #ffffcc;
+    --danger: #c00000;
+    --danger-soft: #fff;
+    --ok: #007b00;
+    --ok-soft: #e8ffe8;
+    --warning: #805500;
+    --warning-soft: #ffffcc;
+    --info: #000080;
+    --info-soft: #fff;
+    --shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+    --shadow-soft: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+    --shadow-hover: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+    --focus-ring: 0 0 0 2px #fff, 0 0 0 4px #000;
+    --radius-sm: 0;
+    --radius-md: 0;
+    --radius: 0;
+    --transition: 0s;
+    color-scheme: light;
+}
+
+html[data-visual-theme="retro-90s"] *,
+html[data-visual-theme="retro-90s"] *::before,
+html[data-visual-theme="retro-90s"] *::after {
+    border-radius: 0 !important;
+}
+
+html[data-visual-theme="retro-90s"] body,
+html[data-visual-theme="retro-90s"][data-theme="claro"] body,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] body {
+    min-height: 100vh;
+    background-color: #c0c0c0;
+    background-image:
+        linear-gradient(45deg, #b8b8b8 25%, transparent 25%),
+        linear-gradient(-45deg, #b8b8b8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #b8b8b8 75%),
+        linear-gradient(-45deg, transparent 75%, #b8b8b8 75%);
+    background-position: 0 0, 0 2px, 2px -2px, -2px 0;
+    background-size: 4px 4px;
+    color: #000;
+    font-family: "MS Sans Serif", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+}
+
+html[data-visual-theme="retro-90s"] h1,
+html[data-visual-theme="retro-90s"] h2,
+html[data-visual-theme="retro-90s"] h3,
+html[data-visual-theme="retro-90s"] h4 {
+    color: #000;
+    font-family: "Arial Black", Impact, Haettenschweiler, sans-serif;
+    font-weight: 900;
+    letter-spacing: -.025em;
+}
+
+@keyframes retro-rainbow {
+    0% { color: #f00; }
+    17% { color: #ff8000; }
+    33% { color: #b3a800; }
+    50% { color: #008000; }
+    67% { color: #0000ff; }
+    83% { color: #8000ff; }
+    100% { color: #f00; }
+}
+
+@keyframes retro-marquee {
+    from { text-indent: 100%; }
+    to { text-indent: -115%; }
+}
+
+@keyframes retro-blink {
+    50% { visibility: hidden; }
+}
+
+html[data-visual-theme="retro-90s"] .sidebar,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .sidebar {
+    width: 246px;
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="retro-90s"] .main {
+    margin-left: 246px;
+    padding: 12px 14px 28px;
+}
+
+html[data-visual-theme="retro-90s"] .brand {
+    position: relative;
+    min-height: 58px;
+    margin: 0 0 8px;
+    padding: 7px 8px 7px 48px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .brand::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    width: 30px;
+    height: 30px;
+    background: conic-gradient(#f00 0 25%, #0f0 0 50%, #00f 0 75%, #ff0 0);
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+}
+
+html[data-visual-theme="retro-90s"] .brand-mark,
+html[data-visual-theme="retro-90s"] .brand-icon {
+    display: none;
+}
+
+html[data-visual-theme="retro-90s"] .brand p {
+    color: #fff;
+    font: 900 17px/1.1 "Arial Black", Impact, sans-serif;
+    text-shadow: 1px 1px 0 #000;
+}
+
+html[data-visual-theme="retro-90s"] .brand small {
+    color: #fff;
+    font: 700 10px/1.2 "Courier New", monospace;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="retro-90s"] .sidebar nav {
+    padding-bottom: 46px;
+}
+
+html[data-visual-theme="retro-90s"] .sidebar::after {
+    content: "VISITORS: 0001997";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    padding: 5px 7px;
+    overflow: hidden;
+    background: #000;
+    color: #00ff00;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    font: 700 11px/1 "Courier New", monospace;
+    text-align: center;
+    white-space: nowrap;
+}
+
+html[data-visual-theme="retro-90s"] .sidebar-toggle,
+html[data-visual-theme="retro-90s"] .nav-link,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .nav-link {
+    min-height: 38px;
+    margin: 0 0 4px;
+    padding: 6px 8px;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+    font: 700 12px/1.15 "MS Sans Serif", "Segoe UI", sans-serif;
+    text-decoration: none;
+    transition: none;
+}
+
+html[data-visual-theme="retro-90s"] .nav-link:hover,
+html[data-visual-theme="retro-90s"] .sidebar-toggle:hover {
+    background: #d8d8d8;
+    color: #000;
+}
+
+html[data-visual-theme="retro-90s"] .nav-link.active,
+html[data-visual-theme="retro-90s"] .sidebar-toggle:active {
+    background: #000080;
+    color: #fff;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+    transform: translate(1px, 1px);
+}
+
+html[data-visual-theme="retro-90s"] .nav-icon {
+    width: 25px;
+    height: 25px;
+    padding: 2px;
+    background: #fff;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    image-rendering: pixelated;
+    filter: saturate(1.5) contrast(1.1);
+}
+
+html[data-visual-theme="retro-90s"] .topbar,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .topbar {
+    position: relative;
+    min-height: 142px;
+    margin: 0 0 12px;
+    padding: 42px 12px 20px;
+    overflow: visible;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="retro-90s"] .topbar::after {
+    content: "★ BEM-VINDO AO CRM CONSIG ★ SISTEMA ONLINE ★ GERENCIE SUAS PROPOSTAS ★";
+    position: absolute;
+    top: 7px;
+    left: 4px;
+    right: 4px;
+    width: auto;
+    overflow: hidden;
+    color: #ffff00;
+    font: 900 13px/22px "Courier New", monospace;
+    text-shadow: 1px 1px 0 #000;
+    white-space: nowrap;
+    animation: retro-marquee 15s linear infinite;
+}
+
+html[data-visual-theme="retro-90s"] .topbar::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    height: 28px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    border: 1px solid #000080;
+}
+
+html[data-visual-theme="retro-90s"] .topbar h1 {
+    margin-bottom: 4px;
+    color: #000080;
+    font-size: clamp(30px, 4vw, 54px);
+    line-height: .98;
+    text-shadow: 2px 2px 0 #fff, 3px 3px 0 #808080;
+    animation: retro-rainbow 4s linear infinite;
+}
+
+html[data-visual-theme="retro-90s"] .topbar p {
+    color: #000;
+    font: 700 13px/1.4 "Courier New", monospace;
+}
+
+html[data-visual-theme="retro-90s"] .topbar-actions {
+    align-items: center;
+    gap: 5px;
+}
+
+html[data-visual-theme="retro-90s"] .theme-toggle {
+    display: none !important;
+}
+
+html[data-visual-theme="retro-90s"] .btn,
+html[data-visual-theme="retro-90s"] .mini-btn,
+html[data-visual-theme="retro-90s"] button:not(.status-step-button),
+html[data-visual-theme="retro-90s"] input[type="submit"] {
+    min-height: 36px;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+    font-family: "MS Sans Serif", "Segoe UI", sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    transition: none;
+}
+
+html[data-visual-theme="retro-90s"] .btn:hover,
+html[data-visual-theme="retro-90s"] .mini-btn:hover,
+html[data-visual-theme="retro-90s"] button:not(.status-step-button):hover {
+    background: #d8d8d8;
+    color: #000;
+}
+
+html[data-visual-theme="retro-90s"] .btn:active,
+html[data-visual-theme="retro-90s"] .mini-btn:active,
+html[data-visual-theme="retro-90s"] button:not(.status-step-button):active {
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+    transform: translate(1px, 1px);
+}
+
+html[data-visual-theme="retro-90s"] .btn-primary,
+html[data-visual-theme="retro-90s"] .proposal-tab.is-active {
+    background: #0000c0;
+    color: #fff;
+    border-color: #5555ff #000080 #000080 #5555ff;
+}
+
+html[data-visual-theme="retro-90s"] .btn-success,
+html[data-visual-theme="retro-90s"] .status-paid {
+    background: #008000;
+    color: #fff;
+    border-color: #00ff00 #006000 #006000 #00ff00;
+}
+
+html[data-visual-theme="retro-90s"] .btn-danger,
+html[data-visual-theme="retro-90s"] .status-lost {
+    background: #d00000;
+    color: #fff;
+    border-color: #ff5555 #800000 #800000 #ff5555;
+}
+
+html[data-visual-theme="retro-90s"] :is(input, select, textarea),
+html[data-visual-theme="retro-90s"][data-theme="escuro"] :is(input, select, textarea) {
+    min-height: 38px;
+    padding: 6px 8px;
+    background: #fff;
+    color: #000;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+    font: 700 13px/1.3 "MS Sans Serif", "Segoe UI", sans-serif;
+}
+
+html[data-visual-theme="retro-90s"] textarea {
+    line-height: 1.45;
+}
+
+html[data-visual-theme="retro-90s"] :is(input, textarea)::placeholder {
+    color: #666;
+}
+
+html[data-visual-theme="retro-90s"] :is(input, select, textarea, button, a):focus-visible {
+    outline: 2px dotted #000;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+html[data-visual-theme="retro-90s"] label {
+    color: #000;
+    font: 800 11px/1.25 "MS Sans Serif", "Segoe UI", sans-serif;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="retro-90s"] .quick-search input,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .quick-search input {
+    width: 100%;
+    padding-left: 40px;
+}
+
+html[data-visual-theme="retro-90s"] .quick-search-icon {
+    width: 18px;
+    height: 18px;
+    color: #000080;
+    font-family: "Material Symbols Rounded" !important;
+    font-size: 18px;
+}
+
+html[data-visual-theme="retro-90s"] .quick-search-results,
+html[data-visual-theme="retro-90s"] .notification-panel,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .quick-search-results,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .notification-panel,
+html[data-visual-theme="retro-90s"] .theme-menu-panel {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .quick-search-item,
+html[data-visual-theme="retro-90s"] .notification-item,
+html[data-visual-theme="retro-90s"] .theme-option {
+    color: #000;
+    border: 1px solid #808080;
+    background: #e8e8e8;
+}
+
+html[data-visual-theme="retro-90s"] .quick-search-item:hover,
+html[data-visual-theme="retro-90s"] .notification-item:hover,
+html[data-visual-theme="retro-90s"] .theme-option:hover,
+html[data-visual-theme="retro-90s"] .theme-option[aria-pressed="true"] {
+    background: #000080;
+    color: #fff;
+    border-color: #000;
+}
+
+html[data-visual-theme="retro-90s"] .theme-option:hover small,
+html[data-visual-theme="retro-90s"] .theme-option[aria-pressed="true"] small {
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .card,
+html[data-visual-theme="retro-90s"] .metric-card,
+html[data-visual-theme="retro-90s"] .kanban-column,
+html[data-visual-theme="retro-90s"] .summary-card,
+html[data-visual-theme="retro-90s"] .portal-import-panel,
+html[data-visual-theme="retro-90s"] .simulator-input-section,
+html[data-visual-theme="retro-90s"] .chart-card,
+html[data-visual-theme="retro-90s"] .dashboard-chart-card,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .card,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .summary-card {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="retro-90s"] .card > h2,
+html[data-visual-theme="retro-90s"] .chart-card h2,
+html[data-visual-theme="retro-90s"] .dashboard-chart-card h2 {
+    margin: -14px -14px 12px;
+    padding: 5px 8px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+    font: 800 15px/1.2 "MS Sans Serif", "Segoe UI", sans-serif;
+    letter-spacing: 0;
+    text-shadow: 1px 1px 0 #000;
+}
+
+html[data-visual-theme="retro-90s"] .metric-card {
+    min-height: 106px;
+    padding: 12px;
+}
+
+html[data-visual-theme="retro-90s"] .metric-card::before {
+    content: "STAT";
+    display: block;
+    margin: -10px -10px 8px;
+    padding: 3px 6px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+    font: 700 9px/1.1 "Courier New", monospace;
+}
+
+html[data-visual-theme="retro-90s"] .metric-card small,
+html[data-visual-theme="retro-90s"] .metric-label-row small,
+html[data-visual-theme="retro-90s"] .summary-card small {
+    color: #333;
+    font: 800 10px/1.25 "Courier New", monospace;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="retro-90s"] .metric-card strong,
+html[data-visual-theme="retro-90s"] .summary-card strong {
+    color: #000080;
+    font: 900 clamp(19px, 2vw, 28px)/1.05 "Arial Black", Impact, sans-serif;
+}
+
+html[data-visual-theme="retro-90s"] .summary-card strong {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 18px;
+    line-height: 1.12;
+}
+
+html[data-visual-theme="retro-90s"] .summary-card.highlight-summary,
+html[data-visual-theme="retro-90s"] .highlight-card {
+    background: #ffffcc;
+}
+
+html[data-visual-theme="retro-90s"] .kanban {
+    gap: 8px;
+    padding: 5px 4px 14px;
+    scrollbar-color: #808080 #fff;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .kanban-column,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-column {
+    min-width: 304px;
+    padding: 7px;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .column-title,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .column-title {
+    margin: -5px -5px 7px;
+    padding: 6px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .column-title *,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .column-title * {
+    color: inherit;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .kanban-card,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-card {
+    margin: 0 0 8px;
+    padding: 9px;
+    background: #fff;
+    color: #000;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .kanban-card h3,
+html[data-visual-theme="retro-90s"] .kanban-card strong {
+    color: #000080;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .card-values,
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .port-refin-values,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .port-refin-values {
+    gap: 0;
+    padding: 0;
+    background: #e8e8e8;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: none;
+}
+
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .card-values span,
+html[data-visual-theme="retro-90s"] .kanban[data-modulo="funil"] .port-refin-values span,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .kanban[data-modulo="funil"] .port-refin-values span {
+    padding: 6px;
+    background: transparent;
+    color: #000;
+    border-right: 1px solid #808080;
+}
+
+html[data-visual-theme="retro-90s"] .status-progress-box,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .status-progress-box {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .status-step-circle,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .status-step-circle {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    box-shadow: var(--shadow);
+}
+
+html[data-visual-theme="retro-90s"] .status-step-form.is-done .status-step-circle,
+html[data-visual-theme="retro-90s"] .status-step-form.is-current .status-step-circle {
+    background: #008000;
+    color: #fff;
+    border-color: #00ff00 #006000 #006000 #00ff00;
+}
+
+html[data-visual-theme="retro-90s"] .status-step-form.is-done::before,
+html[data-visual-theme="retro-90s"] .status-step-form.is-current::before {
+    background: #008000;
+}
+
+html[data-visual-theme="retro-90s"] .proposal-tabs {
+    gap: 3px;
+    padding-bottom: 4px;
+    border-bottom: 4px groove #fff;
+}
+
+html[data-visual-theme="retro-90s"] .proposal-tab,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .proposal-tab {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    box-shadow: var(--shadow);
+}
+
+html[data-visual-theme="retro-90s"] .simulator-mode-switch,
+html[data-visual-theme="retro-90s"][data-theme="escuro"] .simulator-mode-switch {
+    padding: 5px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] .simulator-mode-option,
+html[data-visual-theme="retro-90s"] .simulator-step-chip {
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    box-shadow: var(--shadow);
+}
+
+html[data-visual-theme="retro-90s"] .simulator-mode-option:has(input:checked) {
+    background: #000080;
+    color: #fff;
+    border-color: #808080 #fff #fff #808080;
+}
+
+html[data-visual-theme="retro-90s"] .simulator-input-section {
+    background: #ffffcc;
+}
+
+html[data-visual-theme="retro-90s"] .simulator-section-heading {
+    margin: -10px -10px 10px;
+    padding: 6px 8px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .simulator-section-heading h3,
+html[data-visual-theme="retro-90s"] .simulator-section-heading small {
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .simulator-parameter-note,
+html[data-visual-theme="retro-90s"] .message-box,
+html[data-visual-theme="retro-90s"] .note-box,
+html[data-visual-theme="retro-90s"] .info-box {
+    background: #ffffcc;
+    color: #000;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] table,
+html[data-visual-theme="retro-90s"] .table-wrap {
+    background: #fff;
+    color: #000;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+}
+
+html[data-visual-theme="retro-90s"] thead th {
+    background: #000080;
+    color: #fff;
+    border: 1px solid #fff;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="retro-90s"] tbody tr:nth-child(odd) {
+    background: #fff;
+}
+
+html[data-visual-theme="retro-90s"] tbody tr:nth-child(even) {
+    background: #e8e8e8;
+}
+
+html[data-visual-theme="retro-90s"] td {
+    color: #000;
+    border-right: 1px solid #808080;
+    border-bottom: 1px solid #808080;
+}
+
+html[data-visual-theme="retro-90s"] .badge,
+html[data-visual-theme="retro-90s"] .pill,
+html[data-visual-theme="retro-90s"] .status-badge,
+html[data-visual-theme="retro-90s"] .tag {
+    background: #ffff00;
+    color: #000;
+    border: 1px solid #000;
+    font-family: "Courier New", monospace;
+    font-weight: 800;
+}
+
+html[data-visual-theme="retro-90s"] .alert {
+    background: #ffffcc;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: var(--shadow);
+    font-weight: 800;
+}
+
+html[data-visual-theme="retro-90s"] .alert.erro {
+    background: #f00;
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .alert.ok {
+    background: #00aa00;
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"] .card a:not(.btn),
+html[data-visual-theme="retro-90s"] .kanban-card a:not(.btn),
+html[data-visual-theme="retro-90s"] table a:not(.btn) {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+html[data-visual-theme="retro-90s"] .card a:not(.btn):hover,
+html[data-visual-theme="retro-90s"] .kanban-card a:not(.btn):hover,
+html[data-visual-theme="retro-90s"] table a:not(.btn):hover {
+    color: #f00;
+}
+
+html[data-visual-theme="retro-90s"],
+html[data-visual-theme="retro-90s"] * {
+    scrollbar-width: auto;
+    scrollbar-color: #808080 #e8e8e8;
+}
+
+html[data-visual-theme="retro-90s"] ::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+html[data-visual-theme="retro-90s"] ::-webkit-scrollbar-track {
+    background: #e8e8e8;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+}
+
+html[data-visual-theme="retro-90s"] ::-webkit-scrollbar-thumb {
+    min-width: 34px;
+    min-height: 34px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf;
+}
+
+html[data-visual-theme="retro-90s"] ::selection {
+    background: #000080;
+    color: #fff;
+}
+
+html[data-visual-theme="retro-90s"].sidebar-collapsed .sidebar {
+    width: 78px;
+}
+
+html[data-visual-theme="retro-90s"].sidebar-collapsed .main {
+    margin-left: 78px;
+}
+
+html[data-visual-theme="retro-90s"].sidebar-collapsed .brand {
+    padding-left: 8px;
+}
+
+html[data-visual-theme="retro-90s"].sidebar-collapsed .brand::before,
+html[data-visual-theme="retro-90s"].sidebar-collapsed .sidebar::after {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    html[data-visual-theme="retro-90s"] .topbar {
+        align-items: stretch;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar-actions {
+        width: 100%;
+    }
+
+    html[data-visual-theme="retro-90s"] .quick-search {
+        flex: 1 1 260px;
+    }
+}
+
+@media (max-width: 700px) {
+    html[data-visual-theme="retro-90s"] .sidebar {
+        position: relative;
+        width: 100%;
+        min-height: auto;
+        padding: 7px;
+    }
+
+    html[data-visual-theme="retro-90s"] .sidebar::after {
+        display: none;
+    }
+
+    html[data-visual-theme="retro-90s"] .sidebar nav {
+        display: flex;
+        gap: 4px;
+        padding-bottom: 0;
+        overflow-x: auto;
+    }
+
+    html[data-visual-theme="retro-90s"] .nav-link {
+        flex: 0 0 158px;
+    }
+
+    html[data-visual-theme="retro-90s"] .main,
+    html[data-visual-theme="retro-90s"].sidebar-collapsed .main {
+        margin-left: 0;
+        padding: 8px;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar {
+        display: block;
+        min-height: 0;
+        padding: 40px 8px 12px;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar h1 {
+        font-size: 30px;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        margin-top: 10px;
+    }
+
+    html[data-visual-theme="retro-90s"] .quick-search,
+    html[data-visual-theme="retro-90s"] .topbar-actions > .btn,
+    html[data-visual-theme="retro-90s"] .topbar-actions > a.btn,
+    html[data-visual-theme="retro-90s"] .topbar-actions > details,
+    html[data-visual-theme="retro-90s"] .topbar-actions > details .btn {
+        width: 100%;
+        max-width: none;
+    }
+
+    html[data-visual-theme="retro-90s"] .metrics,
+    html[data-visual-theme="retro-90s"] .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    html[data-visual-theme="retro-90s"] .kanban-column {
+        min-width: 282px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-visual-theme="retro-90s"] *,
+    html[data-visual-theme="retro-90s"] *::before,
+    html[data-visual-theme="retro-90s"] *::after {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition: none !important;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar h1 {
+        color: #000080;
+    }
+
+    html[data-visual-theme="retro-90s"] .topbar::after {
+        text-indent: 0;
+        left: 10px;
+    }
+}

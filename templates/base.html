@@ -17,6 +17,18 @@
                 // O CRM usa as preferências padrão quando o armazenamento local não está disponível.
             }
             document.documentElement.setAttribute('data-theme', temaSalvo);
+            let temaVisual = 'classico';
+            try {
+                temaVisual = localStorage.getItem('crmVisualTheme') || 'classico';
+                if (temaVisual === 'cyberpunk') {
+                    temaVisual = 'retro-90s';
+                    localStorage.setItem('crmVisualTheme', temaVisual);
+                }
+            } catch (error) {
+                // O CRM usa o visual clássico quando o armazenamento local não está disponível.
+            }
+            if (!['classico', 'newsprint', 'retro-90s', 'soft-ui'].includes(temaVisual)) temaVisual = 'classico';
+            document.documentElement.setAttribute('data-visual-theme', temaVisual);
             try {
                 if (localStorage.getItem('crmSidebarRecolhida') === 'true') {
                     document.documentElement.classList.add('sidebar-collapsed');
@@ -29,6 +41,10 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260824-performance') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260824-performance') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20260825-themes') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='retro-90s.css', v='20260825-retro-90s-6') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='soft-ui.css', v='20260825-soft-ui-3') }}">
 </head>
 <body>
     <aside class="sidebar">
@@ -100,6 +116,15 @@
                     </div>
                 </details>
                 <button type="button" id="themeToggle" class="btn theme-toggle" title="Alternar modo claro/escuro"><i class="bi bi-moon" aria-hidden="true"></i><span>Modo escuro</span></button>
+                <details class="theme-menu" id="visualThemeMenu">
+                    <summary class="btn visual-theme-toggle" title="Escolher tema visual"><i class="bi bi-grid" aria-hidden="true"></i><span>Temas</span></summary>
+                    <div class="theme-menu-panel" role="group" aria-label="Escolha um tema visual">
+                        <button type="button" class="theme-option" data-visual-theme-option="classico" aria-pressed="false"><span class="theme-swatch theme-swatch-classico" aria-hidden="true"></span><span><strong>Clássico</strong><small>Interface original</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="newsprint" aria-pressed="false"><span class="theme-swatch theme-swatch-newsprint" aria-hidden="true"></span><span><strong>Newsprint</strong><small>Editorial em papel</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="retro-90s" aria-pressed="false"><span class="theme-swatch theme-swatch-retro-90s" aria-hidden="true"></span><span><strong>Retro 90s</strong><small>Windows 95 / Web 1.0</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="soft-ui" aria-pressed="false"><span class="theme-swatch theme-swatch-soft-ui" aria-hidden="true"></span><span><strong>Soft UI</strong><small>Neumorphism frio</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                    </div>
+                </details>
                 <a class="btn btn-primary" href="{{ url_for('nova_proposta') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Nova Proposta</span></a>
             </div>
         </header>
@@ -120,5 +145,6 @@
         {% block content %}{% endblock %}
     </main>
     <script src="{{ url_for('static', filename='script.js', v='20260824-performance') }}"></script>
+    <script src="{{ url_for('static', filename='themes.js', v='20260825-themes') }}"></script>
 </body>
 </html>

@@ -1,0 +1,826 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Playfair+Display:wght@600;700;800;900&display=swap');
+
+/*
+ * Tema visual Newsprint.
+ * Todo o arquivo é isolado pelo atributo data-visual-theme; o CRM clássico,
+ * suas regras de negócio e seus modos claro/escuro continuam inalterados.
+ */
+html[data-visual-theme="newsprint"] {
+    --bg: #f9f9f7;
+    --bg-secondary: #e5e5e0;
+    --panel: #f9f9f7;
+    --surface: #f9f9f7;
+    --surface-soft: #f5f5f2;
+    --surface-muted: #efefeb;
+    --text: #111111;
+    --muted: #525252;
+    --line: #111111;
+    --border: #111111;
+    --primary: #111111;
+    --primary-hover: #cc0000;
+    --primary-soft: #e5e5e0;
+    --danger: #cc0000;
+    --danger-soft: #fff0f0;
+    --ok: #1f5f38;
+    --ok-soft: #edf4ed;
+    --warning: #8a4b00;
+    --warning-soft: #fff7df;
+    --info: #252525;
+    --info-soft: #eeeeea;
+    --shadow: none;
+    --shadow-soft: none;
+    --shadow-hover: 4px 4px 0 #111111;
+    --focus-ring: 0 0 0 2px #f9f9f7, 0 0 0 4px #111111;
+    --radius-sm: 0;
+    --radius-md: 0;
+    --radius: 0;
+    --transition: .18s ease-out;
+    color-scheme: light;
+}
+
+html[data-visual-theme="newsprint"] *,
+html[data-visual-theme="newsprint"] *::before,
+html[data-visual-theme="newsprint"] *::after {
+    border-radius: 0 !important;
+}
+
+html[data-visual-theme="newsprint"] body {
+    background-color: #f9f9f7;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23111111' fill-opacity='.035' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'/%3E%3C/svg%3E");
+    color: #111111;
+    font-family: Lora, Georgia, serif;
+}
+
+html[data-visual-theme="newsprint"] h1,
+html[data-visual-theme="newsprint"] h2,
+html[data-visual-theme="newsprint"] h3,
+html[data-visual-theme="newsprint"] h4,
+html[data-visual-theme="newsprint"] .detail-header h2,
+html[data-visual-theme="newsprint"] .card h2 {
+    color: #111111;
+    font-family: "Playfair Display", "Times New Roman", serif;
+    font-weight: 800;
+    letter-spacing: -.035em;
+}
+
+html[data-visual-theme="newsprint"] .sidebar {
+    width: 248px;
+    padding: 18px 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #efefeb;
+    color: #111111;
+    border-right: 2px solid #111111;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="newsprint"] .main {
+    margin-left: 248px;
+    padding: 20px 24px 32px;
+}
+
+html[data-visual-theme="newsprint"] .brand {
+    position: relative;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 0 0 16px;
+    border-bottom: 4px double #111111;
+}
+
+html[data-visual-theme="newsprint"] .brand::after {
+    content: "EDIÇÃO OPERACIONAL";
+    position: absolute;
+    right: 0;
+    bottom: 3px;
+    font: 500 8px/1 "JetBrains Mono", monospace;
+    letter-spacing: .14em;
+}
+
+html[data-visual-theme="newsprint"] .brand-mark,
+html[data-visual-theme="newsprint"] .brand-icon {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    padding: 4px;
+    object-fit: contain;
+    filter: grayscale(1) contrast(1.35);
+    background: #f9f9f7;
+    border: 1px solid #111111;
+    box-shadow: none;
+}
+
+html[data-visual-theme="newsprint"] .brand p {
+    color: #111111;
+    font: 800 20px/1 "Playfair Display", serif;
+    letter-spacing: -.04em;
+}
+
+html[data-visual-theme="newsprint"] .brand small {
+    color: #525252;
+    font: 500 9px/1.2 "JetBrains Mono", monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .sidebar-toggle {
+    margin: 0 0 8px;
+    min-height: 36px;
+    background: transparent;
+    border: 1px solid #111111;
+    color: #111111;
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .sidebar-toggle:hover {
+    background: #111111;
+    color: #f9f9f7;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .nav-link,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .nav-link {
+    position: relative;
+    min-height: 42px;
+    gap: 9px;
+    margin: 0;
+    padding: 5px 8px;
+    background: transparent;
+    color: #111111;
+    border: 0;
+    border-bottom: 1px solid #a3a3a0;
+    box-shadow: none;
+    font: 600 12px/1.15 Inter, sans-serif;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+    transform: none;
+}
+
+html[data-visual-theme="newsprint"] .nav-link:hover,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .nav-link:hover {
+    padding-left: 12px;
+    background: #e5e5e0;
+    color: #cc0000;
+    border-color: #111111;
+    transform: none;
+}
+
+html[data-visual-theme="newsprint"] .nav-link.active,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .nav-link.active {
+    background: #111111;
+    color: #f9f9f7;
+    border-color: #111111;
+    box-shadow: inset 4px 0 0 #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .nav-icon {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+    padding: 2px;
+    filter: grayscale(1) contrast(1.5);
+}
+
+html[data-visual-theme="newsprint"] .nav-link.active .nav-icon {
+    filter: grayscale(1) contrast(1.8) invert(1);
+}
+
+html[data-visual-theme="newsprint"] .agenda-alert-badge,
+html[data-visual-theme="newsprint"] .notification-badge {
+    background: #cc0000;
+    color: #fff;
+    border-color: #f9f9f7;
+    box-shadow: none;
+    font-family: "JetBrains Mono", monospace;
+}
+
+html[data-visual-theme="newsprint"] .topbar,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .topbar {
+    position: relative;
+    z-index: 50;
+    align-items: flex-start;
+    margin: 0 0 18px;
+    padding: 12px 0 16px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid #111111;
+    border-bottom: 4px double #111111;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="newsprint"] .topbar::before {
+    content: "CRM CONSIG • BOLETIM OPERACIONAL";
+    position: absolute;
+    top: -13px;
+    left: 0;
+    padding-right: 8px;
+    background: #f9f9f7;
+    color: #525252;
+    font: 500 9px/1 "JetBrains Mono", monospace;
+    letter-spacing: .15em;
+}
+
+html[data-visual-theme="newsprint"] .topbar h1 {
+    max-width: 620px;
+    margin: 0 0 3px;
+    color: #111111;
+    font: 900 clamp(30px, 3vw, 46px)/.95 "Playfair Display", serif;
+    letter-spacing: -.05em;
+}
+
+html[data-visual-theme="newsprint"] .topbar p {
+    max-width: 700px;
+    margin-top: 7px;
+    color: #525252;
+    font: 500 10px/1.35 "JetBrains Mono", monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .topbar-actions {
+    gap: 6px;
+}
+
+html[data-visual-theme="newsprint"] .theme-toggle {
+    display: none;
+}
+
+html[data-visual-theme="newsprint"] .btn,
+html[data-visual-theme="newsprint"] button.btn,
+html[data-visual-theme="newsprint"] .mini-btn,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .btn,
+html[data-visual-theme="newsprint"][data-theme="escuro"] button.btn,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .mini-btn {
+    min-height: 40px;
+    padding: 9px 12px;
+    background: #f9f9f7;
+    color: #111111;
+    border: 1px solid #111111;
+    box-shadow: none;
+    font: 700 11px/1 Inter, sans-serif;
+    letter-spacing: .065em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .mini-btn {
+    min-height: 30px;
+    padding: 6px 8px;
+    font-size: 9px;
+}
+
+html[data-visual-theme="newsprint"] .btn:hover,
+html[data-visual-theme="newsprint"] .mini-btn:hover,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .btn:hover,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .mini-btn:hover {
+    background: #111111;
+    color: #f9f9f7;
+    border-color: #111111;
+    box-shadow: 3px 3px 0 #cc0000;
+    transform: translate(-1px, -1px);
+}
+
+html[data-visual-theme="newsprint"] .btn-primary,
+html[data-visual-theme="newsprint"] a.btn-primary,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .btn-primary,
+html[data-visual-theme="newsprint"][data-theme="escuro"] a.btn-primary {
+    background: #111111;
+    color: #f9f9f7;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .btn-primary:hover,
+html[data-visual-theme="newsprint"] a.btn-primary:hover {
+    background: #cc0000;
+    border-color: #cc0000;
+    color: #fff;
+}
+
+html[data-visual-theme="newsprint"] .visual-theme-toggle {
+    border-color: #cc0000;
+    color: #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .visual-theme-toggle:hover {
+    background: #cc0000;
+    border-color: #cc0000;
+    color: #fff;
+}
+
+html[data-visual-theme="newsprint"] .card,
+html[data-visual-theme="newsprint"] .metric-card,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .card,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .metric-card {
+    position: relative;
+    background: #f9f9f7;
+    color: #111111;
+    border: 1px solid #111111;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+html[data-visual-theme="newsprint"] .card {
+    padding: 16px;
+}
+
+html[data-visual-theme="newsprint"] .card:hover,
+html[data-visual-theme="newsprint"] .metric-card:hover {
+    border-color: #111111;
+    box-shadow: 4px 4px 0 #111111;
+    transform: translate(-2px, -2px);
+}
+
+html[data-visual-theme="newsprint"] .card h2,
+html[data-visual-theme="newsprint"] .section-title-row h2 {
+    font-size: 23px;
+    line-height: 1.05;
+}
+
+html[data-visual-theme="newsprint"] .metric-card {
+    min-height: 118px;
+    padding: 14px;
+    border-top-width: 4px;
+}
+
+html[data-visual-theme="newsprint"] .metric-card small,
+html[data-visual-theme="newsprint"] .metric-label-row small {
+    color: #525252;
+    font: 600 9px/1.25 "JetBrains Mono", monospace;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .metric-card strong {
+    color: #111111;
+    font: 800 clamp(24px, 2.2vw, 34px)/1 "Playfair Display", serif;
+    letter-spacing: -.035em;
+}
+
+html[data-visual-theme="newsprint"] .metrics {
+    gap: 0;
+    border-left: 1px solid #111111;
+}
+
+html[data-visual-theme="newsprint"] .metrics .metric-card {
+    margin-left: -1px;
+}
+
+html[data-visual-theme="newsprint"] input,
+html[data-visual-theme="newsprint"] select,
+html[data-visual-theme="newsprint"] textarea,
+html[data-visual-theme="newsprint"][data-theme="escuro"] input,
+html[data-visual-theme="newsprint"][data-theme="escuro"] select,
+html[data-visual-theme="newsprint"][data-theme="escuro"] textarea {
+    min-height: 42px;
+    padding: 9px 10px;
+    background: rgba(249, 249, 247, .82);
+    color: #111111;
+    border: 1px solid #737373;
+    border-bottom: 2px solid #111111;
+    box-shadow: none;
+    font: 500 12px/1.2 "JetBrains Mono", monospace;
+}
+
+html[data-visual-theme="newsprint"] textarea {
+    line-height: 1.45;
+}
+
+html[data-visual-theme="newsprint"] input:hover,
+html[data-visual-theme="newsprint"] select:hover,
+html[data-visual-theme="newsprint"] textarea:hover {
+    background: #f0f0ed;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] input::placeholder,
+html[data-visual-theme="newsprint"] textarea::placeholder,
+html[data-visual-theme="newsprint"][data-theme="escuro"] input::placeholder,
+html[data-visual-theme="newsprint"][data-theme="escuro"] textarea::placeholder {
+    color: #737373;
+}
+
+html[data-visual-theme="newsprint"] label,
+html[data-visual-theme="newsprint"][data-theme="escuro"] label {
+    color: #111111;
+    font: 600 10px/1.25 Inter, sans-serif;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] input:focus-visible,
+html[data-visual-theme="newsprint"] select:focus-visible,
+html[data-visual-theme="newsprint"] textarea:focus-visible,
+html[data-visual-theme="newsprint"] .btn:focus-visible,
+html[data-visual-theme="newsprint"] .mini-btn:focus-visible,
+html[data-visual-theme="newsprint"] a:focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 2px;
+    border-color: #111111;
+    box-shadow: none;
+}
+
+html[data-visual-theme="newsprint"] .quick-search {
+    min-width: min(290px, 35vw);
+}
+
+html[data-visual-theme="newsprint"] .quick-search input,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .quick-search input {
+    width: 100%;
+    padding-left: 40px;
+}
+
+html[data-visual-theme="newsprint"] .quick-search-icon {
+    width: 18px;
+    height: 18px;
+    font-family: "Material Symbols Rounded" !important;
+    font-size: 18px;
+}
+
+html[data-visual-theme="newsprint"] .quick-search-results,
+html[data-visual-theme="newsprint"] .notification-panel,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .quick-search-results,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .notification-panel {
+    background: #f9f9f7;
+    color: #111111;
+    border: 1px solid #111111;
+    box-shadow: 5px 5px 0 #111111;
+}
+
+html[data-visual-theme="newsprint"] .quick-search-item:hover,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .quick-search-item:hover {
+    background: #e5e5e0;
+}
+
+html[data-visual-theme="newsprint"] .alert {
+    border: 1px solid #111111;
+    border-left-width: 6px;
+    box-shadow: none;
+    font-family: Inter, sans-serif;
+}
+
+html[data-visual-theme="newsprint"] .alert.erro,
+html[data-visual-theme="newsprint"] .alert.aviso {
+    border-left-color: #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .table-wrap {
+    border: 1px solid #111111;
+    background: #f9f9f7;
+}
+
+html[data-visual-theme="newsprint"] table {
+    background: #f9f9f7;
+}
+
+html[data-visual-theme="newsprint"] th,
+html[data-visual-theme="newsprint"] td,
+html[data-visual-theme="newsprint"][data-theme="escuro"] table th,
+html[data-visual-theme="newsprint"][data-theme="escuro"] table td {
+    color: #111111;
+    border-right: 1px solid #a3a3a0;
+    border-bottom: 1px solid #111111;
+    font-size: 12px;
+}
+
+html[data-visual-theme="newsprint"] th,
+html[data-visual-theme="newsprint"][data-theme="escuro"] table th {
+    background: #111111;
+    color: #f9f9f7;
+    font: 600 10px/1.2 "JetBrains Mono", monospace;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] tbody tr:hover {
+    background: #efefeb;
+}
+
+html[data-visual-theme="newsprint"] .badge,
+html[data-visual-theme="newsprint"] .card-flag,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .badge {
+    background: transparent;
+    color: #111111;
+    border: 1px solid #111111;
+    font: 600 9px/1 "JetBrains Mono", monospace;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"],
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] {
+    gap: 0;
+    padding: 0 0 14px;
+    background: transparent;
+    border: 1px solid #111111;
+    box-shadow: none;
+}
+
+html[data-visual-theme="newsprint"] .kanban-column,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .kanban-column,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-column {
+    padding: 10px;
+    background: #efefeb;
+    border: 0;
+    border-right: 1px solid #111111;
+    box-shadow: none;
+}
+
+html[data-visual-theme="newsprint"] .column-title {
+    min-height: 46px;
+    padding: 0 0 9px;
+    border-bottom: 3px double #111111;
+}
+
+html[data-visual-theme="newsprint"] .column-title > span,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .column-title > span {
+    color: #111111;
+    font: 800 15px/1.05 "Playfair Display", serif;
+}
+
+html[data-visual-theme="newsprint"] .column-title small,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .column-title small,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] .column-title small {
+    background: #111111;
+    color: #f9f9f7;
+    font: 600 9px/1 "JetBrains Mono", monospace;
+}
+
+html[data-visual-theme="newsprint"] .kanban-cards,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .kanban-cards {
+    gap: 8px;
+}
+
+html[data-visual-theme="newsprint"] .kanban-card,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .kanban-card,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-card {
+    padding: 10px;
+    background: #f9f9f7;
+    color: #111111;
+    border: 1px solid #111111;
+    box-shadow: none;
+}
+
+html[data-visual-theme="newsprint"] .kanban-card:hover,
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .kanban-card:hover,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-card:hover {
+    background: #f9f9f7;
+    border-color: #111111;
+    box-shadow: 3px 3px 0 #111111;
+    transform: translate(-1px, -1px);
+}
+
+html[data-visual-theme="newsprint"] .kanban[data-modulo="funil"] .kanban-card::before,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .kanban[data-modulo="funil"] .kanban-card::before {
+    background: #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .kanban-card a,
+html[data-visual-theme="newsprint"] .kanban-card strong,
+html[data-visual-theme="newsprint"] .card-values strong {
+    color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .kanban-card p,
+html[data-visual-theme="newsprint"] .kanban-card small,
+html[data-visual-theme="newsprint"] .kanban-card span,
+html[data-visual-theme="newsprint"] .kanban-card em {
+    color: #525252;
+}
+
+html[data-visual-theme="newsprint"] .card-values {
+    gap: 0;
+    border: 1px solid #111111;
+}
+
+html[data-visual-theme="newsprint"] .card-values span,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .card-values span {
+    padding: 7px;
+    background: #f3f3ef;
+    color: #111111;
+    border: 0;
+    border-right: 1px solid #111111;
+}
+
+html[data-visual-theme="newsprint"] .card-values span:last-child {
+    border-right: 0;
+}
+
+html[data-visual-theme="newsprint"] .proposal-form-column,
+html[data-visual-theme="newsprint"] .proposal-form-free-section,
+html[data-visual-theme="newsprint"] .proposal-operation-group,
+html[data-visual-theme="newsprint"] .linked-proposal-field,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .proposal-form-column,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .proposal-form-free-section,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .proposal-operation-group,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .linked-proposal-field {
+    background: #f3f3ef;
+    color: #111111;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .proposal-form-column h3,
+html[data-visual-theme="newsprint"] .proposal-form-free-section h3 {
+    padding-bottom: 8px;
+    border-bottom: 3px double #111111;
+    font: 800 18px/1 "Playfair Display", serif;
+}
+
+html[data-visual-theme="newsprint"] .proposal-operation-group[open] summary {
+    background: #e5e5e0;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .portal-import-panel,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .portal-import-panel {
+    background: #f9f9f7;
+    color: #111111;
+    border: 2px solid #111111;
+    border-left: 8px solid #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .info-grid div,
+html[data-visual-theme="newsprint"] .note-box,
+html[data-visual-theme="newsprint"] .message-box,
+html[data-visual-theme="newsprint"] .annotation-item,
+html[data-visual-theme="newsprint"] .finance-form,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .info-grid div,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .note-box,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .message-box,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .annotation-item,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .finance-form {
+    background: #f9f9f7;
+    color: #111111;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .annotation-item,
+html[data-visual-theme="newsprint"] .timeline-item {
+    border-left-color: #cc0000;
+}
+
+html[data-visual-theme="newsprint"] .bar-row div,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .bar-row div {
+    background: #e5e5e0;
+    border: 1px solid #111111;
+}
+
+html[data-visual-theme="newsprint"] .bar-row b,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .bar-row b {
+    background: #111111;
+}
+
+html[data-visual-theme="newsprint"] .metric-edit-form,
+html[data-visual-theme="newsprint"] .dashboard-standard-edit-form,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .metric-edit-form,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .dashboard-standard-edit-form {
+    background: #f9f9f7;
+    color: #111111;
+    border: 1px solid #111111;
+    box-shadow: 4px 4px 0 #111111;
+}
+
+html[data-visual-theme="newsprint"] .metric-help-button {
+    background: #111111;
+    color: #f9f9f7;
+    border-color: #111111;
+    font-family: "JetBrains Mono", monospace;
+}
+
+html[data-visual-theme="newsprint"] .encerrada-column.column-paid,
+html[data-visual-theme="newsprint"] .encerrada-column.column-pending,
+html[data-visual-theme="newsprint"] .encerrada-column.column-lost,
+html[data-visual-theme="newsprint"][data-theme="escuro"] .encerrada-column.column-paid {
+    background: #efefeb;
+    border-color: #111111;
+}
+
+html[data-visual-theme="newsprint"] .encerrada-card.card-paid,
+html[data-visual-theme="newsprint"] .highlight-card {
+    border-left: 5px solid #1f5f38;
+    background: #f9f9f7;
+}
+
+html[data-visual-theme="newsprint"] .encerrada-card.card-lost {
+    border-left-color: #cc0000;
+}
+
+html[data-visual-theme="newsprint"] ::selection {
+    background: #cc0000;
+    color: #fff;
+}
+
+@media (min-width: 981px) {
+    html[data-visual-theme="newsprint"].sidebar-collapsed .sidebar {
+        width: 78px;
+        padding-inline: 10px;
+    }
+
+    html[data-visual-theme="newsprint"].sidebar-collapsed .main {
+        margin-left: 78px;
+    }
+
+    html[data-visual-theme="newsprint"].sidebar-collapsed .brand::after {
+        display: none;
+    }
+}
+
+@media (max-width: 1180px) {
+    html[data-visual-theme="newsprint"] .topbar {
+        flex-direction: column;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    html[data-visual-theme="newsprint"] .quick-search {
+        flex: 1 1 280px;
+    }
+}
+
+@media (max-width: 980px) {
+    html[data-visual-theme="newsprint"] .sidebar {
+        position: static;
+        width: auto;
+        padding: 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        border-right: 0;
+        border-bottom: 2px solid #111111;
+    }
+
+    html[data-visual-theme="newsprint"] .sidebar nav {
+        width: 100%;
+        border-left: 1px solid #111111;
+        border-top: 1px solid #111111;
+    }
+
+    html[data-visual-theme="newsprint"] .nav-link {
+        min-width: 156px;
+        border-right: 1px solid #111111;
+        border-bottom: 1px solid #111111;
+    }
+
+    html[data-visual-theme="newsprint"] .main {
+        margin-left: 0;
+        padding: 18px;
+    }
+}
+
+@media (max-width: 700px) {
+    html[data-visual-theme="newsprint"] .main {
+        padding: 14px 10px 24px;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar {
+        gap: 12px;
+        padding-top: 15px;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar h1 {
+        font-size: 34px;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar-actions {
+        align-items: stretch;
+    }
+
+    html[data-visual-theme="newsprint"] .quick-search {
+        flex-basis: 100%;
+        min-width: 100%;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar-actions > .btn,
+    html[data-visual-theme="newsprint"] .topbar-actions > a.btn,
+    html[data-visual-theme="newsprint"] .topbar-actions > details {
+        flex: 1 1 auto;
+    }
+
+    html[data-visual-theme="newsprint"] .topbar-actions > details .btn {
+        width: 100%;
+    }
+
+    html[data-visual-theme="newsprint"] .card {
+        padding: 12px;
+    }
+
+    html[data-visual-theme="newsprint"] .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-visual-theme="newsprint"] *,
+    html[data-visual-theme="newsprint"] *::before,
+    html[data-visual-theme="newsprint"] *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
