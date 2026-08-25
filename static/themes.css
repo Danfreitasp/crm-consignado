@@ -101,11 +101,28 @@
     box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
 }
 
+.theme-swatch-dopamine {
+    border: 2px solid #ffe600;
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at 24% 24%, #ffe600 0 12%, transparent 13%),
+        linear-gradient(135deg, #ff3af2 0 28%, #7b2fff 28% 55%, #00f5d4 55% 77%, #ff6b35 77%);
+    box-shadow: 3px 3px 0 #00f5d4, 6px 6px 0 #ff3af2;
+}
+
 .theme-swatch-soft-ui {
     border: 0;
     border-radius: 9px;
     background: #e0e5ec;
     box-shadow: 4px 4px 7px rgba(163, 177, 198, .72), -4px -4px 7px rgba(255, 255, 255, .72);
+}
+
+.theme-swatch-neo-brutalism {
+    border: 3px solid #000;
+    border-radius: 0;
+    background:
+        linear-gradient(90deg, #ff6b6b 0 34%, #ffd93d 34% 67%, #c4b5fd 67%);
+    box-shadow: 3px 3px 0 #000;
 }
 
 @media (max-width: 700px) {

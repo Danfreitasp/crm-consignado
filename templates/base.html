@@ -27,7 +27,7 @@
             } catch (error) {
                 // O CRM usa o visual clássico quando o armazenamento local não está disponível.
             }
-            if (!['classico', 'newsprint', 'retro-90s', 'soft-ui'].includes(temaVisual)) temaVisual = 'classico';
+            if (!['classico', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism'].includes(temaVisual)) temaVisual = 'classico';
             document.documentElement.setAttribute('data-visual-theme', temaVisual);
             try {
                 if (localStorage.getItem('crmSidebarRecolhida') === 'true') {
@@ -44,7 +44,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20260825-themes') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='retro-90s.css', v='20260825-retro-90s-6') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dopamine.css', v='20260825-dopamine-7') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='soft-ui.css', v='20260825-soft-ui-3') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='neo-brutalism.css', v='20260825-neo-brutalism-4') }}">
 </head>
 <body>
     <aside class="sidebar">
@@ -122,7 +124,9 @@
                         <button type="button" class="theme-option" data-visual-theme-option="classico" aria-pressed="false"><span class="theme-swatch theme-swatch-classico" aria-hidden="true"></span><span><strong>Clássico</strong><small>Interface original</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="newsprint" aria-pressed="false"><span class="theme-swatch theme-swatch-newsprint" aria-hidden="true"></span><span><strong>Newsprint</strong><small>Editorial em papel</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="retro-90s" aria-pressed="false"><span class="theme-swatch theme-swatch-retro-90s" aria-hidden="true"></span><span><strong>Retro 90s</strong><small>Windows 95 / Web 1.0</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="dopamine" aria-pressed="false"><span class="theme-swatch theme-swatch-dopamine" aria-hidden="true"></span><span><strong>Dopamine</strong><small>Maximalismo hyperpop</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="soft-ui" aria-pressed="false"><span class="theme-swatch theme-swatch-soft-ui" aria-hidden="true"></span><span><strong>Soft UI</strong><small>Neumorphism frio</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="neo-brutalism" aria-pressed="false"><span class="theme-swatch theme-swatch-neo-brutalism" aria-hidden="true"></span><span><strong>Neo Brutal</strong><small>Punk, pop e tátil</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                     </div>
                 </details>
                 <a class="btn btn-primary" href="{{ url_for('nova_proposta') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Nova Proposta</span></a>
