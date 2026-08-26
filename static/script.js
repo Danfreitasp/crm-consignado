@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const localizarCampo = (name) => labels.find((label) => label.querySelector(`[name="${name}"]`));
         const grupos = [
             ['Dados do cliente', ['nome', 'cpf', 'nascimento', 'nb_matricula', 'especie', 'tipo_cliente', 'telefone']],
-            ['Dados da proposta', ['numero_proposta', 'produto', 'banco_atual', 'banco_digitado', 'status', 'parcela_atual', 'nova_parcela', 'margem_apos', 'troco', 'comissao_percentual', 'comissao', 'refin_troco', 'refin_comissao_percentual', 'refin_comissao', 'data_retorno']],
+            ['Dados da proposta', ['numero_proposta', 'produto', 'banco_atual', 'banco_digitado', 'status', 'parcela_atual', 'nova_parcela', 'margem_apos', 'troco', 'comissao_percentual', 'comissao', 'refin_troco', 'reutilizar_percentual_refin', 'refin_comissao_percentual', 'refin_comissao', 'data_retorno']],
             ['Dados da promotora', ['promotora', 'beneficio_bloqueado', 'valor_caiu_promotora', 'valor_sacado']],
         ];
         const usados = new Set();
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 criarGrupoRecolhivel(
                     'Informações do refinanciamento',
-                    ['refin_troco', 'refin_comissao_percentual', 'refin_comissao'],
+                    ['refin_troco', 'reutilizar_percentual_refin', 'refin_comissao_percentual', 'refin_comissao'],
                     'data-refinancing-group',
                 );
             }
@@ -562,6 +562,39 @@ document.addEventListener('DOMContentLoaded', () => {
             trocoInput.addEventListener('change', () => calcularComissaoNoEscopo(form, nomes));
             trocoInput.addEventListener('blur', () => calcularComissaoNoEscopo(form, nomes));
         });
+    });
+
+    document.querySelectorAll('form').forEach((form) => {
+        const reutilizarInput = form.querySelector('[data-refin-percent-reuse] input[type="checkbox"]');
+        const percentualPortInput = form.querySelector('input[name="comissao_percentual"]');
+        const percentualRefinInput = form.querySelector('input[name="refin_comissao_percentual"]');
+        if (!reutilizarInput || !percentualPortInput || !percentualRefinInput) return;
+
+        const percentualRefinLabel = percentualRefinInput.closest('label');
+        const sincronizarPercentuais = () => {
+            const reutilizar = reutilizarInput.checked;
+            percentualRefinInput.readOnly = reutilizar;
+            percentualRefinLabel?.classList.toggle('refin-percent-reused', reutilizar);
+            if (!reutilizar) return;
+
+            percentualRefinInput.value = percentualPortInput.value;
+            calcularComissaoNoEscopo(
+                form,
+                ['refin_troco', 'refin_comissao_percentual', 'refin_comissao'],
+            );
+        };
+
+        reutilizarInput.checked = Math.abs(
+            parsePercentInputValue(percentualPortInput.value)
+            - parsePercentInputValue(percentualRefinInput.value)
+        ) < 0.0001;
+        reutilizarInput.addEventListener('change', sincronizarPercentuais);
+        ['input', 'change', 'blur'].forEach((evento) => {
+            percentualPortInput.addEventListener(evento, () => {
+                if (reutilizarInput.checked) sincronizarPercentuais();
+            });
+        });
+        sincronizarPercentuais();
     });
 
     function mostrarAvisoCopiado(mensagem, tipo = 'ok') {
@@ -1209,9 +1242,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const payload = await response.json();
                 if (!response.ok || payload.success === false) throw new Error(payload.message || 'Não foi possível atualizar os valores.');
 
-                card.dataset.comissao = String(payload.comissao_numero || 0);
+                const comissaoVinculada = Number(card.dataset.comissaoVinculada) || 0;
+                const comissaoTotal = (Number(payload.comissao_numero) || 0) + comissaoVinculada;
+                card.dataset.comissao = String(comissaoTotal);
                 card.querySelector('[data-finance-value]').textContent = payload.troco;
-                card.querySelector('[data-finance-commission]').textContent = payload.comissao;
+                card.querySelector('[data-finance-commission]').textContent = formatarMoeda(comissaoTotal);
                 card.querySelector('[data-finance-percent]').textContent = payload.comissao_percentual;
                 card.querySelector('.encerrada-finance-editor').open = false;
                 atualizarResumoEncerradas(card.closest('.kanban-column'));
@@ -2196,7 +2231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalNode.textContent = isMoney ? money(series.total) : quantity(series.total);
         totalLabel.textContent = isMoney ? 'comissão paga' : 'digitadas no mês';
         note.textContent = isMoney
-            ? 'Comissão paga considera somente propostas encerradas como Pago no mês selecionado. Todo nome iniciado por “Única” — como “Unica - Sub” ou “Unica - Adriano” — é agrupado em Única; Vieira permanece separada.'
+            ? 'Comissão paga considera as operações encerradas como Pago no mês selecionado, incluindo as duas comissões de Port + Refin vinculados. Todo nome iniciado por “Única” — como “Unica - Sub” ou “Unica - Adriano” — é agrupado em Única; Vieira permanece separada.'
             : 'Propostas digitadas considera somente o mês de criação. Todo nome iniciado por “Única” é agrupado em Única; Vieira permanece separada. Portabilidade com Refinanciamento + Refin vinculado contam como uma única proposta.';
 
         let angle = 0;

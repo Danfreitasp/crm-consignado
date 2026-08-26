@@ -67,6 +67,13 @@
     <label class="port-refin-finance-field" data-port-refin-finance-field {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Valor do troco (refinanciamento)
         <input name="refin_troco" class="money-mask" value="{{ br_moeda(proposta.refin_troco or refin.troco or 0) }}">
     </label>
+    <label class="port-refin-finance-field refin-percent-reuse" data-port-refin-finance-field data-refin-percent-reuse {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>
+        <input type="checkbox" name="reutilizar_percentual_refin" value="1">
+        <span>
+            <strong>Usar a mesma porcentagem da portabilidade</strong>
+            <small>Quando marcada, a porcentagem do refin acompanha a da portabilidade.</small>
+        </span>
+    </label>
     <label class="port-refin-finance-field" data-port-refin-finance-field {% if not produto_tem_campos_vinculo(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>% comissão do refinanciamento
         <input name="refin_comissao_percentual" class="percent-mask" value="{{ br_percentual(proposta.refin_comissao_percentual or refin.comissao_percentual or 0) | replace('%', '') }}" placeholder="Pode ser diferente da portabilidade">
     </label>

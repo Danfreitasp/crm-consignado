@@ -90,6 +90,17 @@
     background: linear-gradient(135deg, #eaf3ff 0 50%, #2563eb 50%);
 }
 
+.theme-swatch-lite {
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, #2563eb 0 18%, transparent 18%),
+        linear-gradient(#ffffff 0 22%, #dce3ea 22% 27%, #f4f6f8 27%);
+    box-shadow: 0 2px 5px rgba(31, 41, 51, .08);
+}
+
+.brand-icon-lite,
+.nav-icon-lite { display: none; }
+
 .theme-swatch-newsprint {
     background: linear-gradient(90deg, #f9f9f7 0 68%, #111 68% 85%, #cc0000 85%);
 }

@@ -661,6 +661,33 @@ html[data-theme="escuro"] .portal-import-panel { background: #172554; border-col
 .linked-proposal-field input { background: var(--panel); }
 [data-portability-field][hidden], [data-port-refin-finance-field][hidden] { display: none; }
 .port-refin-finance-field { padding-top: 12px; border-top: 1px dashed var(--line); }
+.refin-percent-reuse {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    cursor: pointer;
+}
+.refin-percent-reuse input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    min-height: 18px;
+    margin: 1px 0 0;
+    padding: 0;
+    accent-color: var(--primary);
+}
+.refin-percent-reuse span { display: grid; gap: 3px; }
+.refin-percent-reuse strong { color: var(--text); font-size: 12px; line-height: 1.35; }
+.refin-percent-reuse small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.refin-percent-reused input[name="refin_comissao_percentual"] {
+    background: var(--surface-soft);
+    color: var(--muted);
+    cursor: default;
+}
 html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-color: #263445; }
 .metric-label-row small { margin-bottom: 0; }
 .saldo-conta-card { border-color: #93c5fd; background: #f8fbff; }

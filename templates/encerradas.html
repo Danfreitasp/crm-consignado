@@ -23,7 +23,7 @@
         </div>
         <div class="kanban-cards" data-status="{{ status }}">
             {% for p in itens %}
-            <article class="kanban-card encerrada-card {% if p.status == 'Pago' %}card-paid{% else %}card-lost{% endif %}" draggable="true" data-proposta-id="{{ p.id }}" data-comissao="{{ p.comissao or 0 }}">
+            <article class="kanban-card encerrada-card {% if p.status == 'Pago' %}card-paid{% else %}card-lost{% endif %}" draggable="true" data-proposta-id="{{ p.id }}" data-comissao="{{ p.comissao_encerradas or 0 }}" data-comissao-vinculada="{{ p.comissao_refin_vinculado or 0 }}">
                 <a href="{{ url_for('detalhe_proposta', proposta_id=p.id, origem=url_origem_atual()) }}">{{ p.nome }}</a>
                 <p>{{ p.produto or 'Produto não informado' }}</p>
                 <small>Banco digitado: {{ banco_digitado_exibicao(p) or '-' }}</small>
@@ -31,8 +31,9 @@
 
                 <div class="encerrada-finance-summary" aria-label="Resumo financeiro">
                     <span><small>Valor</small><strong data-finance-value>{{ br_moeda(p.troco) }}</strong></span>
-                    <span><small>Comissão</small><strong data-finance-commission>{{ br_moeda(p.comissao) }}</strong></span>
+                    <span><small>Comissão</small><strong data-finance-commission>{{ br_moeda(p.comissao_encerradas) }}</strong></span>
                     <small>Comissão: <span data-finance-percent>{{ br_percentual(p.comissao_percentual) }}</span></small>
+                    {% if p.comissao_refin_vinculado %}<small>Inclui {{ br_moeda(p.comissao_refin_vinculado) }} do refin vinculado.</small>{% endif %}
                 </div>
                 <details class="encerrada-finance-editor">
                     <summary><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Editar valores</span></summary>

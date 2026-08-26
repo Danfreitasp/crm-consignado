@@ -673,3 +673,34 @@ html[data-theme="escuro"] .kanban[data-modulo="funil"] .port-refin-values strong
         animation: none !important;
     }
 }
+
+/* No Clássico, os controles da barra superior precisam cobrir o Funil abaixo. */
+html[data-visual-theme="classico"][data-theme="claro"] .topbar-actions .btn:not(.btn-primary) {
+    background: #ffffff;
+    border-color: #d7e0ea;
+}
+
+html[data-visual-theme="classico"][data-theme="escuro"] .topbar-actions .btn:not(.btn-primary) {
+    background: #102541;
+    border-color: #334b6b;
+}
+
+html[data-visual-theme="classico"][data-theme="claro"] .theme-menu-panel,
+html[data-visual-theme="classico"][data-theme="claro"] .theme-option {
+    background: #ffffff;
+}
+
+html[data-visual-theme="classico"][data-theme="claro"] .theme-option:hover,
+html[data-visual-theme="classico"][data-theme="claro"] .theme-option[aria-pressed="true"] {
+    background: #eff6ff;
+}
+
+html[data-visual-theme="classico"][data-theme="escuro"] .theme-menu-panel,
+html[data-visual-theme="classico"][data-theme="escuro"] .theme-option {
+    background: #102541;
+}
+
+html[data-visual-theme="classico"][data-theme="escuro"] .theme-option:hover,
+html[data-visual-theme="classico"][data-theme="escuro"] .theme-option[aria-pressed="true"] {
+    background: #17345f;
+}

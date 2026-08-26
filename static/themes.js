@@ -5,9 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menu || !options.length) return;
 
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    const validThemes = ['classico', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism'];
+    const validThemes = ['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism'];
     const themeColors = {
         classico: '#111827',
+        lite: '#f4f6f8',
         newsprint: '#f9f9f7',
         'retro-90s': '#c0c0c0',
         dopamine: '#0d0d1a',

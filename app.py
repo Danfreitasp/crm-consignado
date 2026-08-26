@@ -2448,6 +2448,65 @@ def propostas_formam_par_port_refin(
     )
 
 
+def proposta_esta_encerrada(proposta: sqlite3.Row | dict[str, Any]) -> bool:
+    """Reconhece também os rótulos antigos de encerramento ainda existentes."""
+    try:
+        status = proposta["status"]
+    except (KeyError, IndexError, TypeError):
+        status = ""
+    return limpar_texto(status) in ("Pago", "Perdido / Cancelado", "Perdido", "Cancelado")
+
+
+def refins_ativos_vinculados(
+    port: sqlite3.Row | dict[str, Any],
+    todas_propostas: list[sqlite3.Row],
+) -> list[sqlite3.Row]:
+    """Retorna comissões vinculadas que seguem ativas após o encerramento da Port."""
+    if not produto_eh_portabilidade_com_refin(port):
+        return []
+    return [
+        proposta
+        for proposta in todas_propostas
+        if proposta_eh_refin_vinculado(proposta)
+        and not proposta_esta_encerrada(proposta)
+        and propostas_formam_par_port_refin(port, proposta)
+    ]
+
+
+def propostas_como_operacoes(
+    propostas: list[sqlite3.Row],
+    todas_propostas: list[sqlite3.Row],
+) -> list[sqlite3.Row]:
+    """Conta cada Port + Refin válida uma vez, usando a Port como operação."""
+    ports = [proposta for proposta in todas_propostas if produto_eh_portabilidade_com_refin(proposta)]
+    ids_refins_vinculados = {
+        proposta["id"]
+        for proposta in propostas
+        if proposta_eh_refin_vinculado(proposta)
+        and any(propostas_formam_par_port_refin(port, proposta) for port in ports)
+    }
+    return [proposta for proposta in propostas if proposta["id"] not in ids_refins_vinculados]
+
+
+def registros_financeiros_pagos(
+    pagas: list[sqlite3.Row],
+    todas_propostas: list[sqlite3.Row],
+) -> list[sqlite3.Row | dict[str, Any]]:
+    """Inclui o refin ativo na comissão paga, herdando a situação financeira da Port."""
+    registros: list[sqlite3.Row | dict[str, Any]] = list(pagas)
+    ids_incluidos = {proposta["id"] for proposta in pagas}
+    for port in pagas:
+        for refin in refins_ativos_vinculados(port, todas_propostas):
+            if refin["id"] in ids_incluidos:
+                continue
+            dados_refin = dict(refin)
+            dados_refin["valor_caiu_promotora"] = port["valor_caiu_promotora"]
+            dados_refin["valor_sacado"] = port["valor_sacado"]
+            registros.append(dados_refin)
+            ids_incluidos.add(refin["id"])
+    return registros
+
+
 def buscar_vinculadas_para_verificacao(proposta: sqlite3.Row) -> list[sqlite3.Row]:
     """Retorna somente o par Port com Refin/Refin que compartilha verificação."""
     if not (produto_eh_portabilidade_com_refin(proposta) or proposta_eh_refin_vinculado(proposta)):
@@ -5924,13 +5983,25 @@ def encerradas():
         """,
         (mes,),
     ).fetchall()
+    todas_propostas = get_db().execute("SELECT * FROM propostas").fetchall()
+    propostas_encerradas = []
+    for proposta in propostas:
+        dados = dict(proposta)
+        comissao_refin_vinculado = sum(
+            float(refin["comissao"] or 0)
+            for refin in refins_ativos_vinculados(proposta, todas_propostas)
+        )
+        dados["comissao_refin_vinculado"] = comissao_refin_vinculado
+        dados["comissao_encerradas"] = float(proposta["comissao"] or 0) + comissao_refin_vinculado
+        propostas_encerradas.append(dados)
+
     grupos = {
         "Pago - falta cair na promotora": [],
         "Pago - disponível para saque": [],
         "Pago - já sacado": [],
         "Perdido / Cancelado": [],
     }
-    for proposta in propostas:
+    for proposta in propostas_encerradas:
         if proposta["status"] == "Pago":
             caiu = (proposta["valor_caiu_promotora"] or "NÃO")
             sacado = (proposta["valor_sacado"] or "NÃO")
@@ -5945,7 +6016,7 @@ def encerradas():
     totais_status = {
         status: {
             "qtd": len(itens),
-            "comissao": sum(float(item["comissao"] or 0) for item in itens),
+            "comissao": sum(float(item["comissao_encerradas"] or 0) for item in itens),
         }
         for status, itens in grupos.items()
     }
@@ -6599,11 +6670,11 @@ def grupo_promotora_dashboard(valor: Any) -> str:
 
 def comparativo_promotoras_dashboard(
     propostas_mes: list[sqlite3.Row],
-    propostas_pagas_mes: list[sqlite3.Row],
+    propostas_pagas_mes: list[sqlite3.Row | dict[str, Any]],
 ) -> dict[str, Any]:
     """Compara comissão paga e operações digitadas de Única e Vieira.
 
-    Comissão é somada por registro efetivamente pago. Na quantidade digitada,
+    Comissão é somada por registro financeiro considerado pago. Na quantidade digitada,
     o refin que forma um par válido com sua Portabilidade com Refinanciamento
     é omitido, mantendo a operação como uma única proposta.
     """
@@ -6670,43 +6741,59 @@ def consulta_dashboard(mes: str) -> dict[str, Any]:
         """,
         (mes,),
     ).fetchall()
+    todas_propostas = db.execute("SELECT * FROM propostas").fetchall()
     placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
     propostas_comissao_prevista = db.execute(
         f"""
-        SELECT status, comissao
+        SELECT *
         FROM propostas
         WHERE status IN ({placeholders_comissao_prevista})
         """,
         STATUS_COMISSAO_PREVISTA,
     ).fetchall()
-    total = len(propostas)
-    pagas = [p for p in propostas_encerradas_mes if p["status"] == "Pago"]
-    perdidas = [p for p in propostas_encerradas_mes if p["status"] in ("Perdido", "Cancelado", "Perdido / Cancelado")]
+    propostas_operacoes = propostas_como_operacoes(propostas, todas_propostas)
+    pagas_registros = [p for p in propostas_encerradas_mes if p["status"] == "Pago"]
+    perdidas_registros = [p for p in propostas_encerradas_mes if p["status"] in ("Perdido", "Cancelado", "Perdido / Cancelado")]
+    pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
+    perdidas = propostas_como_operacoes(perdidas_registros, todas_propostas)
+    pagas_financeiras = registros_financeiros_pagos(pagas_registros, todas_propostas)
+    propostas_comissao_prevista = [
+        proposta
+        for proposta in propostas_comissao_prevista
+        if not (
+            proposta_eh_refin_vinculado(proposta)
+            and any(
+                proposta_esta_encerrada(port)
+                and propostas_formam_par_port_refin(port, proposta)
+                for port in todas_propostas
+                if produto_eh_portabilidade_com_refin(port)
+            )
+        )
+    ]
+    total = len(propostas_operacoes)
     troco_previsto = sum(float(p["troco"] or 0) for p in propostas)
-    troco_pago = sum(float(p["troco"] or 0) for p in pagas)
+    troco_pago = sum(float(p["troco"] or 0) for p in pagas_registros)
     comissao_prevista = sum(float(p["comissao"] or 0) for p in propostas_comissao_prevista)
-    comissao_paga = sum(float(p["comissao"] or 0) for p in pagas)
-    valor_a_sacar = sum(float(p["comissao"] or 0) for p in pagas if (p["valor_caiu_promotora"] or "NÃO") == "SIM" and (p["valor_sacado"] or "NÃO") != "SIM")
-    falta_cair_promotora = sum(float(p["comissao"] or 0) for p in pagas if (p["valor_caiu_promotora"] or "NÃO") != "SIM")
-    valor_ja_sacado = sum(float(p["comissao"] or 0) for p in pagas if (p["valor_sacado"] or "NÃO") == "SIM")
+    comissao_paga = sum(float(p["comissao"] or 0) for p in pagas_financeiras)
+    valor_a_sacar = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_caiu_promotora"] or "NÃO") == "SIM" and (p["valor_sacado"] or "NÃO") != "SIM")
+    falta_cair_promotora = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_caiu_promotora"] or "NÃO") != "SIM")
+    valor_ja_sacado = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_sacado"] or "NÃO") == "SIM")
     saldo_atual = saldo_em_conta()
     valor_a_receber = valor_a_sacar + falta_cair_promotora + saldo_atual
     valor_previsto = comissao_prevista + valor_a_receber
-    comparativo_promotoras = comparativo_promotoras_dashboard(propostas, pagas)
+    comparativo_promotoras = comparativo_promotoras_dashboard(propostas, pagas_financeiras)
 
     def agrupar(campo: str) -> list[dict[str, Any]]:
-        rows = db.execute(
-            f"""
-            SELECT COALESCE(NULLIF({campo}, ''), 'Não informado') AS nome, COUNT(*) AS qtd
-            FROM propostas
-            WHERE substr(data_criacao, 1, 7) = ?
-            GROUP BY COALESCE(NULLIF({campo}, ''), 'Não informado')
-            ORDER BY qtd DESC, nome ASC
-            """,
-            (mes,),
-        ).fetchall()
-        maior = max([r["qtd"] for r in rows], default=1)
-        return [{"nome": r["nome"], "qtd": r["qtd"], "percentual": round((r["qtd"] / maior) * 100, 1)} for r in rows]
+        contagens: dict[str, int] = {}
+        for proposta in propostas_operacoes:
+            nome = limpar_texto(proposta[campo]) or "Não informado"
+            contagens[nome] = contagens.get(nome, 0) + 1
+        rows = sorted(contagens.items(), key=lambda item: (-item[1], item[0]))
+        maior = max([qtd for _, qtd in rows], default=1)
+        return [
+            {"nome": nome, "qtd": qtd, "percentual": round((qtd / maior) * 100, 1)}
+            for nome, qtd in rows
+        ]
 
     return {
         "mes": mes,
@@ -6790,27 +6877,28 @@ def formatar_valor_dashboard(valor: float, tipo: str) -> str:
 
 def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
     ajudas = {
-        "total": "Conta as propostas criadas no mês selecionado.",
-        "pagas": "Conta as propostas encerradas como Pago no mês selecionado.",
-        "perdidas": "Conta as propostas encerradas como Perdido ou Cancelado no mês selecionado.",
+        "total": "Conta as operações criadas no mês selecionado. Port + Refin vinculados contam uma vez.",
+        "pagas": "Conta as operações encerradas como Pago no mês selecionado. Port + Refin vinculados contam uma vez.",
+        "perdidas": "Conta as operações encerradas como Perdido ou Cancelado no mês selecionado. Port + Refin vinculados contam uma vez.",
         "troco_previsto": "Soma o Troco de todas as propostas criadas no mês selecionado.",
         "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado.",
         "comissao_prevista": (
             "Soma a Comissão atual de todas as propostas nos status: "
             f"{', '.join(dados['comissao_prevista_status'])}. "
+            "Refins cuja Port vinculada já foi encerrada não entram neste previsto. "
             "Este indicador considera a carteira atual, sem limitar pelo mês selecionado."
         ),
-        "comissao_paga": "Soma a Comissão das propostas encerradas como Pago no mês selecionado.",
+        "comissao_paga": "Soma as comissões das operações pagas no mês, incluindo Port + Refin vinculados.",
         "valor_a_sacar": (
-            "Soma a Comissão das propostas pagas no mês em que Valor caiu na promotora = SIM "
+            "Soma as comissões das operações pagas no mês em que Valor caiu na promotora = SIM "
             "e Valor sacado é diferente de SIM."
         ),
         "falta_cair_promotora": (
-            "Soma a Comissão das propostas pagas no mês em que Valor caiu na promotora "
+            "Soma as comissões das operações pagas no mês em que Valor caiu na promotora "
             "é diferente de SIM."
         ),
         "valor_ja_sacado": (
-            "Soma a Comissão das propostas pagas no mês em que Valor sacado = SIM."
+            "Soma as comissões das operações pagas no mês em que Valor sacado = SIM."
         ),
         "saldo_em_conta": "Valor informado manualmente no botão de editar deste cartão.",
         "valor_a_receber": (
