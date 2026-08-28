@@ -2340,8 +2340,8 @@ def buscar_portabilidade_origem_refin(proposta: sqlite3.Row) -> sqlite3.Row | No
 
 
 def montar_anuencia_refin(
-    refin: sqlite3.Row,
-    portabilidade: sqlite3.Row | None,
+    refin: sqlite3.Row | dict[str, Any],
+    portabilidade: sqlite3.Row | dict[str, Any] | None,
 ) -> dict[str, Any] | None:
     """Monta a anuência usando dados do refin e da portabilidade que o originou."""
     if not portabilidade:
@@ -2372,6 +2372,9 @@ def montar_anuencia_refin(
         "troco": troco,
         "prazo": prazo,
         "portabilidade_id": portabilidade["id"],
+        "portabilidade_numero": portabilidade["numero_proposta"],
+        "refinanciamento_id": refin["id"],
+        "refinanciamento_numero": refin["numero_proposta"],
     }
     faltantes = []
     for chave, rotulo in (
@@ -3713,7 +3716,13 @@ def detalhe_proposta(proposta_id: int):
     vinculadas = buscar_propostas_vinculadas(proposta)
     refin_vinculado = next((item for item in vinculadas if proposta_eh_refin_vinculado(item)), None)
     portabilidade_origem = buscar_portabilidade_origem_refin(proposta)
-    anuencia_refin = montar_anuencia_refin(proposta, portabilidade_origem)
+    if refin_vinculado and produto_eh_portabilidade_com_refin(proposta):
+        # Depois da unificacao visual, o card de Port + Refin abre a portabilidade.
+        # A anuencia continua usando os dois registros financeiros, mas agora fica
+        # acessivel tanto pela operacao unificada quanto pelo refin interno.
+        anuencia_refin = montar_anuencia_refin(refin_vinculado, proposta)
+    else:
+        anuencia_refin = montar_anuencia_refin(proposta, portabilidade_origem)
     mensagens = montar_mensagens(proposta)
     return render_template(
         "detalhe_proposta.html",
@@ -3743,8 +3752,18 @@ def atualizar_troco_anuencia(proposta_id: int):
     if not proposta:
         flash("Proposta não encontrada.", "erro")
         return redirect(url_for("index"))
-    if not proposta_eh_refin_vinculado(proposta) or not buscar_portabilidade_origem_refin(proposta):
-        flash("O troco da anuência só pode ser alterado no refinanciamento vinculado.", "erro")
+    refin = proposta if proposta_eh_refin_vinculado(proposta) else None
+    if produto_eh_portabilidade_com_refin(proposta):
+        refin = next(
+            (
+                item
+                for item in buscar_propostas_vinculadas(proposta)
+                if proposta_eh_refin_vinculado(item)
+            ),
+            None,
+        )
+    if not refin or not buscar_portabilidade_origem_refin(refin):
+        flash("A anuência exige uma Port + Refin com refinanciamento vinculado.", "erro")
         return redirect(url_for("detalhe_proposta", proposta_id=proposta_id))
 
     troco_informado = limpar_texto(request.form.get("troco"))
@@ -3753,20 +3772,20 @@ def atualizar_troco_anuencia(proposta_id: int):
         flash("Informe um valor de troco maior que zero.", "erro")
         return redirect(destino)
 
-    troco_anterior = float(proposta["troco"] or 0)
+    troco_anterior = float(refin["troco"] or 0)
     if round(troco_anterior, 2) == round(novo_troco, 2):
         flash("O troco informado já está atualizado.", "ok")
         return redirect(destino)
 
     get_db().execute(
         "UPDATE propostas SET troco = ?, data_atualizacao = ? WHERE id = ?",
-        (novo_troco, agora_iso(), proposta_id),
+        (novo_troco, agora_iso(), refin["id"]),
     )
     get_db().commit()
     registrar_historico(
-        proposta_id,
-        proposta["status"],
-        proposta["status"],
+        refin["id"],
+        refin["status"],
+        refin["status"],
         f"Troco do refinanciamento atualizado pela anuência: {br_moeda(troco_anterior)} para {br_moeda(novo_troco)}.",
     )
     flash("Troco atualizado e anuência regenerada.", "ok")

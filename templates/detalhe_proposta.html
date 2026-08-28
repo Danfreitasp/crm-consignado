@@ -357,8 +357,10 @@
             <textarea class="consent-output" rows="16" readonly aria-label="Mensagem de anuência gerada">{{ anuencia_refin.texto }}</textarea>
 
             <div class="consent-origin-note">
-                <span><i class="bi bi-link-45deg" aria-hidden="true"></i> Portabilidade de origem nº {{ proposta.numero_port_vinculada }}</span>
-                <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=anuencia_refin.portabilidade_id, origem=url_retorno_padrao()) }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir portabilidade</span></a>
+                <span><i class="bi bi-link-45deg" aria-hidden="true"></i> Portabilidade nº {{ anuencia_refin.portabilidade_numero }} + Refin nº {{ anuencia_refin.refinanciamento_numero }}</span>
+                {% if proposta.id != anuencia_refin.portabilidade_id %}
+                <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=anuencia_refin.portabilidade_id, origem=url_retorno_padrao()) }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir operação unificada</span></a>
+                {% endif %}
             </div>
         </section>
         {% endif %}

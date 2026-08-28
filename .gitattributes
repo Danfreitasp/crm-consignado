@@ -1,0 +1,7 @@
+# Mantem os arquivos de codigo consistentes entre Linux e Windows.
+* text=auto eol=lf
+
+# Scripts executados diretamente pelo Windows preservam CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
