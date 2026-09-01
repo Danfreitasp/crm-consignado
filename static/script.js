@@ -1849,15 +1849,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Um seletor próprio evita que outro controle com data-copy seja escolhido
     // caso novos botões sejam adicionados ao formulário.
     const copiarResumo = document.getElementById('simCopiarResumo');
+    const mensagemModelo = document.getElementById('simMensagemModelo');
+    const restaurarMensagem = document.getElementById('simRestaurarMensagem');
+    const mensagemModeloPadraoTag = document.getElementById('portMensagemModeloPadrao');
+    let mensagemModeloPadrao = '';
+    try { mensagemModeloPadrao = JSON.parse(mensagemModeloPadraoTag?.textContent || '""'); } catch (e) {}
+    const mensagemModeloStorageKey = 'crmSimuladorPortRefinMensagemModelo';
     let prazoEmEdicao = null;
 
+    if (mensagemModelo) {
+        try {
+            const modeloSalvo = localStorage.getItem(mensagemModeloStorageKey);
+            if (modeloSalvo && mensagemModelo.value === mensagemModeloPadrao) {
+                mensagemModelo.value = modeloSalvo;
+            }
+        } catch (e) {}
+    }
+
     function parseBR(value) {
-        const text = String(value || '').replace('%', '').trim();
+        const text = String(value || '').replace(/R\$/gi, '').replace('%', '').replace(/\s+/g, '').trim();
         if (!text) return 0;
         if (typeof parseMoneyInputValue === 'function') {
             return parseMoneyInputValue(text);
         }
-        return Number(text.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
+        return Number(text.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
     function brl(value) {
@@ -1926,8 +1941,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function atualizarResumo(mensagem) {
-        if (resumoTexto) resumoTexto.innerHTML = mensagem.replace(/\n/g, '<br>');
+        if (resumoTexto) resumoTexto.textContent = mensagem;
         if (copiarResumo) copiarResumo.dataset.copy = mensagem;
+    }
+
+    function preencherModeloMensagem(modelo, variaveis) {
+        return Object.entries(variaveis).reduce(
+            (texto, [nome, valor]) => texto.replaceAll(`{${nome}}`, String(valor)),
+            modelo,
+        );
     }
 
     function calcular(campoOrigem = null) {
@@ -2036,15 +2058,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const modeInputs = Array.from(form.querySelectorAll('input[name="modo_simulacao"]'));
     const modePanels = Array.from(form.querySelectorAll('[data-simulator-panel]'));
+    const sourceInputs = Array.from(form.querySelectorAll('input[name="fonte_simulacao"]'));
+    const sourcePanels = Array.from(form.querySelectorAll('[data-simulator-source-panel]'));
     const portFields = {
         tabela: document.getElementById('portTabela'),
         parcelaAtual: document.getElementById('portParcelaAtual'),
         saldo: document.getElementById('portSaldoQuitacao'),
+        prazoContrato: document.getElementById('portPrazoContrato'),
+        parcelasPagas: document.getElementById('portParcelasPagas'),
+        taxaContratoAtual: document.getElementById('portTaxaContratoAtual'),
         novoPrazo: document.getElementById('portNovoPrazo'),
         novaParcela: document.getElementById('portNovaParcela'),
+        margemImportada: document.getElementById('portMargemImportada'),
         taxa: document.getElementById('portTaxaNova'),
         coeficiente: document.getElementById('portCoeficiente'),
     };
+    const deduzirNegativoInputs = Array.from(form.querySelectorAll('input[name="deduzir_negativo"]'));
+    const negativeHelp = document.getElementById('portNegativeHelp');
+    const recalcularSaldo = document.getElementById('portRecalcularSaldo');
+    const saldoRecalculadoStatus = document.getElementById('portSaldoRecalculadoStatus');
+    const extratoArquivo = document.getElementById('portExtratoArquivo');
+    const lerExtrato = document.getElementById('portLerExtrato');
+    const extratoStatus = document.getElementById('portExtratoStatus');
+    const extratoContractPicker = document.getElementById('portExtratoContractPicker');
+    const extratoContractSelect = document.getElementById('portExtratoContractSelect');
+    const bancoAtualInput = document.getElementById('portBancoAtual');
+    const numeroContratoInput = document.getElementById('portNumeroContrato');
+    let contratosDoExtrato = [];
     const portOutputs = {
         valorContrato: document.getElementById('portValorContrato'),
         troco: document.getElementById('portTroco'),
@@ -2058,12 +2098,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return modeInputs.find((input) => input.checked)?.value || 'novo';
     }
 
+    function atualizarFonteSimulacao() {
+        const fonte = sourceInputs.find((input) => input.checked)?.value || 'extrato';
+        sourcePanels.forEach((panel) => {
+            panel.hidden = panel.dataset.simulatorSourcePanel !== fonte;
+        });
+    }
+
     function calcularPortRefin() {
         const parcelaAtual = parseBR(portFields.parcelaAtual?.value);
         const saldo = parseBR(portFields.saldo?.value);
         const prazoNovo = Math.max(0, Number(portFields.novoPrazo?.value || 0));
         const novaParcelaInformada = parseBR(portFields.novaParcela?.value);
-        const novaParcela = novaParcelaInformada || parcelaAtual;
+        const margemImportada = parseBR(portFields.margemImportada?.value);
+        const deduzirNegativo = deduzirNegativoInputs.find((input) => input.checked)?.value === 'sim';
+        const negativoDeduzido = deduzirNegativo && margemImportada < 0 ? Math.abs(margemImportada) : 0;
+        const novaParcela = negativoDeduzido
+            ? Math.max(0, parcelaAtual - negativoDeduzido)
+            : (novaParcelaInformada || parcelaAtual);
         const taxaMensal = parseCoeficiente(portFields.taxa?.value);
         const coeficienteInformado = parseCoeficiente(portFields.coeficiente?.value);
         const fatorSaldo = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.fatorSaldo || 1);
@@ -2107,16 +2159,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (portOutputs.inserirProposta) {
             portOutputs.inserirProposta.hidden = modoAtual() !== 'port_refin' || Boolean(erros.length) || troco < 0;
         }
+        if (negativeHelp) {
+            if (margemImportada < 0 && deduzirNegativo) {
+                negativeHelp.textContent = `${brl(Math.abs(margemImportada))} deduzidos: a nova parcela calculada é ${brl(novaParcela)}.`;
+            } else if (margemImportada < 0) {
+                negativeHelp.textContent = `Margem negativa de ${brl(Math.abs(margemImportada))} ignorada; a nova parcela não foi reduzida por ela.`;
+            } else if (margemImportada > 0) {
+                negativeHelp.textContent = `Margem positiva de ${brl(margemImportada)}: não há valor negativo para deduzir.`;
+            } else {
+                negativeHelp.textContent = 'Por padrão, a margem negativa importada não altera a nova parcela.';
+            }
+        }
 
         const bancoAtual = form.elements.namedItem('banco_atual')?.value.trim() || 'não informado';
         const saudacao = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde';
-        const mensagem = `${saudacao}! Meu nome é Poliana e falo da Facilita Brasil.\n\n` +
-            `Conseguimos fazer a portabilidade dos seus contratos: ${bancoAtual}\n\n` +
-            `Além disso, a parcela será reduzida: ${valorBR(parcelaAtual)} para ${valorBR(novaParcela)}\n\n` +
-            `Troco disponível: ${valorBR(troco)}\n\n` +
-            '*Atenção, esse processo NÃO é um empréstimo novo, estamos reduzindo a parcela que você já paga.*\n\n' +
-            'Essa oferta é interessante para você hoje?\n\n' +
-            'https://www.facilitabrasiloficial.com.br';
+        const modelo = mensagemModelo?.value || mensagemModeloPadrao;
+        const mensagem = preencherModeloMensagem(modelo, {
+            saudacao,
+            banco_atual: bancoAtual,
+            parcela_atual: valorBR(parcelaAtual),
+            nova_parcela: valorBR(novaParcela),
+            troco: valorBR(troco),
+        });
         atualizarResumo(mensagem);
     }
 
@@ -2132,6 +2196,127 @@ document.addEventListener('DOMContentLoaded', () => {
         calcularPortRefin();
     }
 
+    function recalcularSaldoContrato() {
+        const parcela = parseBR(portFields.parcelaAtual?.value);
+        const prazoOriginal = Math.max(0, Math.trunc(Number(portFields.prazoContrato?.value || 0)));
+        const parcelasPagas = Math.max(0, Math.trunc(Number(portFields.parcelasPagas?.value || 0)));
+        const parcelasRestantes = Math.max(0, prazoOriginal - parcelasPagas);
+        const taxaPercentual = parseCoeficiente(portFields.taxaContratoAtual?.value);
+
+        if (!parcela || !prazoOriginal || !parcelasRestantes || taxaPercentual <= 0) {
+            if (saldoRecalculadoStatus) {
+                saldoRecalculadoStatus.textContent = 'Informe parcela atual, prazo original, parcelas pagas e uma taxa maior que zero.';
+            }
+            return;
+        }
+
+        const taxaDecimal = taxaPercentual / 100;
+        const saldoAtualizado = parcela * (1 - Math.pow(1 + taxaDecimal, -parcelasRestantes)) / taxaDecimal;
+        if (portFields.saldo) portFields.saldo.value = brl(saldoAtualizado);
+        if (saldoRecalculadoStatus) {
+            saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes à taxa de ${taxaPercentual.toLocaleString('pt-BR')}% a.m. Confira com o extrato.`;
+        }
+        calcularPortRefin();
+    }
+
+    function preencherCampoExtrato(campo, valor) {
+        if (!campo) return;
+        campo.value = valor;
+        campo.dispatchEvent(new Event('input', { bubbles: true }));
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function atualizarStatusExtrato(estado, mensagem) {
+        if (!extratoStatus) return;
+        extratoStatus.dataset.state = estado;
+        extratoStatus.textContent = mensagem;
+    }
+
+    function definirLeituraExtratoEmAndamento(emAndamento) {
+        if (!lerExtrato) return;
+        lerExtrato.disabled = emAndamento;
+        lerExtrato.setAttribute('aria-busy', emAndamento ? 'true' : 'false');
+        const icone = lerExtrato.querySelector('i');
+        const texto = lerExtrato.querySelector('span');
+        if (icone) {
+            icone.className = emAndamento
+                ? 'bi bi-arrow-repeat statement-reader-spinner'
+                : 'bi bi-file-earmark-arrow-up';
+        }
+        if (texto) texto.textContent = emAndamento ? 'Aguarde...' : 'Ler extrato';
+    }
+
+    function aplicarDadosBeneficiarioDoExtrato(payload) {
+        preencherCampoExtrato(form.elements.namedItem('nome'), payload.nome || '');
+        preencherCampoExtrato(form.elements.namedItem('nb_matricula'), payload.nb_matricula || '');
+        preencherCampoExtrato(form.elements.namedItem('especie'), payload.especie || '');
+        preencherCampoExtrato(form.elements.namedItem('dados_bancarios'), payload.dados_bancarios || '');
+        preencherCampoExtrato(portFields.margemImportada, brl(Number(payload.margem_disponivel) || 0));
+    }
+
+    function aplicarContratoDoExtrato() {
+        const contrato = contratosDoExtrato[Number(extratoContractSelect?.value)];
+        if (!contrato) return;
+        preencherCampoExtrato(bancoAtualInput, contrato.banco || contrato.banco_descricao || '');
+        preencherCampoExtrato(numeroContratoInput, contrato.numero || '');
+        preencherCampoExtrato(portFields.parcelaAtual, brl(contrato.parcela));
+        preencherCampoExtrato(portFields.saldo, brl(contrato.saldo_calculado));
+        preencherCampoExtrato(portFields.prazoContrato, contrato.prazo_total);
+        preencherCampoExtrato(portFields.parcelasPagas, contrato.parcelas_pagas);
+        preencherCampoExtrato(portFields.taxaContratoAtual, Number(contrato.taxa).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+        if (saldoRecalculadoStatus) {
+            saldoRecalculadoStatus.textContent = `Saldo estimado em ${brl(contrato.saldo_calculado)} para ${contrato.parcelas_restantes} parcelas restantes à taxa de ${Number(contrato.taxa).toLocaleString('pt-BR')}% a.m.`;
+        }
+        if (extratoStatus) {
+            atualizarStatusExtrato('success', `Extrato importado com sucesso. Contrato ${contrato.numero}: ${contrato.parcelas_pagas} de ${contrato.prazo_total} parcelas pagas. ${contrato.taxa_fonte}.`);
+        }
+        calcularPortRefin();
+    }
+
+    async function carregarExtrato() {
+        const arquivo = extratoArquivo?.files?.[0];
+        if (!arquivo) {
+            atualizarStatusExtrato('error', 'Selecione primeiro um extrato do INSS em PDF.');
+            return;
+        }
+        definirLeituraExtratoEmAndamento(true);
+        atualizarStatusExtrato('loading', 'Aguarde, estamos lendo os dados e os contratos do extrato...');
+        if (extratoContractPicker) extratoContractPicker.hidden = true;
+        try {
+            const dadosEnvio = new FormData();
+            dadosEnvio.append('extrato', arquivo);
+            const response = await fetch('/api/simulador-inss/ler-extrato', { method: 'POST', body: dadosEnvio });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.erro || 'Não foi possível ler o extrato.');
+            contratosDoExtrato = Array.isArray(payload.contratos) ? payload.contratos : [];
+            if (!contratosDoExtrato.length) throw new Error('Nenhum contrato ativo foi encontrado no extrato.');
+            aplicarDadosBeneficiarioDoExtrato(payload);
+            if (extratoContractSelect) {
+                extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
+                contratosDoExtrato.forEach((contrato, indice) => {
+                    const option = document.createElement('option');
+                    option.value = String(indice);
+                    option.textContent = `${contrato.banco} · ${contrato.numero} · ${contrato.parcelas_pagas}/${contrato.prazo_total} pagas · ${Number(contrato.taxa).toLocaleString('pt-BR')}% a.m. · saldo ${brl(contrato.saldo_calculado)}`;
+                    option.title = option.textContent;
+                    extratoContractSelect.appendChild(option);
+                });
+            }
+            if (extratoContractPicker) extratoContractPicker.hidden = false;
+            const especie = payload.especie
+                ? ` Espécie ${payload.especie}${payload.especie_descricao ? ` - ${payload.especie_descricao}.` : '.'}`
+                : '';
+            const contratosEncontrados = contratosDoExtrato.length === 1
+                ? '1 contrato encontrado'
+                : `${contratosDoExtrato.length} contratos encontrados`;
+            atualizarStatusExtrato('success', `Extrato importado com sucesso. ${contratosEncontrados} no extrato de ${payload.data_extrato}.${especie} Selecione o contrato que deseja simular.`);
+        } catch (error) {
+            contratosDoExtrato = [];
+            atualizarStatusExtrato('error', error.message);
+        } finally {
+            definirLeituraExtratoEmAndamento(false);
+        }
+    }
+
     function atualizarModo() {
         const atual = modoAtual();
         modePanels.forEach((panel) => { panel.hidden = panel.dataset.simulatorPanel !== atual; });
@@ -2143,12 +2328,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     modeInputs.forEach((input) => input.addEventListener('change', atualizarModo));
+    sourceInputs.forEach((input) => input.addEventListener('change', atualizarFonteSimulacao));
     if (portFields.tabela) portFields.tabela.addEventListener('change', aplicarTabelaPortRefin);
+    if (recalcularSaldo) recalcularSaldo.addEventListener('click', recalcularSaldoContrato);
+    if (lerExtrato) lerExtrato.addEventListener('click', carregarExtrato);
+    if (extratoContractSelect) extratoContractSelect.addEventListener('change', aplicarContratoDoExtrato);
     Object.values(portFields).forEach((field) => {
         if (!field) return;
         field.addEventListener('input', calcularPortRefin);
         field.addEventListener('change', calcularPortRefin);
     });
+    deduzirNegativoInputs.forEach((input) => input.addEventListener('change', calcularPortRefin));
+    if (mensagemModelo) {
+        mensagemModelo.addEventListener('input', () => {
+            try { localStorage.setItem(mensagemModeloStorageKey, mensagemModelo.value); } catch (e) {}
+            calcularPortRefin();
+        });
+    }
+    if (restaurarMensagem && mensagemModelo) {
+        restaurarMensagem.addEventListener('click', () => {
+            mensagemModelo.value = mensagemModeloPadrao;
+            try { localStorage.removeItem(mensagemModeloStorageKey); } catch (e) {}
+            calcularPortRefin();
+            mensagemModelo.focus();
+        });
+    }
+    atualizarFonteSimulacao();
     atualizarModo();
 });
 
@@ -2229,10 +2434,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         totalNode.textContent = isMoney ? money(series.total) : quantity(series.total);
-        totalLabel.textContent = isMoney ? 'comissão paga' : 'digitadas no mês';
+        totalLabel.textContent = isMoney ? 'comissão paga' : 'propostas no mês';
         note.textContent = isMoney
             ? 'Comissão paga considera as operações encerradas como Pago no mês selecionado, incluindo as duas comissões de Port + Refin vinculados. Todo nome iniciado por “Única” — como “Unica - Sub” ou “Unica - Adriano” — é agrupado em Única; Vieira permanece separada.'
-            : 'Propostas digitadas considera somente o mês de criação. Todo nome iniciado por “Única” é agrupado em Única; Vieira permanece separada. Portabilidade com Refinanciamento + Refin vinculado contam como uma única proposta.';
+            : 'Propostas no mês considera as criadas no período e, no mês atual, também as operações antigas que continuam ativas. Todo nome iniciado por “Única” é agrupado em Única; Vieira permanece separada. Portabilidade com Refinanciamento + Refin vinculado contam como uma única proposta.';
 
         let angle = 0;
         if (!Number(series.total)) {

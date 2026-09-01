@@ -27,12 +27,14 @@ from flask import (
     url_for,
 )
 from openpyxl import Workbook, load_workbook
+import pdfplumber
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = Path(os.environ.get("CRM_DATABASE", BASE_DIR / "database.db"))
 DATA_DIR = BASE_DIR / "data"
 MODELOS_PATH = DATA_DIR / "modelos_mensagens.json"
+INSS_ESPECIES_PATH = DATA_DIR / "inss_especies_beneficios.json"
 BACKUP_DIR = BASE_DIR / "backups"
 EXTENSAO_CORBAN_DIR = BASE_DIR / "integrations" / "sistemacorban-importer"
 MAX_BACKUPS = 30
@@ -90,6 +92,7 @@ STATUS_LIST = [s["nome"] for s in DEFAULT_STATUS_ETAPAS]
 STATUS_VENDEDOR = STATUS_LIST
 STATUS_ADMINISTRATIVO = STATUS_LIST
 STATUS_ENCERRADOS = ["Pago", "Perdido / Cancelado"]
+STATUS_ENCERRADOS_COMPATIVEIS = ("Pago", "Perdido / Cancelado", "Perdido", "Cancelado")
 STATUS_COMISSAO_PREVISTA = (
     "Aguardando CIP",
     "Refin da Port",
@@ -240,6 +243,16 @@ INSS_PORT_REFIN_TABELAS = {
     "407": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022684419086, "fator_saldo": 0.96639382},
     "408": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022422658197, "fator_saldo": 0.96639382},
 }
+
+INSS_PORT_REFIN_MENSAGEM_MODELO = (
+    "{saudacao}! Meu nome é Poliana e falo da Facilita Brasil.\n\n"
+    "Conseguimos fazer a portabilidade dos seus contratos: {banco_atual}\n\n"
+    "Além disso, a parcela será reduzida: {parcela_atual} para {nova_parcela}\n\n"
+    "Troco disponível: {troco}\n\n"
+    "*Atenção, esse processo NÃO é um empréstimo novo, estamos reduzindo a parcela que você já paga.*\n\n"
+    "Essa oferta é interessante para você hoje?\n\n"
+    "https://www.facilitabrasiloficial.com.br"
+)
 
 # Cartão INSS por margem, conforme aba INSS do simulador.
 INSS_CARTAO_COEFICIENTES = {
@@ -1384,7 +1397,7 @@ def parse_moeda(valor: Any) -> float:
     texto = str(valor).strip()
     if not texto:
         return 0.0
-    texto = texto.replace("R$", "").replace(" ", "")
+    texto = re.sub(r"\s+", "", texto.replace("R$", ""))
     if not texto:
         return 0.0
     if "," in texto:
@@ -1586,6 +1599,22 @@ def normalizar_status_importacao(valor: Any) -> str:
 
 def mes_atual() -> str:
     return date.today().strftime("%Y-%m")
+
+
+def filtro_propostas_mes_dashboard(mes: str) -> tuple[str, list[Any]]:
+    """Mantém pendências antigas no Dashboard do mês atual sem alterar sua criação."""
+    if mes != mes_atual():
+        return "substr(data_criacao, 1, 7) = ?", [mes]
+    placeholders = ", ".join("?" for _ in STATUS_ENCERRADOS_COMPATIVEIS)
+    return (
+        "("
+        "substr(data_criacao, 1, 7) = ? OR "
+        "(substr(data_criacao, 1, 7) < ? "
+        "AND COALESCE(TRIM(data_criacao), '') <> '' "
+        f"AND status NOT IN ({placeholders}))"
+        ")",
+        [mes, mes, *STATUS_ENCERRADOS_COMPATIVEIS],
+    )
 
 
 def status_encerrado(status: str) -> bool:
@@ -2457,7 +2486,7 @@ def proposta_esta_encerrada(proposta: sqlite3.Row | dict[str, Any]) -> bool:
         status = proposta["status"]
     except (KeyError, IndexError, TypeError):
         status = ""
-    return limpar_texto(status) in ("Pago", "Perdido / Cancelado", "Perdido", "Cancelado")
+    return limpar_texto(status) in STATUS_ENCERRADOS_COMPATIVEIS
 
 
 def refins_ativos_vinculados(
@@ -3022,6 +3051,12 @@ def dados_simulador_inss() -> dict[str, Any]:
     faixa_cartao = limpar_texto(request.form.get("faixa_cartao")) or "ate_74"
     valor_base = parse_moeda(request.form.get("valor_base"))
     margem = parse_moeda(request.form.get("margem"))
+    deduzir_negativo = limpar_texto(request.form.get("deduzir_negativo")).lower()
+    if deduzir_negativo not in {"sim", "nao"}:
+        deduzir_negativo = "nao"
+    mensagem_modelo = str(request.form.get("mensagem_modelo") or "").strip()
+    if not mensagem_modelo:
+        mensagem_modelo = INSS_PORT_REFIN_MENSAGEM_MODELO
     return {
         "nome": limpar_texto(request.form.get("nome")),
         "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
@@ -3045,12 +3080,16 @@ def dados_simulador_inss() -> dict[str, Any]:
         "saldo_quitacao": parse_moeda(request.form.get("saldo_quitacao")),
         "prazo_contrato": max(0, int(parse_moeda(request.form.get("prazo_contrato")))),
         "parcelas_pagas": max(0, int(parse_moeda(request.form.get("parcelas_pagas")))),
+        "taxa_contrato_atual": parse_percentual(request.form.get("taxa_contrato_atual")),
         "banco_destino": "QUALI" if modo_simulacao == "port_refin" else limpar_texto(request.form.get("banco_destino")),
         "tabela_port_refin": limpar_texto(request.form.get("tabela_port_refin")),
         "novo_prazo": max(0, int(parse_moeda(request.form.get("novo_prazo")))),
         "nova_parcela": parse_moeda(request.form.get("nova_parcela")),
         "taxa_nova": parse_percentual(request.form.get("taxa_nova")),
         "coeficiente_port_refin": parse_percentual(request.form.get("coeficiente_port_refin")),
+        "margem_disponivel_importada": parse_moeda(request.form.get("margem_disponivel_importada")),
+        "deduzir_negativo": deduzir_negativo,
+        "mensagem_modelo": mensagem_modelo,
         "observacoes": limpar_texto(request.form.get("observacoes")),
     }
 
@@ -3104,7 +3143,13 @@ def montar_mensagem_simulador_inss(dados: dict[str, Any], produto: str, descrica
 
 def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     parcela_atual = float(dados.get("parcela_atual") or 0)
-    nova_parcela = float(dados.get("nova_parcela") or 0) or parcela_atual
+    margem_importada = float(dados.get("margem_disponivel_importada") or 0)
+    deduzir_negativo = dados.get("deduzir_negativo") == "sim"
+    valor_negativo_deduzido = abs(min(0.0, margem_importada)) if deduzir_negativo else 0.0
+    if valor_negativo_deduzido:
+        nova_parcela = max(0.0, parcela_atual - valor_negativo_deduzido)
+    else:
+        nova_parcela = float(dados.get("nova_parcela") or 0) or parcela_atual
     saldo_quitacao = float(dados.get("saldo_quitacao") or 0)
     novo_prazo = int(dados.get("novo_prazo") or 0)
     taxa_nova = float(dados.get("taxa_nova") or 0)
@@ -3160,6 +3205,9 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         "troco": round(troco, 2),
         "parcela_atual": round(parcela_atual, 2),
         "nova_parcela": round(nova_parcela, 2),
+        "margem_disponivel_importada": round(margem_importada, 2),
+        "valor_negativo_deduzido": round(valor_negativo_deduzido, 2),
+        "deduziu_negativo": bool(valor_negativo_deduzido),
         "novo_prazo": novo_prazo,
         "parcelas_abertas": parcelas_abertas,
         "operacao_viavel": operacao_viavel,
@@ -3175,15 +3223,232 @@ def montar_mensagem_simulador_port_refin(dados: dict[str, Any], resultado: dict[
     parcela_atual = br_moeda(resultado["parcela_atual"]).replace("R$ ", "", 1)
     nova_parcela = br_moeda(resultado["nova_parcela"]).replace("R$ ", "", 1)
     troco = br_moeda(resultado["troco"]).replace("R$ ", "", 1)
-    return (
-        f"{saudacao}! Meu nome é Poliana e falo da Facilita Brasil.\n\n"
-        f"Conseguimos fazer a portabilidade dos seus contratos: {banco_atual}\n\n"
-        f"Além disso, a parcela será reduzida: {parcela_atual} para {nova_parcela}\n\n"
-        f"Troco disponível: {troco}\n\n"
-        "*Atenção, esse processo NÃO é um empréstimo novo, estamos reduzindo a parcela que você já paga.*\n\n"
-        "Essa oferta é interessante para você hoje?\n\n"
-        "https://www.facilitabrasiloficial.com.br"
+    modelo = str(dados.get("mensagem_modelo") or INSS_PORT_REFIN_MENSAGEM_MODELO)
+    variaveis = {
+        "saudacao": saudacao,
+        "banco_atual": banco_atual,
+        "parcela_atual": parcela_atual,
+        "nova_parcela": nova_parcela,
+        "troco": troco,
+    }
+    for nome, valor in variaveis.items():
+        modelo = modelo.replace("{" + nome + "}", str(valor))
+    return modelo
+
+
+def competencia_mes(valor: Any) -> date | None:
+    correspondencia = re.search(r"\b(0[1-9]|1[0-2])/(\d{4})\b", limpar_texto(valor))
+    if not correspondencia:
+        return None
+    return date(int(correspondencia.group(2)), int(correspondencia.group(1)), 1)
+
+
+def parcelas_pagas_ate_competencia(inicio: Any, total: int, referencia: date) -> int:
+    competencia_inicio = competencia_mes(inicio)
+    if not competencia_inicio or total <= 0:
+        return 0
+    meses = (referencia.year - competencia_inicio.year) * 12 + referencia.month - competencia_inicio.month
+    return min(total, max(0, meses))
+
+
+def saldo_estimado_por_taxa(parcela: float, parcelas_restantes: int, taxa_percentual: float) -> float:
+    if parcela <= 0 or parcelas_restantes <= 0:
+        return 0.0
+    taxa_decimal = max(0.0, taxa_percentual) / 100
+    if not taxa_decimal:
+        return parcela * parcelas_restantes
+    return parcela * (1 - (1 + taxa_decimal) ** (-parcelas_restantes)) / taxa_decimal
+
+
+def celula_extrato(valor: Any) -> str:
+    return re.sub(r"\s+", " ", str(valor or "")).strip()
+
+
+def banco_extrato(valor: Any) -> tuple[str, str]:
+    descricao = celula_extrato(valor)
+    codigo = re.match(r"^(\d{3})\b", descricao)
+    nomes_por_codigo = {
+        "012": "INBURSA",
+        "079": "PICPAY",
+        "121": "AGIBANK",
+        "237": "BRADESCO",
+        "254": "PARANÁ",
+        "329": "QI",
+        "422": "SAFRA",
+        "626": "C6",
+        "643": "PINE",
+        "935": "FACTA",
+        "954": "DIGIO",
+    }
+    if codigo and codigo.group(1) in nomes_por_codigo:
+        return nomes_por_codigo[codigo.group(1)], descricao
+    sem_codigo = re.sub(r"^\d{3}\s*-\s*", "", descricao)
+    return primeiro_nome_banco(sem_codigo), descricao
+
+
+def carregar_especies_beneficios_inss() -> dict[str, str]:
+    try:
+        conteudo = json.loads(INSS_ESPECIES_PATH.read_text(encoding="utf-8"))
+        especies = conteudo.get("especies", {})
+        return {
+            str(codigo).zfill(2): limpar_texto(descricao)
+            for codigo, descricao in especies.items()
+            if limpar_texto(descricao)
+        }
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+INSS_ESPECIES_BENEFICIOS = carregar_especies_beneficios_inss()
+
+
+def codigo_especie_beneficio_inss(descricao: Any) -> str:
+    texto = re.sub(r"[^A-Z0-9]+", " ", remover_acentos(limpar_texto(descricao)).upper()).strip()
+    if not texto:
+        return ""
+    codigo_informado = re.match(r"^(\d{1,2})\b", texto)
+    if codigo_informado:
+        codigo = codigo_informado.group(1).zfill(2)
+        if codigo in INSS_ESPECIES_BENEFICIOS:
+            return codigo
+    for codigo, nome in INSS_ESPECIES_BENEFICIOS.items():
+        nome_normalizado = re.sub(r"[^A-Z0-9]+", " ", remover_acentos(nome).upper()).strip()
+        if texto == nome_normalizado:
+            return codigo
+    return ""
+
+
+def dados_beneficiario_extrato(texto: str) -> dict[str, str]:
+    dados = {
+        "nome": "",
+        "nb_matricula": "",
+        "especie": "",
+        "especie_descricao": "",
+        "dados_bancarios": "",
+    }
+    cabecalho = re.search(
+        r"HIST[ÓO]RICO\s+DE\s+EMPR[ÉE]STIMO\s+CONSIGNADO\s+(.+?)\s+Benef[íÍI]cio\s+(.+?)\s+N[.º°]?\s*Benef[íÍI]cio\s*:\s*([\d.\-]+)",
+        texto,
+        flags=re.IGNORECASE | re.DOTALL,
     )
+    if cabecalho:
+        dados["nome"] = celula_extrato(cabecalho.group(1))
+        dados["especie_descricao"] = celula_extrato(cabecalho.group(2))
+        dados["nb_matricula"] = celula_extrato(cabecalho.group(3))
+        dados["especie"] = codigo_especie_beneficio_inss(dados["especie_descricao"])
+
+    banco = re.search(r"Pago\s+em\s*:\s*(.+?)(?=\s+N[ãa]o\s+[ée]\s+pens[ãa]o\s+aliment[íÌi]cia|\r?\n)", texto, flags=re.IGNORECASE)
+    meio = re.search(r"Meio\s*:\s*(.+?)(?=\s+Liberado\s+para\s+empr[ée]stimo|\r?\n)", texto, flags=re.IGNORECASE)
+    agencia = re.search(r"Ag[êe]ncia\s*:\s*([^\s]+)", texto, flags=re.IGNORECASE)
+    conta = re.search(r"Conta\s+Corrente\s*:\s*([^\s]+)", texto, flags=re.IGNORECASE)
+    dados_conta = []
+    if banco:
+        dados_conta.append(f"Banco: {celula_extrato(banco.group(1))}")
+    if meio:
+        dados_conta.append(f"Meio: {celula_extrato(meio.group(1))}")
+    if agencia:
+        dados_conta.append(f"Agência: {celula_extrato(agencia.group(1))}")
+    if conta:
+        dados_conta.append(f"Conta: {celula_extrato(conta.group(1))}")
+    dados["dados_bancarios"] = "\n".join(dados_conta)
+    return dados
+
+
+def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
+    if not conteudo.startswith(b"%PDF-"):
+        raise ValueError("O arquivo enviado não é um PDF válido.")
+
+    referencia: date | None = None
+    linhas_contratos: list[list[Any]] = []
+    textos_paginas: list[str] = []
+    margem_disponivel = 0.0
+    try:
+        with pdfplumber.open(io.BytesIO(conteudo)) as pdf:
+            if len(pdf.pages) > 100:
+                raise ValueError("O extrato possui páginas demais para leitura automática.")
+            for pagina in pdf.pages:
+                texto = pagina.extract_text() or ""
+                textos_paginas.append(texto)
+                if referencia is None:
+                    data_documento = re.search(r"\b(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}:\d{2}\b", texto)
+                    if data_documento:
+                        referencia = datetime.strptime(data_documento.group(1), "%d/%m/%Y").date()
+                for tabela in pagina.extract_tables() or []:
+                    if not tabela:
+                        continue
+                    for linha in tabela:
+                        if not linha:
+                            continue
+                        rotulo = remover_acentos(celula_extrato(linha[0])).upper().replace("*", "")
+                        if rotulo == "MARGEM DISPONIVEL" and len(linha) > 1:
+                            margem_disponivel = parse_moeda(celula_extrato(linha[1]))
+                    titulo = celula_extrato(tabela[0][0] if tabela[0] else "").upper()
+                    if "CONTRATOS ATIVOS E SUSPENSOS" not in titulo:
+                        continue
+                    linhas_contratos.extend(linha for linha in tabela[1:] if len(linha) >= 18)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError("Não foi possível interpretar este extrato em PDF.") from exc
+
+    referencia = referencia or date.today()
+    contratos: dict[str, dict[str, Any]] = {}
+    for linha in linhas_contratos:
+        total_texto = re.sub(r"\D", "", celula_extrato(linha[7]))
+        parcela = parse_moeda(celula_extrato(linha[8]))
+        numero = re.sub(r"\s+", "", str(linha[0] or ""))
+        if not numero or not total_texto or parcela <= 0:
+            continue
+        total = int(total_texto)
+        taxa_extraida = parse_percentual(celula_extrato(linha[14]))
+        taxa = taxa_extraida if taxa_extraida > 0 else 1.50
+        pagas = parcelas_pagas_ate_competencia(linha[5], total, referencia)
+        restantes = max(0, total - pagas)
+        banco, banco_descricao = banco_extrato(linha[1])
+        saldo = round(saldo_estimado_por_taxa(parcela, restantes, taxa), 2)
+        contratos[numero] = {
+            "numero": numero,
+            "banco": banco or banco_descricao,
+            "banco_descricao": banco_descricao,
+            "situacao": celula_extrato(linha[2]),
+            "competencia_inicio": celula_extrato(linha[5]),
+            "competencia_fim": celula_extrato(linha[6]),
+            "prazo_total": total,
+            "parcelas_pagas": pagas,
+            "parcelas_restantes": restantes,
+            "parcela": round(parcela, 2),
+            "taxa": round(taxa, 4),
+            "taxa_encontrada": taxa_extraida > 0,
+            "taxa_fonte": "Taxa de juros mensal do extrato" if taxa_extraida > 0 else "Taxa padrão de 1,50% a.m. (ausente no extrato)",
+            "saldo_calculado": saldo,
+        }
+
+    if not contratos:
+        raise ValueError("Nenhum contrato ativo ou suspenso foi encontrado no extrato.")
+    dados_beneficiario = dados_beneficiario_extrato("\n".join(textos_paginas))
+    return {
+        "data_extrato": referencia.strftime("%d/%m/%Y"),
+        "contratos": list(contratos.values()),
+        "margem_disponivel": round(margem_disponivel, 2),
+        **dados_beneficiario,
+    }
+
+
+@app.post("/api/simulador-inss/ler-extrato")
+def api_ler_extrato_simulador_inss():
+    arquivo = request.files.get("extrato")
+    if not arquivo or not arquivo.filename:
+        return jsonify({"erro": "Selecione um extrato do INSS em PDF."}), 400
+    if not arquivo.filename.lower().endswith(".pdf"):
+        return jsonify({"erro": "Envie um arquivo no formato PDF."}), 400
+    conteudo = arquivo.read(15 * 1024 * 1024 + 1)
+    if len(conteudo) > 15 * 1024 * 1024:
+        return jsonify({"erro": "O PDF deve ter no máximo 15 MB."}), 400
+    try:
+        resultado = ler_extrato_emprestimo_consignado(conteudo)
+    except ValueError as exc:
+        return jsonify({"erro": str(exc)}), 400
+    return jsonify(resultado)
 
 
 
@@ -3269,8 +3534,10 @@ def simulador_inss():
         "modo_simulacao": "novo", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
-        "parcelas_pagas": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
+        "parcelas_pagas": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
         "taxa_nova": 0, "coeficiente_port_refin": 0, "observacoes": "",
+        "margem_disponivel_importada": 0, "deduzir_negativo": "nao",
+        "mensagem_modelo": INSS_PORT_REFIN_MENSAGEM_MODELO,
     }
     resultado = None
     if request.method == "POST":
@@ -3283,6 +3550,7 @@ def simulador_inss():
         resultado=resultado,
         prazos=prazos,
         tabelas_port_refin=INSS_PORT_REFIN_TABELAS,
+        mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
     )
 
 
@@ -3299,6 +3567,7 @@ def simulador_inss_criar_proposta():
                 resultado=resultado,
                 prazos=prazos_simulador_inss(),
                 tabelas_port_refin=INSS_PORT_REFIN_TABELAS,
+                mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
             )
 
         tabela = resultado.get("tabela_nome") or "Cálculo livre"
@@ -3307,6 +3576,7 @@ def simulador_inss_criar_proposta():
             f"Contrato portado: {dados_sim['numero_contrato'] or 'não informado'}.",
             f"Saldo devedor informado: {br_moeda(resultado['saldo_quitacao'])}.",
             f"Prazo original: {dados_sim['prazo_contrato'] or 'não informado'}; parcelas pagas: {dados_sim['parcelas_pagas'] or 'não informado'}.",
+            f"Taxa atual usada para conferência do saldo: {br_percentual(dados_sim['taxa_contrato_atual']) if dados_sim['taxa_contrato_atual'] else 'não informada'}.",
             f"Tabela: {resultado.get('tabela_codigo') or 'livre'} - {tabela}.",
             f"Novo contrato estimado: {br_moeda(resultado['valor_contrato'])}; troco estimado: {br_moeda(resultado['troco'])}.",
             f"Coeficiente usado: {resultado['coeficiente']:.8f} ({resultado['origem_coeficiente']}).",
@@ -6691,7 +6961,7 @@ def comparativo_promotoras_dashboard(
     propostas_mes: list[sqlite3.Row],
     propostas_pagas_mes: list[sqlite3.Row | dict[str, Any]],
 ) -> dict[str, Any]:
-    """Compara comissão paga e operações digitadas de Única e Vieira.
+    """Compara comissão paga e operações consideradas no mês de Única e Vieira.
 
     Comissão é somada por registro financeiro considerado pago. Na quantidade digitada,
     o refin que forma um par válido com sua Portabilidade com Refinanciamento
@@ -6708,7 +6978,7 @@ def comparativo_promotoras_dashboard(
 
     todas_propostas = get_db().execute(
         """
-        SELECT id, produto, promotora, numero_proposta,
+        SELECT id, produto, promotora, portabilidade_id, numero_proposta,
                numero_port_vinculada, numero_refin_vinculada
         FROM propostas
         """
@@ -6748,8 +7018,10 @@ def comparativo_promotoras_dashboard(
 
 def consulta_dashboard(mes: str) -> dict[str, Any]:
     db = get_db()
+    filtro_mes_propostas, parametros_mes_propostas = filtro_propostas_mes_dashboard(mes)
     propostas = db.execute(
-        "SELECT * FROM propostas WHERE substr(data_criacao, 1, 7) = ? ORDER BY data_criacao DESC", (mes,)
+        f"SELECT * FROM propostas WHERE {filtro_mes_propostas} ORDER BY data_criacao DESC",
+        parametros_mes_propostas,
     ).fetchall()
     propostas_encerradas_mes = db.execute(
         """
@@ -6771,6 +7043,12 @@ def consulta_dashboard(mes: str) -> dict[str, Any]:
         STATUS_COMISSAO_PREVISTA,
     ).fetchall()
     propostas_operacoes = propostas_como_operacoes(propostas, todas_propostas)
+    propostas_herdadas_registros = [
+        proposta
+        for proposta in propostas
+        if limpar_texto(proposta["data_criacao"])[:7] < mes
+    ]
+    propostas_herdadas = propostas_como_operacoes(propostas_herdadas_registros, todas_propostas)
     pagas_registros = [p for p in propostas_encerradas_mes if p["status"] == "Pago"]
     perdidas_registros = [p for p in propostas_encerradas_mes if p["status"] in ("Perdido", "Cancelado", "Perdido / Cancelado")]
     pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
@@ -6817,6 +7095,7 @@ def consulta_dashboard(mes: str) -> dict[str, Any]:
     return {
         "mes": mes,
         "total": total,
+        "propostas_herdadas": len(propostas_herdadas),
         "pagas": len(pagas),
         "perdidas": len(perdidas),
         "troco_previsto": troco_previsto,
@@ -6864,14 +7143,15 @@ def calcular_agregado_dashboard(configuracao: dict[str, Any], mes: str) -> float
     else:
         return 0.0
 
-    params: list[Any] = [mes]
     if base_data == "encerramento":
+        params: list[Any] = [mes]
         where = [
             "status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')",
             "substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?",
         ]
     else:
-        where = ["substr(data_criacao, 1, 7) = ?"]
+        filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes)
+        where = [filtro_mes_propostas]
     if filtro_campo in DASHBOARD_FILTRO_CAMPOS and filtro_campo and filtro_valores:
         placeholders = ", ".join("UPPER(?)" for _ in filtro_valores)
         where.append(f"UPPER(TRIM(COALESCE({filtro_campo}, ''))) IN ({placeholders})")
@@ -6895,11 +7175,17 @@ def formatar_valor_dashboard(valor: float, tipo: str) -> str:
 
 
 def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
+    nota_pendencias = (
+        " No mês atual, também inclui operações de meses anteriores que continuam ativas; "
+        "a data de criação original não é alterada."
+        if dados.get("mes") == mes_atual()
+        else ""
+    )
     ajudas = {
-        "total": "Conta as operações criadas no mês selecionado. Port + Refin vinculados contam uma vez.",
+        "total": "Conta as operações consideradas no mês selecionado. Port + Refin vinculados contam uma vez." + nota_pendencias,
         "pagas": "Conta as operações encerradas como Pago no mês selecionado. Port + Refin vinculados contam uma vez.",
         "perdidas": "Conta as operações encerradas como Perdido ou Cancelado no mês selecionado. Port + Refin vinculados contam uma vez.",
-        "troco_previsto": "Soma o Troco de todas as propostas criadas no mês selecionado.",
+        "troco_previsto": "Soma o Troco de todas as propostas consideradas no mês selecionado." + nota_pendencias,
         "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado.",
         "comissao_prevista": (
             "Soma a Comissão atual de todas as propostas nos status: "
@@ -6955,6 +7241,11 @@ def ajuda_indicador_personalizado_dashboard(
 
         if configuracao.get("base_data") == "encerramento":
             descricao += f" encerradas em {mes_exibicao}"
+        elif mes == mes_atual():
+            descricao += (
+                f" consideradas em {mes_exibicao}: criadas no mês ou trazidas de meses anteriores "
+                "por ainda estarem ativas"
+            )
         else:
             descricao += f" criadas em {mes_exibicao}"
 

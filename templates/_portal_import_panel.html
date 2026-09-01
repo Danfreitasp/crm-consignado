@@ -1,6 +1,9 @@
 <section class="portal-import-panel" aria-labelledby="portalImportTitle">
     <div>
-        <h2 id="portalImportTitle">Importação do Corban</h2>
+        <h2 id="portalImportTitle">{% if request.endpoint == 'simulador_inss' %}Simulação Corban / Manual{% else %}Importação do Corban{% endif %}</h2>
+        {% if request.endpoint == 'simulador_inss' %}
+        <small class="portal-import-description">Receba os contratos do Sistemacorban ou preencha os campos abaixo manualmente.</small>
+        {% endif %}
         <p id="portalImportStatus" class="muted" role="status">Abra o benefício no Sistemacorban e deixe esta página aberta.</p>
         {% if request.endpoint == 'simulador_inss' %}
         <label class="portal-contract-picker" id="portalContractPicker" hidden>Contrato para simular

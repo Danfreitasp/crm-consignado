@@ -22,7 +22,7 @@ A extensão declara origens HTTP/HTTPS como permissões opcionais para suportar 
 2. Entre manualmente no Sistemacorban, consulte o CPF e selecione manualmente o benefício correto.
 3. Na tela de detalhes do benefício, clique no botão flutuante **Enviar para o CRM**.
 4. A extensão tenta clicar nos ícones de olho somente dentro de **Dados Cliente**, aguarda a atualização visual e lê os rótulos da tela. Telefones não são extraídos nem enviados ao CRM.
-5. No Simulador INSS, escolha na lista qual contrato bancário deseja usar; o banco de destino fica fixo como Quali. Se a margem disponível de 40% estiver negativa, ela será deduzida da parcela do contrato para formar a nova parcela; com margem positiva ou zerada, a nova parcela fica vazia e o CRM usa a parcela atual. Nas demais telas, revise os campos destacados e salve somente se estiverem corretos.
+5. No Simulador INSS, escolha na lista qual contrato bancário deseja usar; o banco de destino fica fixo como Quali. A margem disponível é importada, mas um valor negativo só será deduzido da nova parcela quando você marcar “Deduzir negativo: Sim”. A taxa do contrato também é importada e pode ser corrigida para recalcular o saldo. Nas demais telas, revise os campos destacados e salve somente se estiverem corretos.
 
 A extensão não executa login, não pesquisa CPF, não escolhe benefício, não cria filas e não salva os dados.
 

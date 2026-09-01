@@ -12,6 +12,9 @@
         </form>
         <a class="btn" href="{{ url_for('configurar_dashboard') }}"><i class="bi bi-gear" aria-hidden="true"></i><span>Personalizar Dashboard</span></a>
     </div>
+    {% if dados.propostas_herdadas %}
+    <p class="dashboard-carryover-note"><i class="bi bi-arrow-right-circle" aria-hidden="true"></i><span>{{ dados.propostas_herdadas }} {{ 'operação ativa de mês anterior foi incluída' if dados.propostas_herdadas == 1 else 'operações ativas de meses anteriores foram incluídas' }} neste mês.</span></p>
+    {% endif %}
 </section>
 
 <section class="metrics dashboard-standard-metrics">
@@ -98,7 +101,7 @@
         <div class="dashboard-chart-tools">
             <div class="promoter-chart-toggle" role="group" aria-label="Indicador do gráfico">
                 <button type="button" class="is-active" data-promoter-mode="comissao" aria-pressed="true">Comissão paga</button>
-                <button type="button" data-promoter-mode="propostas" aria-pressed="false">Propostas digitadas</button>
+                <button type="button" data-promoter-mode="propostas" aria-pressed="false">Propostas no mês</button>
             </div>
             <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
             <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}"><button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form>

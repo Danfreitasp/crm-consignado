@@ -3,7 +3,6 @@
 {% set subtitulo = 'Simule empréstimo novo ou portabilidade com refinanciamento sem criar proposta.' %}
 {% set modo = dados.modo_simulacao or 'novo' %}
 {% block content %}
-{% include '_portal_import_panel.html' %}
 <section class="card simulator-card">
     <div class="section-title-row">
         <div>
@@ -79,14 +78,54 @@
         <div class="stack" data-simulator-panel="port_refin" {% if modo != 'port_refin' %}hidden{% endif %}>
             <section class="simulator-input-section">
                 <div class="simulator-section-heading"><div><small>1. Contrato atual</small><h3>Dados da portabilidade</h3></div><span class="simulator-step-chip">Contrato portado</span></div>
+                <fieldset class="simulator-source-switch">
+                    <legend>Como deseja preencher o contrato atual?</legend>
+                    <label class="simulator-source-option">
+                        <input type="radio" name="fonte_simulacao" value="extrato" checked>
+                        <span><i class="bi bi-file-earmark-text" aria-hidden="true"></i><span><strong>Simulação por Extrato</strong><small>Importar o PDF do Meu INSS</small></span></span>
+                    </label>
+                    <span class="simulator-source-or" aria-hidden="true">ou</span>
+                    <label class="simulator-source-option">
+                        <input type="radio" name="fonte_simulacao" value="corban_manual">
+                        <span><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span><strong>Simulação Corban / Manual</strong><small>Receber do Corban ou digitar abaixo</small></span></span>
+                    </label>
+                </fieldset>
+
+                <div class="simulator-source-panel" data-simulator-source-panel="extrato">
+                    <div class="statement-reader">
+                        <div class="statement-reader-copy">
+                            <strong>Leitor de extrato INSS</strong>
+                            <small>Localiza os contratos ativos, calcula as parcelas pagas e estima o saldo. O PDF não é armazenado.</small>
+                        </div>
+                        <div class="statement-reader-actions">
+                            <input type="file" id="portExtratoArquivo" accept=".pdf,application/pdf" aria-label="Selecionar extrato do INSS em PDF">
+                            <button class="btn" id="portLerExtrato" type="button"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i><span>Ler extrato</span></button>
+                        </div>
+                        <label class="statement-contract-picker" id="portExtratoContractPicker" hidden>Contrato encontrado
+                            <select id="portExtratoContractSelect"><option value="">Selecione um contrato</option></select>
+                        </label>
+                        <small class="muted statement-reader-status" id="portExtratoStatus" role="status" aria-live="polite" data-state="idle">Selecione o PDF do extrato de empréstimos consignados.</small>
+                    </div>
+                </div>
+
+                <div class="simulator-source-panel" data-simulator-source-panel="corban_manual" hidden>
+                    {% include '_portal_import_panel.html' %}
+                </div>
+
+                <p class="simulator-source-help"><i class="bi bi-pencil-square" aria-hidden="true"></i> Os dados abaixo permanecem editáveis e também podem ser preenchidos manualmente.</p>
                 <div class="form-grid form-grid-four">
-                    <label>Banco atual<input name="banco_atual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
-                    <label>Nº do contrato<input name="numero_contrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
+                    <label>Banco atual<input name="banco_atual" id="portBancoAtual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
+                    <label>Nº do contrato<input name="numero_contrato" id="portNumeroContrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
                     <label>Parcela atual<input name="parcela_atual" id="portParcelaAtual" class="money-mask" value="{{ br_moeda(dados.parcela_atual) }}" placeholder="R$ 0,00"></label>
                     <label>Saldo para quitação<input name="saldo_quitacao" id="portSaldoQuitacao" class="money-mask" value="{{ br_moeda(dados.saldo_quitacao) }}" placeholder="R$ 0,00"></label>
-                    <label>Prazo original<input name="prazo_contrato" value="{{ dados.prazo_contrato or '' }}" type="number" min="0" step="1" placeholder="Ex.: 84"></label>
-                    <label>Parcelas pagas<input name="parcelas_pagas" value="{{ dados.parcelas_pagas or '' }}" type="number" min="0" step="1" placeholder="Ex.: 25"></label>
+                    <label>Prazo original<input name="prazo_contrato" id="portPrazoContrato" value="{{ dados.prazo_contrato or '' }}" type="number" min="0" step="1" placeholder="Ex.: 84"></label>
+                    <label>Parcelas pagas<input name="parcelas_pagas" id="portParcelasPagas" value="{{ dados.parcelas_pagas or '' }}" type="number" min="0" step="1" placeholder="Ex.: 25"></label>
+                    <div class="simulator-recalculate-field">
+                        <label>Taxa atual do contrato (%)<input name="taxa_contrato_atual" id="portTaxaContratoAtual" value="{{ br_percentual(dados.taxa_contrato_atual)|replace('%', '') if dados.taxa_contrato_atual else '' }}" inputmode="decimal" placeholder="Ex.: 1,80"></label>
+                        <button class="btn" id="portRecalcularSaldo" type="button"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>Recalcular saldo</span></button>
+                    </div>
                 </div>
+                <small class="muted" id="portSaldoRecalculadoStatus" role="status">O recálculo considera a parcela atual e as parcelas restantes. Confira o resultado com o extrato.</small>
             </section>
 
             <section class="simulator-input-section">
@@ -103,7 +142,16 @@
                     </label>
                     <label>Banco destino<input name="banco_destino" value="QUALI" readonly aria-readonly="true"></label>
                     <label>Novo prazo<input name="novo_prazo" id="portNovoPrazo" value="{{ dados.novo_prazo or 84 }}" type="number" min="1" step="1"></label>
-                    <label>Nova parcela<input name="nova_parcela" id="portNovaParcela" class="money-mask" value="{{ br_moeda(dados.nova_parcela) if dados.nova_parcela else '' }}" placeholder="Em branco: usa a atual"><small>Se ficar em branco, usa a parcela atual.</small></label>
+                    <div class="simulator-installment-field">
+                        <label>Nova parcela<input name="nova_parcela" id="portNovaParcela" class="money-mask" value="{{ br_moeda(dados.nova_parcela) if dados.nova_parcela else '' }}" placeholder="Em branco: usa a atual"></label>
+                        <fieldset class="simulator-negative-choice">
+                            <legend>Deduzir negativo</legend>
+                            <label><input type="radio" name="deduzir_negativo" value="nao" {% if dados.deduzir_negativo != 'sim' %}checked{% endif %}><span>Não</span></label>
+                            <label><input type="radio" name="deduzir_negativo" value="sim" {% if dados.deduzir_negativo == 'sim' %}checked{% endif %}><span>Sim</span></label>
+                        </fieldset>
+                        <small class="muted">Se ficar em branco, usa a parcela atual.</small>
+                    </div>
+                    <label>Margem negativa (se houver)<input name="margem_disponivel_importada" id="portMargemImportada" class="money-mask" value="{{ br_moeda(dados.margem_disponivel_importada) if dados.margem_disponivel_importada else '' }}" placeholder="Ex.: -50,00"><small id="portNegativeHelp">Pode ser importada ou digitada; com “Não”, não altera a nova parcela.</small></label>
                     <label>Taxa mensal (%)<input name="taxa_nova" id="portTaxaNova" value="{{ br_percentual(dados.taxa_nova)|replace('%', '') if dados.taxa_nova else '' }}" inputmode="decimal" placeholder="Ex.: 1,80"></label>
                     <label>Coeficiente do banco<input name="coeficiente_port_refin" id="portCoeficiente" value="{{ ('%.8f'|format(dados.coeficiente_port_refin)).rstrip('0').rstrip('.') if dados.coeficiente_port_refin else '' }}" inputmode="decimal" placeholder="Ex.: 0,024119"><small>Quando informado, prevalece sobre a taxa.</small></label>
                 </div>
@@ -118,25 +166,36 @@
             <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}">
                 <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{{ 'Operação com troco positivo.' if resultado.operacao_viavel else (resultado.erros|join(' ') if resultado.erros else 'O novo contrato não cobre o saldo para quitação.') }}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
             </div>
-        </div>
 
-        <div class="actions simulator-actions">
-            <button class="btn btn-primary" type="submit"><i class="bi bi-calculator" aria-hidden="true"></i><span>Calcular</span></button>
-            <button class="btn" id="portInserirProposta" type="submit" formaction="{{ url_for('simulador_inss_criar_proposta') }}" {% if not (resultado and modo == 'port_refin' and resultado.operacao_viavel) %}hidden{% endif %}>
-                <i class="bi bi-plus-circle" aria-hidden="true"></i><span>Inserir proposta com esses dados</span>
-            </button>
-            <button class="btn copy-btn" id="simCopiarResumo" type="button" data-copy="{{ resultado.mensagem if resultado else '' }}" data-copy-target="#simResumoTexto"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar resumo</span></button>
+            <details class="simulator-collapsible simulator-message-editor">
+                <summary>
+                    <span><small>Texto do botão Copiar resumo</small><strong>Modelo editável</strong></span>
+                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="simulator-collapsible-content">
+                    <div class="simulator-editor-actions"><button class="mini-btn" id="simRestaurarMensagem" type="button"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Restaurar padrão</span></button></div>
+                    <textarea name="mensagem_modelo" id="simMensagemModelo" rows="10">{{ dados.mensagem_modelo }}</textarea>
+                    <small class="muted">Variáveis disponíveis: <code>{saudacao}</code>, <code>{banco_atual}</code>, <code>{parcela_atual}</code>, <code>{nova_parcela}</code> e <code>{troco}</code>. Elas continuam atualizando automaticamente.</small>
+                </div>
+            </details>
         </div>
     </form>
 </section>
 
-{% if resultado %}
-<section class="card">
-    <h2>Resumo da simulação</h2>
-    <div class="message-box"><p id="simResumoTexto">{{ resultado.mensagem|replace('\n', '<br>')|safe }}</p></div>
-</section>
-{% endif %}
+<details class="card simulator-collapsible simulator-summary-card">
+    <summary><strong>Resumo da simulação</strong><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+    <div class="simulator-collapsible-content"><div class="message-box"><p id="simResumoTexto">{{ resultado.mensagem if resultado else '' }}</p></div></div>
+</details>
+
+<div class="actions simulator-actions simulator-actions-bottom">
+    <button class="btn btn-primary" type="submit" form="simuladorInssForm"><i class="bi bi-calculator" aria-hidden="true"></i><span>Calcular</span></button>
+    <button class="btn" id="portInserirProposta" type="submit" form="simuladorInssForm" formaction="{{ url_for('simulador_inss_criar_proposta') }}" {% if not (resultado and modo == 'port_refin' and resultado.operacao_viavel) %}hidden{% endif %}>
+        <i class="bi bi-plus-circle" aria-hidden="true"></i><span>Inserir proposta com esses dados</span>
+    </button>
+    <button class="btn copy-btn" id="simCopiarResumo" type="button" data-copy="{{ resultado.mensagem if resultado else '' }}" data-copy-target="#simResumoTexto"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar resumo</span></button>
+</div>
 
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
-<script src="{{ url_for('static', filename='portal_import.js', v='20260817-first-bank-name') }}"></script>
+<script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20260901-source-switch') }}"></script>
 {% endblock %}

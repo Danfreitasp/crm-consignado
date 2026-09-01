@@ -52,7 +52,14 @@
         while (parts.length && ['DA', 'DAS', 'DE', 'DO', 'DOS'].includes(parts[0].toUpperCase().replace(/\.$/, ''))) {
             parts.shift();
         }
-        return (parts[0] || '').replace(/^[^A-ZÀ-Ü0-9]+|[^A-ZÀ-Ü0-9]+$/gi, '').toLocaleUpperCase('pt-BR');
+        const nome = (parts[0] || '').replace(/^[^A-ZÀ-Ü0-9]+|[^A-ZÀ-Ü0-9]+$/gi, '').toLocaleUpperCase('pt-BR');
+        const nomesCorrigidos = {
+            AGIBAN: 'AGIBANK',
+            INBURS: 'INBURSA',
+            PARAN: 'PARANÁ',
+            SAFR: 'SAFRA',
+        };
+        return nomesCorrigidos[nome] || nome;
     }
 
     function applyContract(contract) {
@@ -72,22 +79,19 @@
         setField('saldo_quitacao', contract.saldo_devedor, highlighted);
         setField('prazo_contrato', contract.prazo_total, highlighted);
         setField('parcelas_pagas', contract.parcelas_pagas, highlighted);
+        setField('taxa_contrato_atual', contract.taxa, highlighted);
         setField('banco_destino', 'QUALI', highlighted);
         const margin = parseMoney(importedData.margem_disponivel);
-        if (margin < 0) {
-            const adjustedInstallment = Math.max(0, parseMoney(contract.parcela) + margin);
-            setField('nova_parcela', formatMoneyInput(adjustedInstallment), highlighted);
-        } else {
-            const newInstallment = document.querySelector('[name="nova_parcela"]');
-            if (newInstallment) {
-                newInstallment.value = '';
-                newInstallment.dispatchEvent(new Event('input', { bubbles: true }));
-                newInstallment.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+        setField('margem_disponivel_importada', formatMoneyInput(margin), highlighted);
+        const newInstallment = document.querySelector('[name="nova_parcela"]');
+        if (newInstallment) {
+            newInstallment.value = '';
+            newInstallment.dispatchEvent(new Event('input', { bubbles: true }));
+            newInstallment.dispatchEvent(new Event('change', { bubbles: true }));
         }
         const marginMessage = margin < 0
-            ? ` Margem negativa de ${formatMoneyInput(margin)} deduzida da nova parcela.`
-            : ' Margem positiva ou zerada: será usada a parcela atual.';
+            ? ` Margem negativa de ${formatMoneyInput(Math.abs(margin))} importada; escolha Sim para deduzi-la ou Não para ignorá-la.`
+            : ' Margem positiva ou zerada: não há negativo para deduzir.';
         atualizarEstado(true, `Contrato ${contract.numero} selecionado.${marginMessage} Escolha a tabela Quali e revise os valores.`);
         window.setTimeout(() => highlighted.forEach((field) => field.classList.remove('portal-import-highlight')), 3500);
     }
@@ -126,6 +130,7 @@
         }
 
         if (simulatorForm) {
+            document.querySelector('input[name="fonte_simulacao"][value="corban_manual"]')?.click();
             importedData = dados;
             const contracts = Array.isArray(dados.contratos) ? dados.contratos : [];
             if (!contractPicker || !contractSelect || !contracts.length) {
@@ -136,7 +141,9 @@
             contracts.forEach((contract) => {
                 const option = document.createElement('option');
                 option.value = contract.numero;
-                option.textContent = `${contract.banco} · Contrato ${contract.numero} · Parcela ${contract.parcela} · Saldo ${contract.saldo_devedor}`;
+                const banco = firstBankName(contract.banco) || contract.banco;
+                option.textContent = `${banco} · Contrato ${contract.numero} · Parcela ${contract.parcela} · Saldo ${contract.saldo_devedor}`;
+                option.title = option.textContent;
                 contractSelect.appendChild(option);
             });
             contractPicker.hidden = false;
