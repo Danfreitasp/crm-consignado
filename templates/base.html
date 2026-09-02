@@ -39,7 +39,7 @@
         })();
     </script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260901-dashboard-carryover') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260902-funnel-filter-extrato-isolation') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260826-classic-opaque') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20260826-crm-lite-source') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
@@ -91,6 +91,7 @@
                     <input id="quickSearchInput" type="search" placeholder="Pesquisar cliente, CPF ou telefone..." autocomplete="off">
                     <div id="quickSearchResults" class="quick-search-results" hidden></div>
                 </div>
+                {% block topbar_tools %}{% endblock %}
                 {% if request.endpoint == 'funil' %}
                     {% set ajuda_pagina = 'Funil em andamento: aqui aparecem apenas propostas abertas. Ao mover para Pago ou Perdido / Cancelado, o card sai deste funil e aparece em Encerradas.' %}
                     {% set ajuda_rotulo = 'Ajuda sobre o Funil em andamento' %}
@@ -151,7 +152,7 @@
 
         {% block content %}{% endblock %}
     </main>
-<script src="{{ url_for('static', filename='script.js', v='20260901-dashboard-carryover') }}"></script>
+<script src="{{ url_for('static', filename='script.js', v='20260902-funnel-filter-extrato-isolation') }}"></script>
     <script src="{{ url_for('static', filename='themes.js', v='20260826-crm-lite-source') }}"></script>
 </body>
 </html>

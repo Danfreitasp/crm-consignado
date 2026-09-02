@@ -1,22 +1,34 @@
 {% extends 'base.html' %}
-{% block content %}
-<section class="card funnel-filter-card">
-    <div class="toolbar">
-        <form method="get" class="month-filter">
-            <label>Mês de criação
-                <input type="month" name="mes" value="{{ mes }}">
-            </label>
-            <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar mês</span></button>
-            {% if mes %}
-            <a class="btn" href="{{ url_for('funil') }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Mostrar todos</span></a>
-            {% endif %}
+{% block topbar_tools %}
+<details class="funnel-filter-menu" id="funnelFilterMenu">
+    <summary class="btn funnel-filter-toggle" title="Filtrar propostas por mês" aria-label="Filtrar propostas por mês{% if mes %}; filtro atual {{ mes[5:7] }}/{{ mes[:4] }}{% endif %}">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span>{% if mes %}{{ mes[5:7] }}/{{ mes[:4] }}{% else %}Mês{% endif %}</span>
+        {% if mes %}<i class="funnel-filter-active" aria-hidden="true"></i>{% endif %}
+    </summary>
+    <div class="funnel-filter-panel">
+        <div class="funnel-filter-heading">
+            <strong>Filtrar mês</strong>
+            <small>Mostra somente propostas abertas criadas no período selecionado.</small>
+        </div>
+        <form method="get" class="funnel-filter-form">
+            <label for="funnelMonthInput">Mês de criação</label>
+            <input id="funnelMonthInput" type="month" name="mes" value="{{ mes }}" required>
+            <div class="funnel-filter-actions">
+                {% if mes %}
+                <a class="btn" href="{{ url_for('funil') }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Todos</span></a>
+                {% endif %}
+                <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Aplicar</span></button>
+            </div>
         </form>
-        <span class="filter-hint">
-            {% if mes %}Exibindo somente propostas criadas em {{ mes[5:7] }}/{{ mes[:4] }}.{% else %}Sem filtro mensal: todas as propostas abertas continuam visíveis.{% endif %}
-        </span>
+        <small class="funnel-filter-status">
+            {% if mes %}Filtro ativo: {{ mes[5:7] }}/{{ mes[:4] }}.{% else %}Sem filtro: todas as propostas abertas estão visíveis.{% endif %}
+        </small>
     </div>
-</section>
+</details>
+{% endblock %}
 
+{% block content %}
 <section class="kanban" data-modulo="funil" data-mes="{{ mes }}">
     {% for status, itens in por_status.items() %}
     <div class="kanban-column" data-status="{{ status }}">

@@ -267,6 +267,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const funnelFilterMenu = document.getElementById('funnelFilterMenu');
+    if (funnelFilterMenu) {
+        document.addEventListener('click', (event) => {
+            if (!funnelFilterMenu.contains(event.target)) funnelFilterMenu.open = false;
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && funnelFilterMenu.open) {
+                funnelFilterMenu.open = false;
+                funnelFilterMenu.querySelector('summary')?.focus();
+            }
+        });
+    }
+
     const notificationPanelContent = document.getElementById('notificationPanelContent');
     const notificationBadge = document.querySelector('.notification-badge');
     async function atualizarNotificacoesAutomaticamente() {
@@ -2108,6 +2121,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const camposBeneficiarioDaFonte = [
+        'nome', 'cpf', 'nascimento', 'nb_matricula', 'especie', 'endereco', 'dados_bancarios',
+    ];
+    const camposContratoDaFonte = [
+        'banco_atual', 'numero_contrato', 'parcela_atual', 'saldo_quitacao',
+        'prazo_contrato', 'parcelas_pagas', 'taxa_contrato_atual', 'margem_disponivel_importada',
+    ];
+
+    function limparDadosDaFonteAnterior() {
+        [...camposBeneficiarioDaFonte, ...camposContratoDaFonte].forEach((nome) => {
+            preencherCampoExtrato(form.elements.namedItem(nome), '');
+        });
+        contratosDoExtrato = [];
+        if (extratoContractSelect) {
+            extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
+        }
+        if (extratoContractPicker) extratoContractPicker.hidden = true;
+        if (saldoRecalculadoStatus) {
+            saldoRecalculadoStatus.textContent = 'O recálculo considera a parcela atual e as parcelas restantes. Confira o resultado com o extrato.';
+        }
+        calcularPortRefin();
+    }
+
     function calcularPortRefin() {
         const parcelaAtual = parseBR(portFields.parcelaAtual?.value);
         const saldo = parseBR(portFields.saldo?.value);
@@ -2291,8 +2327,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/simulador-inss/ler-extrato', { method: 'POST', body: dadosEnvio });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.erro || 'Não foi possível ler o extrato.');
-            contratosDoExtrato = Array.isArray(payload.contratos) ? payload.contratos : [];
-            if (!contratosDoExtrato.length) throw new Error('Nenhum contrato ativo foi encontrado no extrato.');
+            const contratosLidos = Array.isArray(payload.contratos) ? payload.contratos : [];
+            if (!contratosLidos.length) throw new Error('Nenhum contrato ativo foi encontrado no extrato.');
+            limparDadosDaFonteAnterior();
+            contratosDoExtrato = contratosLidos;
             aplicarDadosBeneficiarioDoExtrato(payload);
             if (extratoContractSelect) {
                 extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
@@ -2331,7 +2369,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     modeInputs.forEach((input) => input.addEventListener('change', atualizarModo));
-    sourceInputs.forEach((input) => input.addEventListener('change', atualizarFonteSimulacao));
+    sourceInputs.forEach((input) => input.addEventListener('change', () => {
+        limparDadosDaFonteAnterior();
+        atualizarFonteSimulacao();
+    }));
     if (portFields.tabela) portFields.tabela.addEventListener('change', aplicarTabelaPortRefin);
     if (recalcularSaldo) recalcularSaldo.addEventListener('click', recalcularSaldoContrato);
     if (lerExtrato) lerExtrato.addEventListener('click', carregarExtrato);

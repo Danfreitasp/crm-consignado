@@ -81,17 +81,17 @@
                 <fieldset class="simulator-source-switch">
                     <legend>Como deseja preencher o contrato atual?</legend>
                     <label class="simulator-source-option">
-                        <input type="radio" name="fonte_simulacao" value="extrato" checked>
+                        <input type="radio" name="fonte_simulacao" value="extrato" {% if dados.fonte_simulacao != 'corban_manual' %}checked{% endif %}>
                         <span><i class="bi bi-file-earmark-text" aria-hidden="true"></i><span><strong>Simulação por Extrato</strong><small>Importar o PDF do Meu INSS</small></span></span>
                     </label>
                     <span class="simulator-source-or" aria-hidden="true">ou</span>
                     <label class="simulator-source-option">
-                        <input type="radio" name="fonte_simulacao" value="corban_manual">
+                        <input type="radio" name="fonte_simulacao" value="corban_manual" {% if dados.fonte_simulacao == 'corban_manual' %}checked{% endif %}>
                         <span><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span><strong>Simulação Corban / Manual</strong><small>Receber do Corban ou digitar abaixo</small></span></span>
                     </label>
                 </fieldset>
 
-                <div class="simulator-source-panel" data-simulator-source-panel="extrato">
+                <div class="simulator-source-panel" data-simulator-source-panel="extrato" {% if dados.fonte_simulacao == 'corban_manual' %}hidden{% endif %}>
                     <div class="statement-reader">
                         <div class="statement-reader-copy">
                             <strong>Leitor de extrato INSS</strong>
@@ -108,7 +108,7 @@
                     </div>
                 </div>
 
-                <div class="simulator-source-panel" data-simulator-source-panel="corban_manual" hidden>
+                <div class="simulator-source-panel" data-simulator-source-panel="corban_manual" {% if dados.fonte_simulacao != 'corban_manual' %}hidden{% endif %}>
                     {% include '_portal_import_panel.html' %}
                 </div>
 

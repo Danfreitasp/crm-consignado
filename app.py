@@ -3059,6 +3059,9 @@ def dados_simulador_inss() -> dict[str, Any]:
     modo_simulacao = limpar_texto(request.form.get("modo_simulacao")) or "novo"
     if modo_simulacao not in {"novo", "port_refin"}:
         modo_simulacao = "novo"
+    fonte_simulacao = limpar_texto(request.form.get("fonte_simulacao")) or "extrato"
+    if fonte_simulacao not in {"extrato", "corban_manual"}:
+        fonte_simulacao = "extrato"
     tipo_operacao = limpar_texto(request.form.get("tipo_operacao")) or "novo_valor"
     if tipo_operacao not in {"novo_valor", "novo_margem"}:
         tipo_operacao = "novo_valor"
@@ -3084,6 +3087,7 @@ def dados_simulador_inss() -> dict[str, Any]:
         "banco_digitado": limpar_texto(request.form.get("banco_digitado")),
         "promotora": limpar_texto(request.form.get("promotora")),
         "modo_simulacao": modo_simulacao,
+        "fonte_simulacao": fonte_simulacao,
         "tipo_operacao": tipo_operacao,
         "prazo": prazo,
         "faixa_cartao": faixa_cartao,
@@ -3546,7 +3550,7 @@ def simulador_inss():
     dados = {
         "nome": "", "cpf": "", "nascimento": "", "telefone": "", "nb_matricula": "", "especie": "",
         "endereco": "", "dados_bancarios": "", "banco_digitado": "", "promotora": "",
-        "modo_simulacao": "novo", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
+        "modo_simulacao": "novo", "fonte_simulacao": "extrato", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
         "parcelas_pagas": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
@@ -7187,6 +7191,14 @@ def calcular_agregado_dashboard(
     else:
         return 0.0
 
+    somar_comissao_por_status_como_operacao = (
+        agregacao == "soma"
+        and campo_valor == "comissao"
+        and base_data != "encerramento"
+        and filtro_campo == "status"
+        and bool(filtro_valores)
+    )
+
     if base_data == "encerramento":
         params: list[Any] = [mes]
         where = [
@@ -7196,10 +7208,34 @@ def calcular_agregado_dashboard(
     else:
         filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
         where = [filtro_mes_propostas]
-    if filtro_campo in DASHBOARD_FILTRO_CAMPOS and filtro_campo and filtro_valores:
+    if (
+        not somar_comissao_por_status_como_operacao
+        and filtro_campo in DASHBOARD_FILTRO_CAMPOS
+        and filtro_campo
+        and filtro_valores
+    ):
         placeholders = ", ".join("UPPER(?)" for _ in filtro_valores)
         where.append(f"UPPER(TRIM(COALESCE({filtro_campo}, ''))) IN ({placeholders})")
         params.extend(filtro_valores)
+
+    if somar_comissao_por_status_como_operacao:
+        propostas = get_db().execute(
+            f"SELECT * FROM propostas WHERE {' AND '.join(where)}",
+            params,
+        ).fetchall()
+        status_presentes = list(dict.fromkeys(
+            limpar_texto(proposta["status"])
+            for proposta in propostas
+            if limpar_texto(proposta["status"])
+        ))
+        _, totais_status = agrupar_cards_funil(propostas, status_presentes)
+        status_filtrados = {limpar_texto(status).casefold() for status in filtro_valores}
+        return sum(
+            float(total["comissao"] or 0)
+            for status, total in totais_status.items()
+            if limpar_texto(status).casefold() in status_filtrados
+        )
+
     registro = get_db().execute(
         f"SELECT {expressao} AS valor FROM propostas WHERE {' AND '.join(where)}",
         params,
@@ -7307,6 +7343,17 @@ def ajuda_indicador_personalizado_dashboard(
         if filtro_campo and filtro_valores:
             nome_filtro = DASHBOARD_FILTRO_CAMPOS.get(filtro_campo, filtro_campo)
             descricao += f", filtradas por {nome_filtro}: {', '.join(filtro_valores)}"
+        if (
+            agregacao == "soma"
+            and campo_valor == "comissao"
+            and configuracao.get("base_data") != "encerramento"
+            and filtro_campo == "status"
+            and filtro_valores
+        ):
+            descricao += (
+                "; em Port + Refin vinculados, usa o status da Portabilidade "
+                "e soma as duas comissões"
+            )
         return descricao + "."
 
     formula = normalizar_formula_dashboard(configuracao, campo.get("tipo") or "numero")
