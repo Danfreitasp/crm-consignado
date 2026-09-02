@@ -1601,9 +1601,12 @@ def mes_atual() -> str:
     return date.today().strftime("%Y-%m")
 
 
-def filtro_propostas_mes_dashboard(mes: str) -> tuple[str, list[Any]]:
-    """Mantém pendências antigas no Dashboard do mês atual sem alterar sua criação."""
-    if mes != mes_atual():
+def filtro_propostas_mes_dashboard(
+    mes: str,
+    incluir_anteriores: bool = True,
+) -> tuple[str, list[Any]]:
+    """Mantém pendências antigas no mês atual, salvo quando o filtro as exclui."""
+    if mes != mes_atual() or not incluir_anteriores:
         return "substr(data_criacao, 1, 7) = ?", [mes]
     placeholders = ", ".join("?" for _ in STATUS_ENCERRADOS_COMPATIVEIS)
     return (
@@ -1644,11 +1647,22 @@ def status_ativos() -> list[str]:
     return [status for status in nomes_status() if status not in STATUS_ENCERRADOS]
 
 
-def resumo_coluna_funil(status: str) -> dict[str, Any]:
-    status_visiveis = status_ativos()
-    propostas = get_db().execute(
+def buscar_propostas_funil(mes: str = "") -> list[sqlite3.Row]:
+    if mes:
+        return get_db().execute(
+            """SELECT * FROM propostas
+               WHERE substr(data_criacao, 1, 7) = ?
+               ORDER BY data_retorno ASC, id DESC""",
+            (mes,),
+        ).fetchall()
+    return get_db().execute(
         "SELECT * FROM propostas ORDER BY data_retorno ASC, id DESC",
     ).fetchall()
+
+
+def resumo_coluna_funil(status: str, mes: str = "") -> dict[str, Any]:
+    status_visiveis = status_ativos()
+    propostas = buscar_propostas_funil(mes)
     _, totais_status = agrupar_cards_funil(propostas, status_visiveis)
     resumo = totais_status.get(status, {"qtd": 0, "comissao": 0.0})
     return {
@@ -1679,9 +1693,10 @@ def resposta_status_json(
     if etapa_destino is not None:
         payload["etapa_destino"] = etapa_destino
     if etapa_origem is not None and etapa_destino is not None:
+        mes_funil = limpar_texto(request.form.get("mes_funil"))
         payload["colunas"] = {
-            "origem": resumo_coluna_funil(etapa_origem),
-            "destino": resumo_coluna_funil(etapa_destino),
+            "origem": resumo_coluna_funil(etapa_origem, mes_funil),
+            "destino": resumo_coluna_funil(etapa_destino, mes_funil),
         }
     return jsonify(payload), status_http
 
@@ -5545,12 +5560,16 @@ def excluir_proposta(proposta_id: int):
     return redirect(destino)
 
 
-def renderizar_funil(status_visiveis: list[str], titulo: str, subtitulo: str, modulo: str):
+def renderizar_funil(
+    status_visiveis: list[str],
+    titulo: str,
+    subtitulo: str,
+    modulo: str,
+    mes: str = "",
+):
     if not status_visiveis:
         status_visiveis = status_ativos()
-    propostas = get_db().execute(
-        "SELECT * FROM propostas ORDER BY data_retorno ASC, id DESC",
-    ).fetchall()
+    propostas = buscar_propostas_funil(mes)
     por_status, totais_status = agrupar_cards_funil(propostas, status_visiveis)
     return render_template(
         "funil.html",
@@ -5560,16 +5579,19 @@ def renderizar_funil(status_visiveis: list[str], titulo: str, subtitulo: str, mo
         titulo=titulo,
         subtitulo=subtitulo,
         modulo=modulo,
+        mes=mes,
     )
 
 
 @app.route("/funil")
 def funil():
+    mes = limpar_texto(request.args.get("mes"))
     return renderizar_funil(
         status_ativos(),
         "Funil em andamento",
         "Mostra apenas propostas abertas. Pagas e perdidas ficam no menu Encerradas.",
         "geral",
+        mes,
     )
 
 
@@ -6687,7 +6709,11 @@ def configurar_dashboard():
             db.commit()
             mes = limpar_texto(request.form.get("mes"))
             if request.form.get("retorno") == "dashboard":
-                return redirect(url_for("dashboard", mes=mes or mes_atual()))
+                return redirect(url_for(
+                    "dashboard",
+                    mes=mes or mes_atual(),
+                    somente_mes="1" if request.form.get("somente_mes") == "1" else None,
+                ))
             return redirect(url_for("configurar_dashboard"))
 
         campo_id = int(request.form.get("campo_id") or 0) if str(request.form.get("campo_id") or "").isdigit() else 0
@@ -6746,7 +6772,11 @@ def configurar_dashboard():
             db.commit()
             flash("Campo removido do Dashboard.", "ok")
             if request.form.get("retorno") == "dashboard":
-                return redirect(url_for("dashboard", mes=limpar_texto(request.form.get("mes")) or mes_atual()))
+                return redirect(url_for(
+                    "dashboard",
+                    mes=limpar_texto(request.form.get("mes")) or mes_atual(),
+                    somente_mes="1" if request.form.get("somente_mes") == "1" else None,
+                ))
             return redirect(url_for("configurar_dashboard"))
 
     if campo_edicao:
@@ -7016,9 +7046,12 @@ def comparativo_promotoras_dashboard(
     }
 
 
-def consulta_dashboard(mes: str) -> dict[str, Any]:
+def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, Any]:
     db = get_db()
-    filtro_mes_propostas, parametros_mes_propostas = filtro_propostas_mes_dashboard(mes)
+    filtro_mes_propostas, parametros_mes_propostas = filtro_propostas_mes_dashboard(
+        mes,
+        incluir_anteriores,
+    )
     propostas = db.execute(
         f"SELECT * FROM propostas WHERE {filtro_mes_propostas} ORDER BY data_criacao DESC",
         parametros_mes_propostas,
@@ -7034,13 +7067,19 @@ def consulta_dashboard(mes: str) -> dict[str, Any]:
     ).fetchall()
     todas_propostas = db.execute("SELECT * FROM propostas").fetchall()
     placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
+    filtro_criacao_comissao_prevista = ""
+    parametros_comissao_prevista: list[Any] = list(STATUS_COMISSAO_PREVISTA)
+    if not incluir_anteriores:
+        filtro_criacao_comissao_prevista = "AND substr(data_criacao, 1, 7) = ?"
+        parametros_comissao_prevista.append(mes)
     propostas_comissao_prevista = db.execute(
         f"""
         SELECT *
         FROM propostas
         WHERE status IN ({placeholders_comissao_prevista})
+          {filtro_criacao_comissao_prevista}
         """,
-        STATUS_COMISSAO_PREVISTA,
+        parametros_comissao_prevista,
     ).fetchall()
     propostas_operacoes = propostas_como_operacoes(propostas, todas_propostas)
     propostas_herdadas_registros = [
@@ -7094,6 +7133,7 @@ def consulta_dashboard(mes: str) -> dict[str, Any]:
 
     return {
         "mes": mes,
+        "incluir_anteriores": incluir_anteriores,
         "total": total,
         "propostas_herdadas": len(propostas_herdadas),
         "pagas": len(pagas),
@@ -7123,7 +7163,11 @@ def saldo_em_conta() -> float:
     return parse_moeda(registro["valor"]) if registro else 0.0
 
 
-def calcular_agregado_dashboard(configuracao: dict[str, Any], mes: str) -> float:
+def calcular_agregado_dashboard(
+    configuracao: dict[str, Any],
+    mes: str,
+    incluir_anteriores: bool = True,
+) -> float:
     agregacao = configuracao.get("agregacao")
     campo_valor = configuracao.get("campo_valor")
     base_data = configuracao.get("base_data")
@@ -7150,7 +7194,7 @@ def calcular_agregado_dashboard(configuracao: dict[str, Any], mes: str) -> float
             "substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?",
         ]
     else:
-        filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes)
+        filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
         where = [filtro_mes_propostas]
     if filtro_campo in DASHBOARD_FILTRO_CAMPOS and filtro_campo and filtro_valores:
         placeholders = ", ".join("UPPER(?)" for _ in filtro_valores)
@@ -7178,7 +7222,7 @@ def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
     nota_pendencias = (
         " No mês atual, também inclui operações de meses anteriores que continuam ativas; "
         "a data de criação original não é alterada."
-        if dados.get("mes") == mes_atual()
+        if dados.get("mes") == mes_atual() and dados.get("incluir_anteriores", True)
         else ""
     )
     ajudas = {
@@ -7191,7 +7235,11 @@ def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
             "Soma a Comissão atual de todas as propostas nos status: "
             f"{', '.join(dados['comissao_prevista_status'])}. "
             "Refins cuja Port vinculada já foi encerrada não entram neste previsto. "
-            "Este indicador considera a carteira atual, sem limitar pelo mês selecionado."
+            + (
+                "Este indicador considera a carteira atual, sem limitar pelo mês selecionado."
+                if dados.get("incluir_anteriores", True)
+                else "Com o filtro ativo, considera apenas propostas criadas no mês selecionado."
+            )
         ),
         "comissao_paga": "Soma as comissões das operações pagas no mês, incluindo Port + Refin vinculados.",
         "valor_a_sacar": (
@@ -7221,6 +7269,7 @@ def ajuda_indicador_personalizado_dashboard(
     campo: dict[str, Any],
     mes: str,
     nomes_indicadores: dict[str, str],
+    incluir_anteriores: bool = True,
 ) -> str:
     mes_exibicao = f"{mes[5:7]}/{mes[:4]}" if len(mes) >= 7 else mes
     modalidade = campo.get("modalidade")
@@ -7241,7 +7290,7 @@ def ajuda_indicador_personalizado_dashboard(
 
         if configuracao.get("base_data") == "encerramento":
             descricao += f" encerradas em {mes_exibicao}"
-        elif mes == mes_atual():
+        elif mes == mes_atual() and incluir_anteriores:
             descricao += (
                 f" consideradas em {mes_exibicao}: criadas no mês ou trazidas de meses anteriores "
                 "por ainda estarem ativas"
@@ -7290,7 +7339,11 @@ def ajuda_indicador_personalizado_dashboard(
     return descricao + "."
 
 
-def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str, Any]]:
+def calcular_campos_dashboard(
+    dados: dict[str, Any],
+    mes: str,
+    incluir_anteriores: bool = True,
+) -> list[dict[str, Any]]:
     todos_campos = carregar_dashboard_campos()
     campos_por_id = {campo["id"]: campo for campo in todos_campos}
     cache: dict[str, float] = {}
@@ -7321,7 +7374,7 @@ def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str,
             ).fetchone()
             valor = float(registro["valor"] or 0) if registro else 0.0
         elif campo["modalidade"] == "agregado":
-            valor = calcular_agregado_dashboard(config, mes)
+            valor = calcular_agregado_dashboard(config, mes, incluir_anteriores)
         elif campo["modalidade"] == "formula":
             formula = normalizar_formula_dashboard(config, campo["tipo"])
             valor = resolver(formula["primeiro"])
@@ -7378,7 +7431,12 @@ def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str,
         item = dict(campo)
         item["valor"] = resolver(f"personalizado:{campo['id']}")
         item["valor_formatado"] = formatar_valor_dashboard(item["valor"], campo["tipo"])
-        item["ajuda"] = ajuda_indicador_personalizado_dashboard(item, mes, nomes_indicadores)
+        item["ajuda"] = ajuda_indicador_personalizado_dashboard(
+            item,
+            mes,
+            nomes_indicadores,
+            incluir_anteriores,
+        )
         resultado.append(item)
     return resultado
 
@@ -7386,7 +7444,9 @@ def calcular_campos_dashboard(dados: dict[str, Any], mes: str) -> list[dict[str,
 @app.route("/dashboard")
 def dashboard():
     mes = limpar_texto(request.args.get("mes")) or mes_atual()
-    dados = consulta_dashboard(mes)
+    somente_mes = request.args.get("somente_mes") == "1"
+    incluir_anteriores = not somente_mes
+    dados = consulta_dashboard(mes, incluir_anteriores)
     componentes = carregar_dashboard_componentes(apenas_ativos=True)
     metricas_dashboard = []
     graficos_dashboard = []
@@ -7405,9 +7465,10 @@ def dashboard():
         "dashboard.html",
         dados=dados,
         saldo_em_conta=dados["saldo_em_conta"],
-        campos_dashboard=calcular_campos_dashboard(dados, mes),
+        campos_dashboard=calcular_campos_dashboard(dados, mes, incluir_anteriores),
         metricas_dashboard=metricas_dashboard,
         graficos_dashboard=graficos_dashboard,
+        somente_mes=somente_mes,
     )
 
 
@@ -7418,13 +7479,14 @@ def atualizar_valor_dashboard(campo_id: int):
         (campo_id,),
     ).fetchone()
     mes = limpar_texto(request.form.get("mes")) or mes_atual()
+    somente_mes = "1" if request.form.get("somente_mes") == "1" else None
     if not campo:
         flash("O campo manual do Dashboard não foi encontrado.", "erro")
-        return redirect(url_for("dashboard", mes=mes))
+        return redirect(url_for("dashboard", mes=mes, somente_mes=somente_mes))
     valor_texto = limpar_texto(request.form.get("valor"))
     if not valor_texto:
         flash("Informe o valor do campo.", "erro")
-        return redirect(url_for("dashboard", mes=mes))
+        return redirect(url_for("dashboard", mes=mes, somente_mes=somente_mes))
     valor = parse_percentual(valor_texto) if campo["tipo"] == "percentual" else parse_moeda(valor_texto)
     get_db().execute(
         """INSERT INTO dashboard_valores_manuais (campo_id, mes, valor, atualizado_em)
@@ -7435,7 +7497,7 @@ def atualizar_valor_dashboard(campo_id: int):
     )
     get_db().commit()
     flash("Valor mensal atualizado.", "ok")
-    return redirect(url_for("dashboard", mes=mes))
+    return redirect(url_for("dashboard", mes=mes, somente_mes=somente_mes))
 
 
 @app.route("/dashboard/saldo", methods=["POST"])
@@ -7452,7 +7514,8 @@ def atualizar_saldo_dashboard():
         get_db().commit()
         flash("Saldo em conta atualizado.", "ok")
     mes = limpar_texto(request.form.get("mes")) or mes_atual()
-    return redirect(url_for("dashboard", mes=mes))
+    somente_mes = "1" if request.form.get("somente_mes") == "1" else None
+    return redirect(url_for("dashboard", mes=mes, somente_mes=somente_mes))
 
 
 @app.route("/exportar/csv")

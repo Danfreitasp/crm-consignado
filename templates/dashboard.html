@@ -4,15 +4,21 @@
 {% block content %}
 <section class="card">
     <div class="toolbar">
-        <form method="get" class="month-filter">
+        <form method="get" class="month-filter dashboard-month-filter">
             <label>Mês de análise
                 <input type="month" name="mes" value="{{ dados.mes }}">
+            </label>
+            <label class="notification-option dashboard-month-option">
+                <input type="checkbox" name="somente_mes" value="1" {% if somente_mes %}checked{% endif %}>
+                <span><strong>Não incluir propostas ativas de meses anteriores</strong><small>Afeta contagens, previstos, gráficos e indicadores personalizados baseados na criação.</small></span>
             </label>
             <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i><span>Atualizar</span></button>
         </form>
         <a class="btn" href="{{ url_for('configurar_dashboard') }}"><i class="bi bi-gear" aria-hidden="true"></i><span>Personalizar Dashboard</span></a>
     </div>
-    {% if dados.propostas_herdadas %}
+    {% if somente_mes %}
+    <p class="dashboard-carryover-note"><i class="bi bi-funnel" aria-hidden="true"></i><span>Filtro ativo: propostas ainda abertas que foram criadas em meses anteriores não entram nos indicadores baseados na criação.</span></p>
+    {% elif dados.propostas_herdadas %}
     <p class="dashboard-carryover-note"><i class="bi bi-arrow-right-circle" aria-hidden="true"></i><span>{{ dados.propostas_herdadas }} {{ 'operação ativa de mês anterior foi incluída' if dados.propostas_herdadas == 1 else 'operações ativas de meses anteriores foram incluídas' }} neste mês.</span></p>
     {% endif %}
 </section>
@@ -31,6 +37,7 @@
                     <summary class="metric-edit-button" title="Editar valor" aria-label="Editar valor de {{ item.nome }}"><i class="bi bi-cash-coin" aria-hidden="true"></i></summary>
                     <form method="post" action="{{ url_for('atualizar_saldo_dashboard') }}" class="metric-edit-form">
                         <input type="hidden" name="mes" value="{{ dados.mes }}">
+                        {% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}
                         <label>Saldo atual<input type="text" name="saldo_em_conta" value="{{ '%.2f'|format(saldo_em_conta)|replace('.', ',') }}" inputmode="decimal" required></label>
                         <button class="btn btn-primary" type="submit">Salvar</button>
                     </form>
@@ -38,7 +45,7 @@
                 {% endif %}
                 <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar cartão" aria-label="Editar cartão {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
                 <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este cartão do Dashboard? Você poderá restaurá-lo depois.');">
-                    <input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">
+                    <input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">{% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}
                     <button class="dashboard-card-action danger" type="submit" title="Excluir cartão" aria-label="Excluir cartão {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
                 </form>
             </div>
@@ -65,6 +72,7 @@
                     <summary class="metric-edit-button" title="Editar valor" aria-label="Editar valor de {{ campo.nome }}"><i class="bi bi-cash-coin" aria-hidden="true"></i></summary>
                     <form method="post" action="{{ url_for('atualizar_valor_dashboard', campo_id=campo.id) }}" class="metric-edit-form">
                         <input type="hidden" name="mes" value="{{ dados.mes }}">
+                        {% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}
                         <label>Valor de {{ dados.mes[5:7] }}/{{ dados.mes[:4] }}
                             <input type="text" name="valor" value="{{ ('%.2f'|format(campo.valor))|replace('.', ',') }}" inputmode="decimal" required>
                         </label>
@@ -74,7 +82,7 @@
                 {% endif %}
                 <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar=campo.id) }}" title="Editar cartão" aria-label="Editar cartão {{ campo.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
                 <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Excluir este cartão e seus valores mensais?');">
-                    <input type="hidden" name="acao" value="excluir"><input type="hidden" name="campo_id" value="{{ campo.id }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">
+                    <input type="hidden" name="acao" value="excluir"><input type="hidden" name="campo_id" value="{{ campo.id }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">{% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}
                     <button class="dashboard-card-action danger" type="submit" title="Excluir cartão" aria-label="Excluir cartão {{ campo.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
                 </form>
                 </div>
@@ -104,7 +112,7 @@
                 <button type="button" data-promoter-mode="propostas" aria-pressed="false">Propostas no mês</button>
             </div>
             <a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
-            <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}"><button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
+            <form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">{% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}<button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
         </div>
     </div>
 
@@ -132,7 +140,7 @@
 </section>
 {% else %}
 <section class="card stack dashboard-managed-chart dashboard-bar-chart color-{{ item.cor }}">
-    <div class="dashboard-chart-heading"><h2>{{ item.nome }}</h2><div class="dashboard-item-actions"><a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a><form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}"><button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form></div></div>
+    <div class="dashboard-chart-heading"><h2>{{ item.nome }}</h2><div class="dashboard-item-actions"><a class="dashboard-card-action" href="{{ url_for('configurar_dashboard', editar_padrao=item.chave) }}#componente-{{ item.chave }}" title="Editar gráfico" aria-label="Editar gráfico {{ item.nome }}"><i class="bi bi-pencil-square" aria-hidden="true"></i></a><form method="post" action="{{ url_for('configurar_dashboard') }}" onsubmit="return confirm('Remover este gráfico do Dashboard?');"><input type="hidden" name="acao" value="ocultar_padrao"><input type="hidden" name="componente_chave" value="{{ item.chave }}"><input type="hidden" name="retorno" value="dashboard"><input type="hidden" name="mes" value="{{ dados.mes }}">{% if somente_mes %}<input type="hidden" name="somente_mes" value="1">{% endif %}<button class="dashboard-card-action danger" type="submit" title="Excluir gráfico" aria-label="Excluir gráfico {{ item.nome }}"><i class="bi bi-trash" aria-hidden="true"></i></button></form></div></div>
     {% for barra in item.itens %}<div class="bar-row"><span>{{ barra.nome }}</span><div><b style="width: {{ barra.percentual }}%"></b></div><small>{{ barra.qtd }}</small></div>{% else %}<p class="empty">Sem dados neste mês.</p>{% endfor %}
 </section>
 {% endif %}

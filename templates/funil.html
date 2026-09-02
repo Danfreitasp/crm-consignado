@@ -1,6 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="kanban" data-modulo="funil">
+<section class="card funnel-filter-card">
+    <div class="toolbar">
+        <form method="get" class="month-filter">
+            <label>Mês de criação
+                <input type="month" name="mes" value="{{ mes }}">
+            </label>
+            <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar mês</span></button>
+            {% if mes %}
+            <a class="btn" href="{{ url_for('funil') }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Mostrar todos</span></a>
+            {% endif %}
+        </form>
+        <span class="filter-hint">
+            {% if mes %}Exibindo somente propostas criadas em {{ mes[5:7] }}/{{ mes[:4] }}.{% else %}Sem filtro mensal: todas as propostas abertas continuam visíveis.{% endif %}
+        </span>
+    </div>
+</section>
+
+<section class="kanban" data-modulo="funil" data-mes="{{ mes }}">
     {% for status, itens in por_status.items() %}
     <div class="kanban-column" data-status="{{ status }}">
         <div class="column-title">

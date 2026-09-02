@@ -1402,6 +1402,9 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('status', novoStatus);
             formData.append('origem', modulo);
             formData.append('observacao', 'Movido no funil por arrastar e soltar');
+            if (modulo === 'funil' && kanban?.dataset.mes) {
+                formData.append('mes_funil', kanban.dataset.mes);
+            }
 
             card.dataset.busy = 'true';
             card.classList.add('is-processing');
