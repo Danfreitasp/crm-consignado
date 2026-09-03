@@ -230,18 +230,22 @@ INSS_NOVO_COEFICIENTES = {
 }
 CONFIG_INSS_NOVO_COEFICIENTES = "simulador_inss_novo_coeficientes"
 
-# Tabelas Quali calibradas no NewCorban em 13/08/2026. No cálculo "com saldo
+# Tabelas Quali calibradas no NewCorban em 03/09/2026. No cálculo "com saldo
 # devedor", o banco aplica o coeficiente da tabela sobre a parcela e considera
-# 96,64% do saldo informado para a quitação.
+# 96,64% do saldo informado para a quitação. As comissões foram conferidas
+# na lista diária da Unicap em 03/09/2026 e valem igualmente para a
+# portabilidade e para o refinanciamento.
 INSS_PORT_REFIN_TABELAS = {
-    "569": {"nome": "000569 PORT + REFIN 1,83% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022684393854, "fator_saldo": 0.96639382},
-    "568": {"nome": "000568 PORT + REFIN 1,85% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022859644302, "fator_saldo": 0.96639382},
-    "400": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,78% 108X SEM SEGURO min 8 mil", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022249019931, "fator_saldo": 0.966384667010},
-    "401": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,75% 108x SEM SEGURO min 8 mil", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021989298541, "fator_saldo": 0.966393820466},
-    "402": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,72% 108x SEM SEGURO min 8 mil", "taxa": 1.72, "prazo": 108, "coeficiente": 0.021730957705, "fator_saldo": 0.966401417834},
-    "406": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,85% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022859630836, "fator_saldo": 0.96639382},
-    "407": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022684419086, "fator_saldo": 0.96639382},
-    "408": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022422658197, "fator_saldo": 0.96639382},
+    "569": {"nome": "000569 PORT + REFIN 1,83% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "fator_saldo": 0.96639382, "comissao_percentual": 2.00},
+    "568": {"nome": "000568 PORT + REFIN 1,85% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "fator_saldo": 0.96639382, "comissao_percentual": 3.00},
+    "398": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108X SEM SEGURO MIN 6 mil", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "fator_saldo": 0.96639382, "comissao_percentual": 4.25},
+    "399": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108X SEM SEGURO MIN 6 mil", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "fator_saldo": 0.96639382, "comissao_percentual": 4.13},
+    "400": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,78% 108X SEM SEGURO min 8 mil", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "fator_saldo": 0.966384667010, "comissao_percentual": 3.15},
+    "401": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,75% 108x SEM SEGURO min 8 mil", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "fator_saldo": 0.966393820466, "comissao_percentual": 2.84},
+    "402": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,72% 108x SEM SEGURO min 8 mil", "taxa": 1.72, "prazo": 108, "coeficiente": 0.021724008954, "fator_saldo": 0.966401417834, "comissao_percentual": 2.45},
+    "406": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,85% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "fator_saldo": 0.96639382, "comissao_percentual": 3.92},
+    "407": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "fator_saldo": 0.96639382, "comissao_percentual": 3.43},
+    "408": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "fator_saldo": 0.96639382, "comissao_percentual": 2.94},
 }
 
 INSS_PORT_REFIN_MENSAGEM_MODELO = (
@@ -304,6 +308,7 @@ def get_db() -> sqlite3.Connection:
     if "db" not in g:
         g.db = sqlite3.connect(DATABASE)
         g.db.row_factory = sqlite3.Row
+        g.db.create_function("NORMALIZAR_MATRICULA", 1, normalizar_matricula, deterministic=True)
         g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
 
@@ -612,7 +617,7 @@ def init_db() -> None:
                         proposta.cliente_id = clientes.id
                         OR (
                             proposta.cpf = clientes.cpf
-                            AND COALESCE(proposta.nb_matricula, '') = COALESCE(clientes.nb_matricula, '')
+                            AND NORMALIZAR_MATRICULA(proposta.nb_matricula) = NORMALIZAR_MATRICULA(clientes.nb_matricula)
                         )
                     )
                       AND COALESCE(TRIM(proposta.nascimento), '') <> ''
@@ -630,7 +635,7 @@ def init_db() -> None:
                         proposta.cliente_id = clientes.id
                         OR (
                             proposta.cpf = clientes.cpf
-                            AND COALESCE(proposta.nb_matricula, '') = COALESCE(clientes.nb_matricula, '')
+                            AND NORMALIZAR_MATRICULA(proposta.nb_matricula) = NORMALIZAR_MATRICULA(clientes.nb_matricula)
                         )
                     )
                       AND COALESCE(TRIM(proposta.especie), '') <> ''
@@ -1155,6 +1160,11 @@ def limpar_texto(valor: Any) -> str:
     if valor is None:
         return ""
     return str(valor).strip()
+
+
+def normalizar_matricula(valor: Any) -> str:
+    """Compara e persiste NB/matrícula sem ponto, traço ou espaços."""
+    return re.sub(r"[.\-\s]+", "", limpar_texto(valor)).upper()
 
 
 def primeiro_nome_banco(valor: Any) -> str:
@@ -2022,7 +2032,7 @@ def dados_formulario(proposta_atual: sqlite3.Row | dict[str, Any] | None = None)
     dados = {
         "nome": limpar_texto(request.form.get("nome")), "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
         "nascimento": limpar_texto(request.form.get("nascimento")),
-        "nb_matricula": limpar_texto(request.form.get("nb_matricula")), "especie": limpar_texto(request.form.get("especie")), "numero_proposta": limpar_texto(request.form.get("numero_proposta")),
+        "nb_matricula": normalizar_matricula(request.form.get("nb_matricula")), "especie": limpar_texto(request.form.get("especie")), "numero_proposta": limpar_texto(request.form.get("numero_proposta")),
         "numero_port_vinculada": limpar_texto(atual.get("numero_port_vinculada")), "numero_refin_vinculada": limpar_texto(atual.get("numero_refin_vinculada")),
         "tipo_cliente": limpar_texto(request.form.get("tipo_cliente")), "banco_atual": limpar_texto(request.form.get("banco_atual")),
         "banco_destino": limpar_texto(request.form.get("banco_destino")), "banco_digitado": limpar_texto(request.form.get("banco_digitado")),
@@ -2086,7 +2096,7 @@ def chave_cliente(cpf: Any, nb_matricula: Any) -> tuple[str, str]:
     A chave é CPF + matrícula. Quando a matrícula está vazia, usamos string vazia
     para permitir reaproveitamento em cadastros antigos, mas o ideal é preencher a matrícula.
     """
-    return formatar_cpf(limpar_texto(cpf)), limpar_texto(nb_matricula)
+    return formatar_cpf(limpar_texto(cpf)), normalizar_matricula(nb_matricula)
 
 
 def reaproveitar_cadastro_cliente(dados: dict[str, Any]) -> dict[str, Any]:
@@ -2100,7 +2110,7 @@ def reaproveitar_cadastro_cliente(dados: dict[str, Any]) -> dict[str, Any]:
         SELECT nome, cpf, nascimento, nb_matricula, especie, telefone,
                tipo_cliente, endereco, dados_bancarios
         FROM clientes
-        WHERE cpf = ? AND COALESCE(nb_matricula, '') = ?
+        WHERE cpf = ? AND NORMALIZAR_MATRICULA(nb_matricula) = ?
         LIMIT 1
         """,
         (cpf, nb),
@@ -2138,7 +2148,7 @@ def salvar_cliente_dos_dados(dados: dict[str, Any] | sqlite3.Row) -> int | None:
     agora = agora_iso()
     db = get_db()
     existente = db.execute(
-        "SELECT id FROM clientes WHERE cpf = ? AND COALESCE(nb_matricula, '') = ? LIMIT 1",
+        "SELECT id FROM clientes WHERE cpf = ? AND NORMALIZAR_MATRICULA(nb_matricula) = ? LIMIT 1",
         (cpf, nb),
     ).fetchone()
     if existente:
@@ -2220,7 +2230,7 @@ def normalizar_numero_proposta(valor: Any) -> str:
 
 def beneficio_bloqueado_global(nb_matricula: Any, padrao: Any = "NÃO") -> str:
     """Consulta o bloqueio compartilhado por todas as propostas do benefício."""
-    beneficio = limpar_texto(nb_matricula)
+    beneficio = normalizar_matricula(nb_matricula)
     if not beneficio:
         return normalizar_bloqueado(padrao)
 
@@ -2228,7 +2238,7 @@ def beneficio_bloqueado_global(nb_matricula: Any, padrao: Any = "NÃO") -> str:
         """
         SELECT beneficio_bloqueado
         FROM propostas
-        WHERE UPPER(TRIM(COALESCE(nb_matricula, ''))) = UPPER(TRIM(?))
+        WHERE NORMALIZAR_MATRICULA(nb_matricula) = ?
         ORDER BY data_atualizacao DESC, id DESC
         """,
         (beneficio,),
@@ -2247,7 +2257,7 @@ def sincronizar_beneficio_bloqueado(
     atualizado_em: str | None = None,
 ) -> list[int]:
     """Propaga o bloqueio para todas as propostas que usam o mesmo benefício."""
-    beneficio = limpar_texto(nb_matricula)
+    beneficio = normalizar_matricula(nb_matricula)
     if not beneficio:
         return []
 
@@ -2257,7 +2267,7 @@ def sincronizar_beneficio_bloqueado(
         """
         SELECT id, status, beneficio_bloqueado
         FROM propostas
-        WHERE UPPER(TRIM(COALESCE(nb_matricula, ''))) = UPPER(TRIM(?))
+        WHERE NORMALIZAR_MATRICULA(nb_matricula) = ?
         """,
         (beneficio,),
     ).fetchall()
@@ -3080,7 +3090,7 @@ def dados_simulador_inss() -> dict[str, Any]:
         "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
         "nascimento": limpar_texto(request.form.get("nascimento")),
         "telefone": limpar_texto(request.form.get("telefone")),
-        "nb_matricula": limpar_texto(request.form.get("nb_matricula")),
+        "nb_matricula": normalizar_matricula(request.form.get("nb_matricula")),
         "especie": limpar_texto(request.form.get("especie")),
         "endereco": limpar_texto(request.form.get("endereco")),
         "dados_bancarios": limpar_texto(request.form.get("dados_bancarios")),
@@ -3207,6 +3217,10 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     valor_contrato = nova_parcela / coeficiente if 0 < coeficiente <= 1 else 0.0
     saldo_considerado = saldo_quitacao * fator_saldo
     troco = valor_contrato - saldo_considerado
+    comissao_percentual = float(tabela.get("comissao_percentual") or 0) if tabela else 0.0
+    comissao_portabilidade = saldo_quitacao * comissao_percentual / 100
+    comissao_refinanciamento = max(0.0, troco) * comissao_percentual / 100
+    comissao_total = comissao_portabilidade + comissao_refinanciamento
     operacao_viavel = not erros and troco >= 0
     parcelas_abertas = max(0, int(dados.get("prazo_contrato") or 0) - int(dados.get("parcelas_pagas") or 0))
 
@@ -3222,6 +3236,10 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         "saldo_considerado": round(saldo_considerado, 2),
         "fator_saldo": fator_saldo,
         "troco": round(troco, 2),
+        "comissao_percentual": comissao_percentual,
+        "comissao_portabilidade": round(comissao_portabilidade, 2),
+        "comissao_refinanciamento": round(comissao_refinanciamento, 2),
+        "comissao_total": round(comissao_total, 2),
         "parcela_atual": round(parcela_atual, 2),
         "nova_parcela": round(nova_parcela, 2),
         "margem_disponivel_importada": round(margem_importada, 2),
@@ -3293,6 +3311,7 @@ def banco_extrato(valor: Any) -> tuple[str, str]:
         "237": "BRADESCO",
         "254": "PARANÁ",
         "329": "QI",
+        "389": "MERCANTIL",
         "422": "SAFRA",
         "626": "C6",
         "643": "PINE",
@@ -3353,7 +3372,7 @@ def dados_beneficiario_extrato(texto: str) -> dict[str, str]:
     if cabecalho:
         dados["nome"] = celula_extrato(cabecalho.group(1))
         dados["especie_descricao"] = celula_extrato(cabecalho.group(2))
-        dados["nb_matricula"] = celula_extrato(cabecalho.group(3))
+        dados["nb_matricula"] = normalizar_matricula(cabecalho.group(3))
         dados["especie"] = codigo_especie_beneficio_inss(dados["especie_descricao"])
 
     banco = re.search(r"Pago\s+em\s*:\s*(.+?)(?=\s+N[ãa]o\s+[ée]\s+pens[ãa]o\s+aliment[íÌi]cia|\r?\n)", texto, flags=re.IGNORECASE)
@@ -3600,6 +3619,11 @@ def simulador_inss_criar_proposta():
             f"Novo contrato estimado: {br_moeda(resultado['valor_contrato'])}; troco estimado: {br_moeda(resultado['troco'])}.",
             f"Coeficiente usado: {resultado['coeficiente']:.8f} ({resultado['origem_coeficiente']}).",
         ]
+        if resultado["comissao_percentual"]:
+            observacoes.append(
+                f"Comissão da tabela: {br_percentual(resultado['comissao_percentual'])} na portabilidade e no refinanciamento; "
+                f"total estimado: {br_moeda(resultado['comissao_total'])}."
+            )
         if dados_sim["observacoes"]:
             observacoes.append(dados_sim["observacoes"])
 
@@ -3620,11 +3644,11 @@ def simulador_inss_criar_proposta():
                 "parcela_atual": dados_sim["parcela_atual"],
                 "nova_parcela": resultado["nova_parcela"],
                 "troco": resultado["saldo_quitacao"],
-                "comissao_percentual": 0,
-                "comissao": 0,
+                "comissao_percentual": resultado["comissao_percentual"],
+                "comissao": resultado["comissao_portabilidade"],
                 "refin_troco": resultado["troco"],
-                "refin_comissao_percentual": 0,
-                "refin_comissao": 0,
+                "refin_comissao_percentual": resultado["comissao_percentual"],
+                "refin_comissao": resultado["comissao_refinanciamento"],
                 "telefone": dados_sim["telefone"],
                 "endereco": dados_sim["endereco"],
                 "dados_bancarios": dados_sim["dados_bancarios"],
@@ -4168,7 +4192,7 @@ def lista_clientes():
         WHERE p.cliente_id = c.id
            OR (
                 p.cpf = c.cpf
-                AND COALESCE(p.nb_matricula, '') = COALESCE(c.nb_matricula, '')
+                AND NORMALIZAR_MATRICULA(p.nb_matricula) = NORMALIZAR_MATRICULA(c.nb_matricula)
            )
     """
 
@@ -4229,7 +4253,7 @@ def lista_clientes():
                 WHERE p.cliente_id = c.id
                    OR (
                         p.cpf = c.cpf
-                        AND COALESCE(p.nb_matricula, '') = COALESCE(c.nb_matricula, '')
+                        AND NORMALIZAR_MATRICULA(p.nb_matricula) = NORMALIZAR_MATRICULA(c.nb_matricula)
                    )
             ) AS propostas_total
         FROM clientes c
@@ -4282,7 +4306,7 @@ def detalhe_cliente(cliente_id: int):
         WHERE cliente_id = ?
            OR (
                 cpf = ?
-                AND COALESCE(nb_matricula, '') = COALESCE(?, '')
+                AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
            )
         ORDER BY data_atualizacao DESC, id DESC
         """,
@@ -4327,7 +4351,7 @@ def editar_cliente(cliente_id: int):
             "nome": limpar_texto(request.form.get("nome")),
             "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
             "nascimento": limpar_texto(request.form.get("nascimento")),
-            "nb_matricula": limpar_texto(request.form.get("nb_matricula")),
+            "nb_matricula": normalizar_matricula(request.form.get("nb_matricula")),
             "especie": limpar_texto(request.form.get("especie")),
             "telefone": limpar_texto(request.form.get("telefone")),
             "tipo_cliente": limpar_texto(request.form.get("tipo_cliente")),
@@ -4354,7 +4378,7 @@ def editar_cliente(cliente_id: int):
             SELECT id
             FROM clientes
             WHERE cpf = ?
-              AND COALESCE(nb_matricula, '') = COALESCE(?, '')
+              AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
               AND id <> ?
             LIMIT 1
             """,
@@ -4417,7 +4441,7 @@ def editar_cliente(cliente_id: int):
                 WHERE cliente_id = ?
                    OR (
                         cpf = ?
-                        AND COALESCE(nb_matricula, '') = COALESCE(?, '')
+                        AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
                    )
                 """,
                 (
@@ -4483,7 +4507,7 @@ def excluir_cliente(cliente_id: int):
         WHERE cliente_id = ?
            OR (
                 cpf = ?
-                AND COALESCE(nb_matricula, '') = COALESCE(?, '')
+                AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
            )
         """,
         (cliente_id, cliente["cpf"], cliente["nb_matricula"]),
@@ -4649,7 +4673,7 @@ def api_clientes_por_cpf():
     possui_matricula_real = any((c["nb_matricula"] or "").strip() for c in clientes)
 
     for c in clientes:
-        nb = (c["nb_matricula"] or "").strip()
+        nb = normalizar_matricula(c["nb_matricula"])
         if not nb and possui_matricula_real:
             continue
         chave = nb or "__sem_matricula__"
@@ -4658,7 +4682,7 @@ def api_clientes_por_cpf():
 
     resposta = []
     for idx, c in enumerate(por_matricula.values(), start=1):
-        nb = (c["nb_matricula"] or "").strip()
+        nb = normalizar_matricula(c["nb_matricula"])
         label = f"Matrícula {idx}: {nb}" if nb else "Sem matrícula cadastrada"
         resposta.append({
             "id": c["id"],
@@ -4666,7 +4690,7 @@ def api_clientes_por_cpf():
             "nome": c["nome"] or "",
             "cpf": c["cpf"] or "",
             "nascimento": c["nascimento"] or "",
-            "nb_matricula": c["nb_matricula"] or "",
+            "nb_matricula": nb,
             "especie": c["especie"] or "",
             "telefone": c["telefone"] or "",
             "tipo_cliente": c["tipo_cliente"] or "",
@@ -8125,7 +8149,7 @@ def importar():
         produto_importado = normalizar_produto_importacao(row.get("produto"))
         banco_digitado_importado = texto_planilha(row.get("banco_digitado"))
         banco_destino_importado = ""
-        nb_importado = texto_planilha(row.get("nb_matricula"))
+        nb_importado = normalizar_matricula(texto_planilha(row.get("nb_matricula")))
         bloqueio_informado = limpar_texto(row.get("beneficio_bloqueado"))
         beneficio_bloqueado_importado = (
             normalizar_bloqueado(bloqueio_informado)

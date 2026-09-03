@@ -135,10 +135,10 @@
                         <select name="tabela_port_refin" id="portTabela">
                             <option value="">Cálculo livre (sem tabela)</option>
                             {% for codigo, tabela in tabelas_port_refin.items() %}
-                            <option value="{{ codigo }}" data-taxa="{{ tabela.taxa }}" data-prazo="{{ tabela.prazo }}" data-coeficiente="{{ tabela.coeficiente }}" data-fator-saldo="{{ tabela.fator_saldo }}" {% if dados.tabela_port_refin == codigo %}selected{% endif %}>{{ codigo }} - {{ tabela.nome }}</option>
+                            <option value="{{ codigo }}" data-taxa="{{ tabela.taxa }}" data-prazo="{{ tabela.prazo }}" data-coeficiente="{{ tabela.coeficiente }}" data-fator-saldo="{{ tabela.fator_saldo }}" data-comissao-percentual="{{ tabela.comissao_percentual }}" {% if dados.tabela_port_refin == codigo %}selected{% endif %}>{{ codigo }} - {{ tabela.nome }} · comissão {{ br_percentual(tabela.comissao_percentual) }}</option>
                             {% endfor %}
                         </select>
-                        <small>Selecionar a tabela preenche taxa, prazo e coeficiente.</small>
+                        <small>Selecionar a tabela preenche taxa, prazo, coeficiente e comissão.</small>
                     </label>
                     <label>Banco destino<input name="banco_destino" value="QUALI" readonly aria-readonly="true"></label>
                     <label>Novo prazo<input name="novo_prazo" id="portNovoPrazo" value="{{ dados.novo_prazo or 84 }}" type="number" min="1" step="1"></label>
@@ -161,6 +161,8 @@
             <section class="simulator-results port-refin-results" aria-live="polite">
                 <div class="summary-card"><small>Novo contrato</small><strong id="portValorContrato">{{ br_moeda(resultado.valor_contrato if resultado and modo == 'port_refin' else 0) }}</strong></div>
                 <div class="summary-card highlight-card"><small>Troco estimado</small><strong id="portTroco">{{ br_moeda(resultado.troco if resultado and modo == 'port_refin' else 0) }}</strong></div>
+                <div class="summary-card"><small>Comissão da tabela</small><strong id="portComissaoPercentual">{{ br_percentual(resultado.comissao_percentual) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small>Mesma % na portabilidade e no refinanciamento</small></div>
+                <div class="summary-card"><small>Comissão total estimada</small><strong id="portComissaoTotal">{{ br_moeda(resultado.comissao_total) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small>Portabilidade + refinanciamento</small></div>
                 <div class="summary-card"><small>Coeficiente usado</small><strong id="portCoeficienteUsado">{{ '%.8f'|format(resultado.coeficiente) if resultado and modo == 'port_refin' and resultado.coeficiente else '-' }}</strong><small id="portOrigemCoeficiente">{{ resultado.origem_coeficiente if resultado and modo == 'port_refin' else 'Informe taxa ou coeficiente' }}</small></div>
             </section>
             <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}">
@@ -197,5 +199,5 @@
 
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
 <script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
-<script src="{{ url_for('static', filename='portal_import.js', v='20260901-source-switch') }}"></script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20260903-extrato-corban-paridade') }}"></script>
 {% endblock %}

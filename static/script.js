@@ -1,3 +1,40 @@
+function normalizarMatricula(value) {
+    return String(value || '').replace(/[.\-\s]+/g, '').toLocaleUpperCase('pt-BR');
+}
+
+function formatarMoedaContrato(value) {
+    return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function taxaContratoExtrato(contrato) {
+    const taxa = Number(contrato?.taxa);
+    if (!Number.isFinite(taxa) || taxa <= 0) return '';
+    return `${taxa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}% a.m.`;
+}
+
+function textoContratoExtrato(contrato) {
+    const detalhes = [
+        contrato.banco || contrato.banco_descricao || 'Banco não informado',
+        `Contrato ${String(contrato.numero || '').trim()}`,
+        `${contrato.parcelas_pagas}/${contrato.prazo_total} pagas`,
+        `Parcela ${formatarMoedaContrato(contrato.parcela)}`,
+    ];
+    const taxa = taxaContratoExtrato(contrato);
+    if (taxa) detalhes.push(`Taxa ${taxa}`);
+    detalhes.push(`Saldo estimado ${formatarMoedaContrato(contrato.saldo_calculado)}`);
+    return detalhes.join(' · ');
+}
+
+function tituloContratoExtrato(contrato, textoPrincipal) {
+    const detalhes = [textoPrincipal];
+    if (contrato.banco_descricao) detalhes.push(`Banco no extrato: ${contrato.banco_descricao}`);
+    if (contrato.situacao) detalhes.push(`Situação: ${contrato.situacao}`);
+    if (contrato.competencia_inicio) detalhes.push(`Início: ${contrato.competencia_inicio}`);
+    if (contrato.competencia_fim) detalhes.push(`Fim: ${contrato.competencia_fim}`);
+    detalhes.push(`${contrato.parcelas_restantes} parcelas restantes`);
+    return detalhes.join(' · ');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const sidebarToggle = document.getElementById('sidebarToggle');
     if (sidebarToggle) {
@@ -351,10 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.dispatchEvent(new CustomEvent('crm:cliente-reaproveitado', {
             detail: { cliente, novaMatricula, matriculaPreservada: preservarMatricula },
         }));
-    }
-
-    function normalizarMatricula(value) {
-        return String(value || '').trim().toLocaleUpperCase('pt-BR');
     }
 
     function clienteCorrespondente(clientes) {
@@ -2104,6 +2137,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const portOutputs = {
         valorContrato: document.getElementById('portValorContrato'),
         troco: document.getElementById('portTroco'),
+        comissaoPercentual: document.getElementById('portComissaoPercentual'),
+        comissaoTotal: document.getElementById('portComissaoTotal'),
         coeficiente: document.getElementById('portCoeficienteUsado'),
         origem: document.getElementById('portOrigemCoeficiente'),
         viabilidade: document.getElementById('portViabilidade'),
@@ -2157,7 +2192,9 @@ document.addEventListener('DOMContentLoaded', () => {
             : (novaParcelaInformada || parcelaAtual);
         const taxaMensal = parseCoeficiente(portFields.taxa?.value);
         const coeficienteInformado = parseCoeficiente(portFields.coeficiente?.value);
-        const fatorSaldo = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.fatorSaldo || 1);
+        const tabelaSelecionada = portFields.tabela?.selectedOptions?.[0];
+        const fatorSaldo = Number(tabelaSelecionada?.dataset.fatorSaldo || 1);
+        const comissaoPercentual = Number(tabelaSelecionada?.dataset.comissaoPercentual || 0);
         let coeficiente = coeficienteInformado;
         let origem = portFields.tabela?.value ? `Tabela Quali ${portFields.tabela.value}` : 'Coeficiente informado';
 
@@ -2170,6 +2207,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const valorContrato = coeficiente > 0 && coeficiente <= 1 ? novaParcela / coeficiente : 0;
         const saldoConsiderado = saldo * fatorSaldo;
         const troco = valorContrato - saldoConsiderado;
+        const comissaoPortabilidade = saldo * (comissaoPercentual / 100);
+        const comissaoRefinanciamento = Math.max(0, troco) * (comissaoPercentual / 100);
+        const comissaoTotal = comissaoPortabilidade + comissaoRefinanciamento;
         const erros = [];
         if (parcelaAtual <= 0) erros.push('Informe a parcela atual.');
         if (saldo <= 0) erros.push('Informe o saldo para quitação.');
@@ -2179,6 +2219,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (portOutputs.valorContrato) portOutputs.valorContrato.textContent = brl(valorContrato);
         if (portOutputs.troco) portOutputs.troco.textContent = brl(troco);
+        if (portOutputs.comissaoPercentual) {
+            portOutputs.comissaoPercentual.textContent = comissaoPercentual
+                ? `${comissaoPercentual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                : '-';
+        }
+        if (portOutputs.comissaoTotal) {
+            portOutputs.comissaoTotal.textContent = comissaoPercentual ? brl(comissaoTotal) : '-';
+        }
         if (portOutputs.coeficiente) portOutputs.coeficiente.textContent = coeficiente ? coeficiente.toFixed(8) : '-';
         if (portOutputs.origem) portOutputs.origem.textContent = coeficiente ? origem : 'Informe taxa ou coeficiente';
 
@@ -2287,7 +2335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function aplicarDadosBeneficiarioDoExtrato(payload) {
         preencherCampoExtrato(form.elements.namedItem('nome'), payload.nome || '');
-        preencherCampoExtrato(form.elements.namedItem('nb_matricula'), payload.nb_matricula || '');
+        preencherCampoExtrato(form.elements.namedItem('nb_matricula'), normalizarMatricula(payload.nb_matricula));
         preencherCampoExtrato(form.elements.namedItem('especie'), payload.especie || '');
         preencherCampoExtrato(form.elements.namedItem('dados_bancarios'), payload.dados_bancarios || '');
         preencherCampoExtrato(portFields.margemImportada, brl(Number(payload.margem_disponivel) || 0));
@@ -2337,8 +2385,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 contratosDoExtrato.forEach((contrato, indice) => {
                     const option = document.createElement('option');
                     option.value = String(indice);
-                    option.textContent = `${contrato.banco} · ${contrato.numero} · ${contrato.parcelas_pagas}/${contrato.prazo_total} pagas · ${Number(contrato.taxa).toLocaleString('pt-BR')}% a.m. · saldo ${brl(contrato.saldo_calculado)}`;
-                    option.title = option.textContent;
+                    option.textContent = textoContratoExtrato(contrato);
+                    option.title = tituloContratoExtrato(contrato, option.textContent);
                     extratoContractSelect.appendChild(option);
                 });
             }

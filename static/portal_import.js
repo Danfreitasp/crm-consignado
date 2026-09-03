@@ -45,6 +45,19 @@
         return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function formatMoneyLabel(value) {
+        const text = String(value ?? '').trim();
+        return text ? `R$ ${formatMoneyInput(parseMoney(text))}` : '';
+    }
+
+    function formatRateLabel(value) {
+        const text = String(value ?? '')
+            .replace(/\s*a\.?\s*m\.?\s*$/i, '')
+            .replace(/%+\s*$/, '')
+            .trim();
+        return text ? `${text}% a.m.` : '';
+    }
+
     function firstBankName(value) {
         const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
         if (!parts.length) return '';
@@ -142,8 +155,22 @@
                 const option = document.createElement('option');
                 option.value = contract.numero;
                 const banco = firstBankName(contract.banco) || contract.banco;
-                option.textContent = `${banco} · Contrato ${contract.numero} · Parcela ${contract.parcela} · Saldo ${contract.saldo_devedor}`;
-                option.title = option.textContent;
+                const parcelasPagas = String(contract.parcelas_pagas ?? '').trim();
+                const prazoTotal = String(contract.prazo_total ?? '').trim();
+                const detalhes = [banco, `Contrato ${String(contract.numero || '').trim()}`];
+                if (parcelasPagas && prazoTotal) detalhes.push(`${parcelasPagas}/${prazoTotal} pagas`);
+                const parcela = formatMoneyLabel(contract.parcela);
+                if (parcela) detalhes.push(`Parcela ${parcela}`);
+                const taxa = formatRateLabel(contract.taxa);
+                if (taxa) detalhes.push(`Taxa ${taxa}`);
+                const saldo = formatMoneyLabel(contract.saldo_devedor);
+                if (saldo) detalhes.push(`Saldo informado ${saldo}`);
+                option.textContent = detalhes.join(' · ');
+                const extras = [option.textContent];
+                if (contract.banco) extras.push(`Banco no Corban: ${contract.banco}`);
+                if (contract.prazo_restante) extras.push(`${contract.prazo_restante} parcelas restantes`);
+                if (contract.data_averbacao) extras.push(`Averbação: ${contract.data_averbacao}`);
+                option.title = extras.join(' · ');
                 contractSelect.appendChild(option);
             });
             contractPicker.hidden = false;
