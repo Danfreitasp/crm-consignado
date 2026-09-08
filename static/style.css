@@ -178,6 +178,10 @@ body {
     display: inline-grid;
     place-items: center;
 }
+.nav-icon-nutricao {
+    border-radius: 26%;
+    clip-path: inset(2% round 24%);
+}
 .agenda-alert-badge {
     display: inline-grid;
     place-items: center;

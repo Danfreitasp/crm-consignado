@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% set titulo = 'Nutrição de clientes' %}
+{% set subtitulo = 'Clientes com propostas após Aguardando interação. Mantenha cada cliente informado.' %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='nutricao.css', v='20260908-6') }}">
+<section class="summary-grid nutricao-resumo">
+    <div class="summary-card"><small>Clientes</small><strong>{{ clientes|length }}</strong></div>
+    <div class="summary-card"><small>Aguardando retorno hoje</small><strong id="nutricaoPendentes">{{ clientes|length - nutridos }}</strong></div>
+    <div class="summary-card"><small>Nutridos hoje</small><strong id="nutricaoNutridos">{{ nutridos }}</strong></div>
+</section>
+<section class="card nutricao-lista" data-total="{{ clientes|length }}">
+    <div class="nutricao-cabecalho"><h2>Retorno aos clientes</h2><small>Uma marcação por cliente, válida somente para hoje.</small></div>
+    <div class="table-wrap"><table class="nutricao-tabela">
+        <thead><tr><th>Cliente e contato</th><th>Propostas em acompanhamento</th><th>Retorno ao cliente</th></tr></thead>
+        <tbody>{% for c in clientes %}
+        <tr>
+            <td><strong>{{ c.nome }}</strong><small>{{ c.telefone or 'Telefone não informado' }}</small>
+                <div class="nutricao-acoes"><button class="mini-btn copy-btn" type="button" data-copy="{{ c.telefone }}" {% if not c.telefone %}disabled{% endif %}>Copiar telefone</button></div>
+                <small>CPF: {{ c.cpf or 'Não informado' }}</small>
+                <div class="nutricao-acoes"><button class="mini-btn copy-btn" type="button" data-copy="{{ c.cpf }}" {% if not c.cpf %}disabled{% endif %}>Copiar CPF</button></div>
+                <div class="nutricao-acoes"><span class="nutricao-bloqueio {{ 'bloqueado' if c.bloqueado else 'desbloqueado' }}">Benefício {{ 'bloqueado' if c.bloqueado else 'desbloqueado' }}</span></div>
+                {% if c.bloqueado and c.propostas|length > 1 %}<small>Há benefício bloqueado no grupo.</small>{% endif %}
+            </td>
+            <td>
+                <strong>{{ c.propostas|length }} proposta(s)</strong>
+                {% if c.propostas|length > 1 %}
+                {% for p in c.propostas %}<div class="nutricao-produto"><span>{{ p.produto or 'Produto não informado' }} · <strong>{{ br_moeda(p.valor_liberado_nutricao) }}</strong></span><span class="nutricao-etapa {{ 'encerrada' if status_encerrado(p.status) else '' }}">{{ p.status }}</span>{% if p.status == 'Aguardando CIP' %}<small class="nutricao-previsao">Previsão de saldo: <strong>{{ br_data(p.previsao_saldo_nutricao) or 'Sem data' }}</strong></small>{% endif %}</div>{% endfor %}
+                <small>Valor liberado ao lado de cada produto</small>
+                {% endif %}
+                {% if c.propostas|length > 1 %}<details class="nutricao-propostas">
+                    <summary><span class="nutricao-expandir">Maximizar propostas</span><span class="nutricao-recolher">Minimizar propostas</span></summary>
+                {% else %}<div class="nutricao-propostas nutricao-proposta-unica">{% endif %}
+                    {% for p in c.propostas %}<section class="nutricao-proposta">
+                        <div class="nutricao-etapa {{ 'encerrada' if status_encerrado(p.status) else '' }}">Etapa atual: {{ p.status }}</div>
+                        <strong class="nutricao-titulo-produto">{{ p.produto or 'Proposta' }} · {{ banco_digitado_exibicao(p) or 'Banco não informado' }}</strong>
+                        <small>Proposta: {{ p.numero_proposta or p.id }} · Benefício: {{ p.nb_matricula or 'Não informado' }}</small>
+                        <div class="nutricao-acoes"><span class="nutricao-bloqueio {{ 'bloqueado' if p.beneficio_bloqueado == 'SIM' else 'desbloqueado' }}">{{ 'Bloqueado' if p.beneficio_bloqueado == 'SIM' else 'Desbloqueado' }}</span></div>
+                        <div class="nutricao-valor">Valor liberado: <strong>{{ br_moeda(p.valor_liberado_nutricao) }}</strong></div>
+                        {% if p.status == 'Aguardando CIP' %}<div class="nutricao-previsao">Previsão de saldo: <strong>{{ br_data(p.previsao_saldo_nutricao) or 'Sem data' }}</strong></div>{% endif %}
+                        <div class="nutricao-anotacao"><small>Última anotação{% if p.ultima_anotacao_em %} · {{ br_data_hora(p.ultima_anotacao_em) }}{% endif %}</small><p>{{ p.ultima_anotacao_texto or 'Sem anotação registrada.' }}</p></div>
+                        <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=p.id, aba='resumo', origem=url_for('nutricao')) }}">Ir até a proposta</a>
+                    </section>{% endfor %}
+                {% if c.propostas|length > 1 %}</details>{% else %}</div>{% endif %}
+            </td>
+            <td><form class="nutricao-retorno" action="{{ url_for('nutricao_retornar') }}" method="post">
+                <input type="hidden" name="cliente_chave" value="{{ c.chave }}">
+                <label class="nutricao-marcacao"><input type="checkbox" name="nutrido" {% if c.nutrido %}checked{% endif %} aria-label="Nutrido hoje: {{ c.nome }}"><span>{{ 'Nutrido hoje' if c.nutrido else 'Não nutrido hoje' }}</span></label>
+                <small>Último retorno: <span data-ultimo-retorno>{{ br_data_hora(c.ultimo_retorno) if c.ultimo_retorno else 'Sem retorno registrado' }}</span></small>
+            </form></td>
+        </tr>{% else %}<tr><td colspan="3">Nenhum cliente precisa de acompanhamento nesta fila.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+<p class="nutricao-ajuda">“Nutrido hoje” é independente de “verificada hoje”. Propostas em andamento voltam a ficar pendentes no dia seguinte. Pagas, perdidas e canceladas aparecem somente no dia do encerramento.</p>
+<p id="nutricaoFeedback" role="status" aria-live="polite"></p>
+<script src="{{ url_for('static', filename='nutricao.js', v='20260908-1') }}" defer></script>
+{% endblock %}

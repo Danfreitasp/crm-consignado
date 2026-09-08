@@ -322,6 +322,14 @@ def close_db(exception: Exception | None = None) -> None:
 
 def init_db() -> None:
     db = get_db()
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS nutricao_retornos (
+            cliente_chave TEXT NOT NULL,
+            dia TEXT NOT NULL,
+            registrado_em TEXT NOT NULL,
+            PRIMARY KEY (cliente_chave, dia)
+        )
+    """)
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS propostas (
@@ -4169,6 +4177,94 @@ def api_buscar_propostas():
             "url": url_for("detalhe_proposta", proposta_id=p["id"]),
         })
     return jsonify(resultados)
+
+
+def carregar_clientes_nutricao() -> list[dict[str, Any]]:
+    etapas = nomes_status()
+    if "Aguardando interação" not in etapas:
+        return []
+    posteriores = etapas[etapas.index("Aguardando interação") + 1:]
+    if not posteriores:
+        return []
+    db = get_db()
+    registros = db.execute(f"""
+        SELECT p.*, c.nome AS cadastro_nome, c.cpf AS cadastro_cpf,
+               c.telefone AS cadastro_telefone,
+               a.texto AS ultima_anotacao_texto, a.data_hora AS ultima_anotacao_em
+        FROM propostas p LEFT JOIN clientes c ON c.id = p.cliente_id
+        LEFT JOIN anotacoes a ON a.id = (
+            SELECT a2.id FROM anotacoes a2 WHERE a2.proposta_id = p.id
+            ORDER BY a2.data_hora DESC, a2.id DESC LIMIT 1
+        )
+        WHERE p.status IN ({','.join('?' for _ in posteriores)})
+          AND (p.status NOT IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
+               OR substr(p.data_encerramento, 1, 10) = ?)
+        ORDER BY p.data_atualizacao DESC, p.id DESC
+    """, [*posteriores, hoje_iso()]).fetchall()
+    ids_exibidos = {row["id"] for row in registros}
+    retornos = {r["cliente_chave"]: r["ultimo"] for r in db.execute(
+        "SELECT cliente_chave, MAX(registrado_em) AS ultimo FROM nutricao_retornos GROUP BY cliente_chave"
+    )}
+    grupos: dict[str, dict[str, Any]] = {}
+    for row in registros:
+        p = dict(row)
+        if proposta_eh_refin_vinculado(p) and p.get("portabilidade_id") in ids_exibidos:
+            continue
+        p["valor_liberado_nutricao"] = float(p["troco"] or 0)
+        p["previsao_saldo_nutricao"] = p["data_retorno"] or ""
+        if produto_eh_portabilidade_com_refin(p):
+            refin_vinculado = next(
+                (v for v in buscar_propostas_vinculadas(row) if proposta_eh_refin_vinculado(v)),
+                None,
+            )
+            p["valor_liberado_nutricao"] = float(refin_vinculado["troco"] or 0) if refin_vinculado else 0.0
+            if refin_vinculado and not p["previsao_saldo_nutricao"]:
+                p["previsao_saldo_nutricao"] = refin_vinculado["data_retorno"] or ""
+        cpf = re.sub(r"\D", "", p["cadastro_cpf"] or p["cpf"] or "")
+        chave = f"cpf:{cpf}" if cpf else (
+            f"cliente:{p['cliente_id']}" if p["cliente_id"] else f"proposta:{p['id']}"
+        )
+        if chave not in grupos:
+            ultimo = retornos.get(chave, "")
+            grupos[chave] = {
+                "chave": chave, "nome": p["cadastro_nome"] or p["nome"], "cpf": cpf,
+                "telefone": "", "propostas": [], "bloqueado": False,
+                "ultimo_retorno": ultimo, "nutrido": ultimo[:10] == hoje_iso(),
+            }
+        cliente = grupos[chave]
+        if not cliente["telefone"]:
+            cliente["telefone"] = p["cadastro_telefone"] or p["telefone"] or ""
+        cliente["bloqueado"] |= normalizar_bloqueado(p["beneficio_bloqueado"]) == "SIM"
+        cliente["propostas"].append(p)
+    return sorted(grupos.values(), key=lambda c: (c["nutrido"], c["ultimo_retorno"], c["nome"].casefold()))
+
+
+@app.get("/nutricao")
+def nutricao():
+    clientes = carregar_clientes_nutricao()
+    return render_template("nutricao.html", clientes=clientes,
+                           nutridos=sum(c["nutrido"] for c in clientes))
+
+
+@app.post("/nutricao/retorno")
+def nutricao_retornar():
+    chave = request.form.get("cliente_chave", "")
+    valor = request.form.get("nutrido")
+    if valor not in {"SIM", "NÃO"}:
+        return jsonify(erro="Marcação inválida."), 400
+    if not any(c["chave"] == chave for c in carregar_clientes_nutricao()):
+        return jsonify(erro="Cliente não encontrado nesta fila."), 404
+    db = get_db()
+    if valor == "SIM":
+        db.execute("INSERT OR IGNORE INTO nutricao_retornos VALUES (?, ?, ?)",
+                   (chave, hoje_iso(), agora_iso()))
+    else:
+        db.execute("DELETE FROM nutricao_retornos WHERE cliente_chave = ? AND dia = ?",
+                   (chave, hoje_iso()))
+    db.commit()
+    ultimo = db.execute("SELECT MAX(registrado_em) FROM nutricao_retornos WHERE cliente_chave = ?",
+                        (chave,)).fetchone()[0]
+    return jsonify(nutrido=valor == "SIM", ultimo=br_data_hora(ultimo) if ultimo else "Sem retorno registrado")
 
 
 @app.route("/clientes")

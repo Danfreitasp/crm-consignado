@@ -1,0 +1,33 @@
+.nutricao-resumo { margin-bottom: 16px; }
+.nutricao-lista { padding: 0; overflow: hidden; }
+.nutricao-cabecalho { padding: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.nutricao-cabecalho h2 { margin: 0; }
+html[data-theme] .nutricao-lista .nutricao-tabela { width: 100%; min-width: 720px; table-layout: fixed; }
+.nutricao-tabela th, .nutricao-tabela td { white-space: normal; overflow-wrap: anywhere; }
+.nutricao-tabela th:first-child { width: 27%; }
+.nutricao-tabela th:nth-child(2) { width: 48%; }
+.nutricao-tabela th:nth-child(3) { width: 25%; }
+.nutricao-tabela td { vertical-align: top; padding: 16px; }
+.nutricao-tabela small { display: block; color: var(--muted); margin-top: 6px; }
+.nutricao-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nutricao-produto { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
+.nutricao-etapa { display: inline-block; font-size: 13px; font-weight: 700; padding: 8px 10px; border-left: 4px solid var(--primary); border-radius: 5px; color: var(--primary); background: var(--primary-soft); }
+.nutricao-etapa.encerrada { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
+.nutricao-titulo-produto { display: block; margin-top: 10px; }
+.nutricao-valor { margin-top: 10px; }
+.nutricao-previsao { display: block; margin-top: 8px; color: var(--text); }
+.nutricao-propostas { margin-top: 12px; }
+.nutricao-propostas > summary { cursor: pointer; color: var(--primary); }
+.nutricao-propostas:not([open]) .nutricao-recolher, .nutricao-propostas[open] .nutricao-expandir { display: none; }
+.nutricao-proposta { border-top: 1px solid var(--line); padding: 14px 0; margin-top: 10px; }
+.nutricao-proposta-unica { margin-top: 0; }
+.nutricao-proposta-unica .nutricao-proposta { border-top: 0; margin-top: 0; padding-top: 10px; }
+.nutricao-anotacao { margin: 12px 0; }
+.nutricao-anotacao p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 5px 0; }
+.nutricao-bloqueio { display: inline-block; padding: 5px 8px; border-radius: var(--radius-sm); font-size: 12px; }
+.nutricao-bloqueio.bloqueado { color: var(--danger); background: var(--danger-soft); }
+.nutricao-bloqueio.desbloqueado { color: var(--ok); background: var(--ok-soft); }
+html[data-theme] .nutricao-lista .nutricao-marcacao { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; cursor: pointer; text-align: left; }
+html[data-theme] .nutricao-lista .nutricao-marcacao input[type="checkbox"] { width: 17px; height: 17px; min-width: 17px; min-height: 0; margin: 0; padding: 0; accent-color: var(--ok); flex-shrink: 0; }
+.nutricao-marcacao:has(input:checked) { color: var(--ok); }
+.nutricao-ajuda { color: var(--muted); font-size: 12px; }
