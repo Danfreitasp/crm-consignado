@@ -50,7 +50,7 @@
         </tr>{% else %}<tr><td colspan="3">Nenhum cliente precisa de acompanhamento nesta fila.</td></tr>{% endfor %}</tbody>
     </table></div>
 </section>
-<p class="nutricao-ajuda">“Nutrido hoje” é independente de “verificada hoje”. Propostas em andamento voltam a ficar pendentes no dia seguinte. Pagas, perdidas e canceladas aparecem somente no dia do encerramento.</p>
+<p class="nutricao-ajuda">“Nutrido hoje” é independente de “verificada hoje” e vale somente para a data atual. Todas as propostas em acompanhamento voltam a ficar pendentes no dia seguinte. Pagas, perdidas e canceladas aparecem somente no dia do encerramento.</p>
 <p id="nutricaoFeedback" role="status" aria-live="polite"></p>
 <script src="{{ url_for('static', filename='nutricao.js', v='20260908-1') }}" defer></script>
 {% endblock %}

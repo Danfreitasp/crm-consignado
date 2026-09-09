@@ -2820,10 +2820,19 @@ def produto_tem_campos_vinculo(produto: Any) -> bool:
 
 
 def filtros_sql() -> tuple[str, list[Any], dict[str, str]]:
+    def data_do_filtro(valor: Any) -> str:
+        data_iso = parse_data_iso(valor)
+        try:
+            return datetime.strptime(data_iso, "%Y-%m-%d").strftime("%Y-%m-%d")
+        except (TypeError, ValueError):
+            return ""
+
     filtros = {
         "nome": limpar_texto(request.args.get("nome")),
         "cpf": limpar_texto(request.args.get("cpf")),
         "mes": limpar_texto(request.args.get("mes")),
+        "data_inicio": data_do_filtro(request.args.get("data_inicio")),
+        "data_fim": data_do_filtro(request.args.get("data_fim")),
         "status": limpar_texto(request.args.get("status")),
         "banco_atual": limpar_texto(request.args.get("banco_atual")),
         "banco_digitado": limpar_texto(request.args.get("banco_digitado")),
@@ -2843,7 +2852,15 @@ def filtros_sql() -> tuple[str, list[Any], dict[str, str]]:
     if filtros["cpf"]:
         where.append("cpf LIKE ?")
         params.append(f"%{filtros['cpf']}%")
-    if filtros["mes"]:
+    # O período personalizado substitui o filtro mensal quando os dois forem
+    # recebidos, evitando que uma exportação de mais de um mês seja truncada.
+    if filtros["data_inicio"]:
+        where.append("substr(data_criacao, 1, 10) >= ?")
+        params.append(filtros["data_inicio"])
+    if filtros["data_fim"]:
+        where.append("substr(data_criacao, 1, 10) <= ?")
+        params.append(filtros["data_fim"])
+    if filtros["mes"] and not (filtros["data_inicio"] or filtros["data_fim"]):
         where.append("substr(data_criacao, 1, 7) = ?")
         params.append(filtros["mes"])
     if filtros["status"]:
@@ -7687,7 +7704,10 @@ def atualizar_saldo_dashboard():
 
 @app.route("/exportar/csv")
 def exportar_csv():
-    propostas = get_db().execute("SELECT * FROM propostas ORDER BY data_criacao DESC").fetchall()
+    sql, params, _ = filtros_sql()
+    propostas = get_db().execute(
+        f"SELECT * FROM propostas {sql} ORDER BY data_criacao DESC, id DESC", params
+    ).fetchall()
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
     colunas = [desc[0] for desc in get_db().execute("SELECT * FROM propostas LIMIT 1").description if desc[0] != "banco_destino"]
@@ -7700,7 +7720,10 @@ def exportar_csv():
 
 @app.route("/exportar/xlsx")
 def exportar_xlsx():
-    propostas = get_db().execute("SELECT * FROM propostas ORDER BY data_criacao DESC").fetchall()
+    sql, params, _ = filtros_sql()
+    propostas = get_db().execute(
+        f"SELECT * FROM propostas {sql} ORDER BY data_criacao DESC, id DESC", params
+    ).fetchall()
     wb = Workbook()
     ws = wb.active
     ws.title = "Propostas"

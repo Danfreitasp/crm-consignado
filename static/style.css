@@ -528,7 +528,11 @@ label { display: flex; flex-direction: column; gap: 7px; color: #374151; font-si
     border-bottom: 1px solid var(--line);
 }
 .filters { align-items: end; }
+.filter-date-label { gap: 5px; color: var(--muted); font-size: 12px; }
+.filter-date-label input { width: 100%; }
 .toolbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+.export-area { display: grid; gap: 6px; }
+.export-help { display: block; }
 .import-area { display: grid; gap: 6px; justify-items: end; }
 .import-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .import-form input { max-width: 280px; }

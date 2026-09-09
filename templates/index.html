@@ -6,7 +6,12 @@
     <form method="get" class="filters">
         <input name="nome" placeholder="Nome" value="{{ filtros.nome }}">
         <input name="cpf" placeholder="CPF" value="{{ filtros.cpf }}">
-        <input type="month" name="mes" value="{{ filtros.mes }}">
+        <label class="filter-date-label">Data inicial
+            <input type="date" name="data_inicio" value="{{ filtros.data_inicio }}">
+        </label>
+        <label class="filter-date-label">Data final
+            <input type="date" name="data_fim" value="{{ filtros.data_fim }}">
+        </label>
         <select name="status">
             <option value="">Todos os status</option>
             {% for status in STATUS_LIST %}
@@ -49,9 +54,12 @@
 </section>
 
 <section class="toolbar card">
-    <div>
-        <a class="btn" href="{{ url_for('exportar_csv') }}"><i class="bi bi-download" aria-hidden="true"></i><span>Exportar CSV</span></a>
-        <a class="btn" href="{{ url_for('exportar_xlsx') }}"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i><span>Exportar Excel</span></a>
+    <div class="export-area">
+        <div>
+            <a class="btn" href="{{ url_for('exportar_csv', **filtros) }}" title="Exportar as propostas do filtro atual em CSV"><i class="bi bi-download" aria-hidden="true"></i><span>Exportar CSV</span></a>
+            <a class="btn" href="{{ url_for('exportar_xlsx', **filtros) }}" title="Exportar as propostas do filtro atual em Excel"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i><span>Exportar Excel</span></a>
+        </div>
+        <small class="muted export-help">A exportação usa os filtros acima: {{ total_filtrado }} proposta(s) encontrada(s).</small>
     </div>
     <div class="import-area">
         <form action="{{ url_for('importar') }}" method="post" enctype="multipart/form-data" class="import-form">
