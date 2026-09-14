@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menu || !options.length) return;
 
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    const validThemes = ['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism'];
+    const validThemes = ['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism', 'monochrome', 'flat'];
     const themeColors = {
         classico: '#111827',
         lite: '#f4f6f8',
@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dopamine: '#0d0d1a',
         'soft-ui': '#e0e5ec',
         'neo-brutalism': '#fffdf5',
+        'monochrome': '#ffffff',
+        flat: '#ffffff',
     };
 
     function applyVisualTheme(theme, persist = true) {

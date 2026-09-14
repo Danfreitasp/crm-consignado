@@ -20,6 +20,10 @@
             let temaVisual = 'classico';
             try {
                 temaVisual = localStorage.getItem('crmVisualTheme') || 'classico';
+                if (temaVisual === 'bitcoin-defi') {
+                    temaVisual = 'monochrome';
+                    localStorage.setItem('crmVisualTheme', temaVisual);
+                }
                 if (temaVisual === 'cyberpunk') {
                     temaVisual = 'retro-90s';
                     localStorage.setItem('crmVisualTheme', temaVisual);
@@ -27,7 +31,7 @@
             } catch (error) {
                 // O CRM usa o visual clássico quando o armazenamento local não está disponível.
             }
-            if (!['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism'].includes(temaVisual)) temaVisual = 'classico';
+            if (!['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism', 'monochrome', 'flat'].includes(temaVisual)) temaVisual = 'classico';
             document.documentElement.setAttribute('data-visual-theme', temaVisual);
             try {
                 if (localStorage.getItem('crmSidebarRecolhida') === 'true') {
@@ -41,13 +45,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260908-nutricao-icon') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260826-classic-opaque') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20260826-crm-lite-source') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20260909-monochrome') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='retro-90s.css', v='20260825-retro-90s-6') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='dopamine.css', v='20260825-dopamine-7') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='soft-ui.css', v='20260825-soft-ui-3') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='neo-brutalism.css', v='20260825-neo-brutalism-4') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='lite.css', v='20260826-crm-lite-source-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='monochrome.css', v='20260909-2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='flat.css', v='20260909-1') }}">
 </head>
 <body>
     <aside class="sidebar">
@@ -82,7 +88,6 @@
         <header class="topbar">
             <div>
                 <h1>{{ titulo or 'CRM Consignado' }}</h1>
-                <p>{{ subtitulo or 'Controle local de propostas, clientes e funis.' }}</p>
             </div>
             <div class="topbar-actions">
                 <a class="btn btn-back" href="{{ url_retorno_padrao() }}" title="Voltar para a origem"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Voltar</span></a>
@@ -92,6 +97,8 @@
                     <div id="quickSearchResults" class="quick-search-results" hidden></div>
                 </div>
                 {% block topbar_tools %}{% endblock %}
+                {% set ajuda_pagina = subtitulo or 'Use os controles desta tela para gerenciar suas propostas.' %}
+                {% set ajuda_rotulo = 'Ajuda sobre ' ~ (titulo or 'esta tela') %}
                 {% if request.endpoint == 'funil' %}
                     {% set ajuda_pagina = 'Funil em andamento: aqui aparecem apenas propostas abertas. Ao mover para Pago ou Perdido / Cancelado, o card sai deste funil e aparece em Encerradas.' %}
                     {% set ajuda_rotulo = 'Ajuda sobre o Funil em andamento' %}
@@ -131,6 +138,8 @@
                         <button type="button" class="theme-option" data-visual-theme-option="dopamine" aria-pressed="false"><span class="theme-swatch theme-swatch-dopamine" aria-hidden="true"></span><span><strong>Dopamine</strong><small>Maximalismo hyperpop</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="soft-ui" aria-pressed="false"><span class="theme-swatch theme-swatch-soft-ui" aria-hidden="true"></span><span><strong>Soft UI</strong><small>Neumorphism frio</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="neo-brutalism" aria-pressed="false"><span class="theme-swatch theme-swatch-neo-brutalism" aria-hidden="true"></span><span><strong>Neo Brutal</strong><small>Punk, pop e tátil</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="monochrome" aria-pressed="false"><span class="theme-swatch theme-swatch-monochrome" aria-hidden="true"></span><span><strong>Monocromático</strong><small>Preto e branco · editorial</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="flat" aria-pressed="false"><span class="theme-swatch theme-swatch-flat" aria-hidden="true"></span><span><strong>Flat</strong><small>Gráfico, claro e vibrante</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                     </div>
                 </details>
                 <a class="btn btn-primary" href="{{ url_for('nova_proposta') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Nova Proposta</span></a>
@@ -152,7 +161,7 @@
 
         {% block content %}{% endblock %}
     </main>
-<script src="{{ url_for('static', filename='script.js', v='20260903-extrato-comissoes-quali') }}"></script>
-    <script src="{{ url_for('static', filename='themes.js', v='20260826-crm-lite-source') }}"></script>
+<script src="{{ url_for('static', filename='script.js', v='20260911-bloqueio-ofertas-duplicadas') }}"></script>
+    <script src="{{ url_for('static', filename='themes.js', v='20260909-monochrome') }}"></script>
 </body>
 </html>

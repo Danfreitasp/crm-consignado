@@ -20,6 +20,7 @@
             <input name="especie" value="{{ dados.especie }}">
             <input name="endereco" value="{{ dados.endereco }}">
             <textarea name="dados_bancarios">{{ dados.dados_bancarios }}</textarea>
+            <input name="ofertas_port_refin" id="portOfertasPortRefin" value="[]">
         </div>
         <input type="hidden" name="tipo_operacao" id="simTipoOperacao" value="{{ dados.tipo_operacao or 'novo_valor' }}">
         <div class="simulator-mode-switch" role="radiogroup" aria-label="Tipo de simulação">
@@ -115,6 +116,7 @@
                 <p class="simulator-source-help"><i class="bi bi-pencil-square" aria-hidden="true"></i> Os dados abaixo permanecem editáveis e também podem ser preenchidos manualmente.</p>
                 <div class="form-grid form-grid-four">
                     <label>Banco atual<input name="banco_atual" id="portBancoAtual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
+                    <label>Telefone do cliente<input name="telefone" id="portTelefone" value="{{ dados.telefone }}" inputmode="tel" placeholder="Ex.: (11) 99999-9999"><small>Será reaproveitado em todas as ofertas inseridas.</small></label>
                     <label>Nº do contrato<input name="numero_contrato" id="portNumeroContrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
                     <label>Parcela atual<input name="parcela_atual" id="portParcelaAtual" class="money-mask" value="{{ br_moeda(dados.parcela_atual) }}" placeholder="R$ 0,00"></label>
                     <label>Saldo para quitação<input name="saldo_quitacao" id="portSaldoQuitacao" class="money-mask" value="{{ br_moeda(dados.saldo_quitacao) }}" placeholder="R$ 0,00"></label>
@@ -168,6 +170,23 @@
             <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}">
                 <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{{ 'Operação com troco positivo.' if resultado.operacao_viavel else (resultado.erros|join(' ') if resultado.erros else 'O novo contrato não cobre o saldo para quitação.') }}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
             </div>
+            <div class="simulator-offer-actions">
+                <button class="btn" id="portAdicionarOferta" type="button" disabled><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar ao resumo de ofertas</span></button>
+                <small>Inclua cada contrato com troco positivo para acompanhar o total da simulação.</small>
+                <small class="simulator-offer-status" id="portOfertaStatus" role="status" aria-live="polite"></small>
+            </div>
+            <section class="simulator-offer-summary" id="portResumoOfertas" hidden aria-live="polite">
+                <div class="simulator-offer-summary-heading">
+                    <div><small>Portabilidade + refinanciamento</small><h3>Resumo de Ofertas</h3></div>
+                    <div><small>Troco total estimado</small><strong id="portResumoOfertasTroco">R$ 0,00</strong></div>
+                </div>
+                <div class="simulator-offer-table-wrap">
+                    <table class="simulator-offer-table">
+                        <thead><tr><th>Contrato</th><th>Parcela atual</th><th>Saldo</th><th>Tabela</th><th>Nova parcela</th><th>Novo contrato</th><th>Troco</th><th><span class="sr-only">Ação</span></th></tr></thead>
+                        <tbody id="portResumoOfertasLinhas"></tbody>
+                    </table>
+                </div>
+            </section>
 
             <details class="simulator-collapsible simulator-message-editor">
                 <summary>

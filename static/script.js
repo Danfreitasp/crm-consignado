@@ -2133,7 +2133,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const extratoContractSelect = document.getElementById('portExtratoContractSelect');
     const bancoAtualInput = document.getElementById('portBancoAtual');
     const numeroContratoInput = document.getElementById('portNumeroContrato');
+    const adicionarOferta = document.getElementById('portAdicionarOferta');
+    const resumoOfertas = document.getElementById('portResumoOfertas');
+    const resumoOfertasLinhas = document.getElementById('portResumoOfertasLinhas');
+    const resumoOfertasTroco = document.getElementById('portResumoOfertasTroco');
+    const ofertasPortRefinInput = document.getElementById('portOfertasPortRefin');
+    const ofertaStatus = document.getElementById('portOfertaStatus');
     let contratosDoExtrato = [];
+    let ofertaPortRefinAtual = null;
+    const ofertasPortRefin = [];
     const portOutputs = {
         valorContrato: document.getElementById('portValorContrato'),
         troco: document.getElementById('portTroco'),
@@ -2177,6 +2185,62 @@ document.addEventListener('DOMContentLoaded', () => {
             saldoRecalculadoStatus.textContent = 'O recálculo considera a parcela atual e as parcelas restantes. Confira o resultado com o extrato.';
         }
         calcularPortRefin();
+    }
+
+    function atualizarResumoOfertas() {
+        if (!resumoOfertas || !resumoOfertasLinhas || !resumoOfertasTroco) return;
+        resumoOfertas.hidden = ofertasPortRefin.length === 0;
+        resumoOfertasLinhas.replaceChildren();
+        let trocoTotal = 0;
+        ofertasPortRefin.forEach((oferta, indice) => {
+            trocoTotal += oferta.troco;
+            const linha = document.createElement('tr');
+            [
+                oferta.contrato,
+                brl(oferta.parcelaAtual),
+                brl(oferta.saldo),
+                oferta.tabela,
+                brl(oferta.novaParcela),
+                brl(oferta.valorContrato),
+                brl(oferta.troco),
+            ].forEach((valor) => {
+                const celula = document.createElement('td');
+                celula.textContent = valor;
+                linha.appendChild(celula);
+            });
+            const acao = document.createElement('td');
+            const remover = document.createElement('button');
+            remover.type = 'button';
+            remover.className = 'mini-btn simulator-offer-remove';
+            remover.title = `Remover oferta do contrato ${oferta.contrato}`;
+            remover.setAttribute('aria-label', remover.title);
+            remover.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+            remover.addEventListener('click', () => {
+                ofertasPortRefin.splice(indice, 1);
+                atualizarResumoOfertas();
+            });
+            acao.appendChild(remover);
+            linha.appendChild(acao);
+            resumoOfertasLinhas.appendChild(linha);
+        });
+        resumoOfertasTroco.textContent = brl(trocoTotal);
+        if (ofertasPortRefinInput) ofertasPortRefinInput.value = JSON.stringify(ofertasPortRefin);
+        atualizarAcaoAdicionarOferta();
+    }
+
+    function atualizarAcaoAdicionarOferta() {
+        if (adicionarOferta) adicionarOferta.disabled = !ofertaPortRefinAtual;
+        if (!portOutputs.inserirProposta) return;
+        const quantidade = ofertasPortRefin.length;
+        const texto = portOutputs.inserirProposta.querySelector('span');
+        if (texto) texto.textContent = quantidade > 1
+            ? `Inserir ${quantidade} propostas simuladas`
+            : 'Inserir proposta com esses dados';
+        portOutputs.inserirProposta.hidden = modoAtual() !== 'port_refin' || (!ofertaPortRefinAtual && quantidade < 2);
+    }
+
+    function chaveOfertaPortRefin(oferta) {
+        return String(oferta?.contrato || '').trim().toLocaleUpperCase('pt-BR');
     }
 
     function calcularPortRefin() {
@@ -2246,6 +2310,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (portOutputs.inserirProposta) {
             portOutputs.inserirProposta.hidden = modoAtual() !== 'port_refin' || Boolean(erros.length) || troco < 0;
         }
+        ofertaPortRefinAtual = !erros.length && troco >= 0 && modoAtual() === 'port_refin'
+            ? {
+                contrato: [bancoAtualInput?.value.trim() || 'Banco não informado', numeroContratoInput?.value.trim() || 'Sem número'].join(' · '),
+                parcelaAtual,
+                saldo,
+                tabela: portFields.tabela?.value ? `Quali ${portFields.tabela.value}` : 'Cálculo livre',
+                novaParcela,
+                valorContrato,
+                troco,
+                prazoContrato: Math.max(0, Math.trunc(Number(portFields.prazoContrato?.value || 0))),
+                parcelasPagas: Math.max(0, Math.trunc(Number(portFields.parcelasPagas?.value || 0))),
+                taxaContratoAtual: parseCoeficiente(portFields.taxaContratoAtual?.value),
+                tabelaPortRefin: portFields.tabela?.value || '',
+                novoPrazo: prazoNovo,
+                taxaNova: taxaMensal,
+                coeficientePortRefin: coeficienteInformado,
+                margemImportada,
+                deduzirNegativo,
+            }
+            : null;
+        atualizarAcaoAdicionarOferta();
         if (negativeHelp) {
             if (margemImportada < 0 && deduzirNegativo) {
                 negativeHelp.textContent = `${brl(Math.abs(margemImportada))} deduzidos: a nova parcela calculada é ${brl(novaParcela)}.`;
@@ -2425,6 +2510,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recalcularSaldo) recalcularSaldo.addEventListener('click', recalcularSaldoContrato);
     if (lerExtrato) lerExtrato.addEventListener('click', carregarExtrato);
     if (extratoContractSelect) extratoContractSelect.addEventListener('change', aplicarContratoDoExtrato);
+    if (adicionarOferta) adicionarOferta.addEventListener('click', () => {
+        if (!ofertaPortRefinAtual) return;
+        const chave = chaveOfertaPortRefin(ofertaPortRefinAtual);
+        if (ofertasPortRefin.some((oferta) => chaveOfertaPortRefin(oferta) === chave)) {
+            if (ofertaStatus) ofertaStatus.textContent = 'Este contrato já está no Resumo de Ofertas.';
+            return;
+        }
+        ofertasPortRefin.push({ ...ofertaPortRefinAtual });
+        if (ofertaStatus) ofertaStatus.textContent = 'Oferta adicionada ao resumo.';
+        atualizarResumoOfertas();
+    });
     Object.values(portFields).forEach((field) => {
         if (!field) return;
         field.addEventListener('input', calcularPortRefin);

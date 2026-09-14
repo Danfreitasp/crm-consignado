@@ -2782,6 +2782,15 @@ def agrupar_cards_funil(
     for proposta in registros:
         if proposta["id"] in refins_agrupados:
             continue
+        # Um Refinanciamento vinculado não é uma operação avulsa no Funil.
+        # Isso também vale quando a Portabilidade já foi para Encerradas e,
+        # portanto, não terá um cartão na coluna ativa para agrupá-lo.
+        if proposta_eh_refin_vinculado(proposta) and any(
+            propostas_formam_par_port_refin(port, proposta)
+            for port in registros
+            if produto_eh_portabilidade_com_refin(port)
+        ):
+            continue
         if proposta["status"] not in por_status:
             continue
 
@@ -3621,6 +3630,82 @@ def simulador_inss():
 def simulador_inss_criar_proposta():
     dados_sim = dados_simulador_inss()
     if dados_sim.get("modo_simulacao") == "port_refin":
+        try:
+            ofertas_enviadas = json.loads(request.form.get("ofertas_port_refin") or "[]")
+        except json.JSONDecodeError:
+            ofertas_enviadas = []
+        ofertas_enviadas = ofertas_enviadas if isinstance(ofertas_enviadas, list) else []
+        if len(ofertas_enviadas) > 1:
+            if len(ofertas_enviadas) > 30:
+                flash("O resumo aceita no máximo 30 ofertas por vez.", "erro")
+                return redirect(url_for("simulador_inss"))
+            propostas_lote: list[tuple[dict[str, Any], dict[str, Any]]] = []
+            contratos_no_lote: set[str] = set()
+            for indice, oferta in enumerate(ofertas_enviadas, start=1):
+                if not isinstance(oferta, dict):
+                    flash(f"A oferta {indice} não é válida.", "erro")
+                    return redirect(url_for("simulador_inss"))
+                dados_oferta = dict(dados_sim)
+                dados_oferta.update({
+                    "banco_atual": primeiro_nome_banco(oferta.get("contrato", "").split(" · ")[0]),
+                    "numero_contrato": limpar_texto(oferta.get("contrato", "").split(" · ")[-1]).replace("Sem número", ""),
+                    "parcela_atual": parse_moeda(oferta.get("parcelaAtual")),
+                    "saldo_quitacao": parse_moeda(oferta.get("saldo")),
+                    "prazo_contrato": max(0, int(parse_moeda(oferta.get("prazoContrato")))),
+                    "parcelas_pagas": max(0, int(parse_moeda(oferta.get("parcelasPagas")))),
+                    "taxa_contrato_atual": parse_percentual(oferta.get("taxaContratoAtual")),
+                    "tabela_port_refin": limpar_texto(oferta.get("tabelaPortRefin")),
+                    "novo_prazo": max(0, int(parse_moeda(oferta.get("novoPrazo")))),
+                    "nova_parcela": parse_moeda(oferta.get("novaParcela")),
+                    "taxa_nova": parse_percentual(oferta.get("taxaNova")),
+                    "coeficiente_port_refin": parse_percentual(oferta.get("coeficientePortRefin")),
+                    "margem_disponivel_importada": parse_moeda(oferta.get("margemImportada")),
+                    "deduzir_negativo": "sim" if oferta.get("deduzirNegativo") else "nao",
+                })
+                chave_contrato = f"{dados_oferta['banco_atual']}|{dados_oferta['numero_contrato']}".upper()
+                if chave_contrato in contratos_no_lote:
+                    flash(f"O contrato da oferta {indice} está repetido no Resumo de Ofertas.", "erro")
+                    return redirect(url_for("simulador_inss"))
+                contratos_no_lote.add(chave_contrato)
+                resultado_oferta = calcular_simulador_port_refin(dados_oferta)
+                if resultado_oferta["erros"] or not resultado_oferta["operacao_viavel"]:
+                    flash(f"Revise a oferta {indice} antes de inserir as propostas.", "erro")
+                    return redirect(url_for("simulador_inss"))
+                propostas_lote.append((dados_oferta, resultado_oferta))
+
+            agora = agora_iso()
+            db = get_db()
+            ids_criados = []
+            for dados_oferta, resultado_oferta in propostas_lote:
+                proposta = proposta_vazia()
+                tabela = resultado_oferta.get("tabela_nome") or "Cálculo livre"
+                proposta.update({
+                    "nome": dados_oferta["nome"], "cpf": dados_oferta["cpf"], "nascimento": dados_oferta["nascimento"], "nb_matricula": dados_oferta["nb_matricula"], "especie": dados_oferta["especie"],
+                    "tipo_cliente": "INSS", "banco_atual": dados_oferta["banco_atual"], "banco_digitado": "QUALI", "produto": "Portabilidade com Refinanciamento", "promotora": dados_oferta["promotora"],
+                    "beneficio_bloqueado": beneficio_bloqueado_global(dados_oferta["nb_matricula"]), "parcela_atual": dados_oferta["parcela_atual"], "nova_parcela": resultado_oferta["nova_parcela"],
+                    "troco": resultado_oferta["saldo_quitacao"], "comissao_percentual": resultado_oferta["comissao_percentual"], "comissao": resultado_oferta["comissao_portabilidade"],
+                    "refin_troco": resultado_oferta["troco"], "refin_comissao_percentual": resultado_oferta["comissao_percentual"], "refin_comissao": resultado_oferta["comissao_refinanciamento"],
+                    "telefone": dados_oferta["telefone"], "endereco": dados_oferta["endereco"], "dados_bancarios": dados_oferta["dados_bancarios"],
+                    "observacoes": "\n".join(["Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.", f"Contrato portado: {dados_oferta['numero_contrato'] or 'não informado'}.", f"Saldo devedor informado: {br_moeda(resultado_oferta['saldo_quitacao'])}.", f"Tabela: {resultado_oferta.get('tabela_codigo') or 'livre'} - {tabela}.", f"Novo contrato estimado: {br_moeda(resultado_oferta['valor_contrato'])}; troco estimado: {br_moeda(resultado_oferta['troco'])}."]),
+                })
+                proposta = reaproveitar_cadastro_cliente(proposta)
+                pendentes = validar_nova_proposta(proposta)
+                if pendentes:
+                    db.rollback()
+                    flash("Informe antes de inserir: " + ", ".join(pendentes) + ".", "erro")
+                    return redirect(url_for("simulador_inss"))
+                cursor = db.execute("""INSERT INTO propostas (cliente_id, nome, cpf, nascimento, nb_matricula, especie, numero_proposta, numero_port_vinculada, numero_refin_vinculada, tipo_cliente, banco_atual, banco_destino, banco_digitado, produto, promotora, beneficio_bloqueado, valor_caiu_promotora, valor_sacado, data_verificacao, parcela_atual, nova_parcela, troco, comissao_percentual, comissao, margem_apos, status, responsavel, telefone, endereco, dados_bancarios, data_criacao, data_atualizacao, data_encerramento, proxima_acao, data_retorno, observacoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (salvar_cliente_dos_dados(proposta), proposta["nome"], proposta["cpf"], proposta["nascimento"], proposta["nb_matricula"], proposta["especie"], proposta["numero_proposta"], proposta["numero_port_vinculada"], proposta["numero_refin_vinculada"], proposta["tipo_cliente"], proposta["banco_atual"], proposta["banco_destino"], proposta["banco_digitado"], proposta["produto"], proposta["promotora"], proposta["beneficio_bloqueado"], proposta["valor_caiu_promotora"], proposta["valor_sacado"], hoje_iso(), proposta["parcela_atual"], proposta["nova_parcela"], proposta["troco"], proposta["comissao_percentual"], proposta["comissao"], proposta["margem_apos"], proposta["status"], proposta["responsavel"], proposta["telefone"], proposta["endereco"], proposta["dados_bancarios"], agora, agora, data_encerramento_para_status(None, proposta["status"]), proposta["proxima_acao"], proposta["data_retorno"], proposta["observacoes"]))
+                proposta_id = cursor.lastrowid
+                sincronizar_beneficio_bloqueado(proposta["nb_matricula"], proposta["beneficio_bloqueado"], proposta_id, agora)
+                refin_id, refin_criado, refin_status = sincronizar_refin_da_portabilidade(proposta_id, proposta, agora)
+                registrar_historico(proposta_id, None, proposta["status"], "Proposta criada a partir do Resumo de Ofertas do Simulador INSS.")
+                if refin_id and refin_criado:
+                    registrar_historico(refin_id, None, refin_status, "Refinanciamento criado automaticamente com a Portabilidade com Refinanciamento.")
+                registrar_anotacao(proposta_id, proposta["observacoes"], agora)
+                ids_criados.append(proposta_id)
+            db.commit()
+            flash(f"{len(ids_criados)} propostas inseridas a partir do Resumo de Ofertas.", "ok")
+            return redirect(url_for("funil"))
         resultado = calcular_simulador_port_refin(dados_sim)
         if resultado["erros"] or not resultado["operacao_viavel"]:
             flash("Revise os dados da simulação antes de inserir a proposta.", "erro")
@@ -5656,14 +5741,24 @@ def excluir_proposta(proposta_id: int):
         return redirect(url_for("index"))
 
     db = get_db()
-    anexos = db.execute("SELECT * FROM anexos WHERE proposta_id = ?", (proposta_id,)).fetchall()
+    vinculadas = buscar_propostas_vinculadas(proposta)
+    ids_para_excluir = sorted({proposta_id, *(item["id"] for item in vinculadas)})
+    marcadores = ",".join("?" for _ in ids_para_excluir)
+    excluir_par = len(ids_para_excluir) > 1
+    anexos = db.execute(
+        f"SELECT * FROM anexos WHERE proposta_id IN ({marcadores})",
+        ids_para_excluir,
+    ).fetchall()
     registrar_notificacao_importante(
         proposta_id=None,
         proposta_nome=proposta["nome"],
         proposta_numero=proposta["numero_proposta"],
         tipo="lead_excluido",
-        titulo="Lead excluído",
-        mensagem=f"{proposta['nome']} foi removido do CRM.",
+        titulo="Operação excluída" if excluir_par else "Lead excluído",
+        mensagem=(
+            f"Portabilidade + Refinanciamento de {proposta['nome']} foram removidos do CRM."
+            if excluir_par else f"{proposta['nome']} foi removido do CRM."
+        ),
     )
 
     # Remove arquivos físicos dos anexos, quando existirem.
@@ -5678,10 +5773,10 @@ def excluir_proposta(proposta_id: int):
             arquivos_com_erro += 1
 
     # Remove registros relacionados mesmo quando o SQLite antigo não estiver com cascade ativo.
-    db.execute("DELETE FROM anexos WHERE proposta_id = ?", (proposta_id,))
-    db.execute("DELETE FROM anotacoes WHERE proposta_id = ?", (proposta_id,))
-    db.execute("DELETE FROM historico WHERE proposta_id = ?", (proposta_id,))
-    db.execute("DELETE FROM propostas WHERE id = ?", (proposta_id,))
+    db.execute(f"DELETE FROM anexos WHERE proposta_id IN ({marcadores})", ids_para_excluir)
+    db.execute(f"DELETE FROM anotacoes WHERE proposta_id IN ({marcadores})", ids_para_excluir)
+    db.execute(f"DELETE FROM historico WHERE proposta_id IN ({marcadores})", ids_para_excluir)
+    db.execute(f"DELETE FROM propostas WHERE id IN ({marcadores})", ids_para_excluir)
     db.commit()
 
     # Tenta remover a pasta do cliente se ela ficar vazia.
@@ -5695,7 +5790,7 @@ def excluir_proposta(proposta_id: int):
     if arquivos_com_erro:
         flash(f"Proposta excluída. {arquivos_com_erro} arquivo(s) não puderam ser apagados da pasta.", "erro")
     else:
-        flash("Lead/proposta excluído com sucesso.", "ok")
+        flash("Portabilidade + Refinanciamento excluídos com sucesso." if excluir_par else "Lead/proposta excluído com sucesso.", "ok")
 
     destino = request.form.get("next") or url_for("index")
     return redirect(destino)

@@ -16,6 +16,8 @@
     top: calc(100% + 8px);
     right: 0;
     width: 250px;
+    max-height: min(560px, 75vh);
+    overflow-y: auto;
     display: grid;
     gap: 6px;
     padding: 8px;
@@ -88,6 +90,19 @@
 .theme-swatch-classico {
     border-radius: 8px;
     background: linear-gradient(135deg, #eaf3ff 0 50%, #2563eb 50%);
+}
+
+.theme-swatch-monochrome {
+    border-radius: 0;
+    border: 1px solid #000;
+    background: linear-gradient(90deg, #000 50%, #fff 50%);
+    box-shadow: none;
+}
+
+.theme-swatch-flat {
+    border: 0;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #3b82f6 0 48%, #10b981 48% 72%, #f59e0b 72%);
 }
 
 .theme-swatch-lite {

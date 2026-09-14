@@ -4040,6 +4040,43 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     background: rgba(34, 197, 94, .10);
     color: #166534;
 }
+.simulator-offer-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+.simulator-offer-actions small { color: var(--muted); }
+.simulator-offer-actions .simulator-offer-status { color: var(--primary); font-weight: 700; }
+.simulator-offer-summary {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+}
+.simulator-offer-summary-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 15px 16px;
+    border-bottom: 1px solid var(--line);
+}
+.simulator-offer-summary-heading > div { display: grid; gap: 2px; }
+.simulator-offer-summary-heading small { color: var(--muted); font-size: 11px; font-weight: 750; }
+.simulator-offer-summary-heading h3 { margin: 0; font-size: 17px; }
+.simulator-offer-summary-heading > div:last-child { text-align: right; }
+.simulator-offer-summary-heading strong { color: var(--primary); font-size: 20px; }
+.simulator-offer-table-wrap { overflow-x: auto; }
+.simulator-offer-table { width: 100%; min-width: 900px; border-collapse: collapse; }
+.simulator-offer-table th,
+.simulator-offer-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.simulator-offer-table th { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+.simulator-offer-table td { font-size: 13px; font-weight: 650; }
+.simulator-offer-table tbody tr:last-child td { border-bottom: 0; }
+.simulator-offer-table th:last-child,
+.simulator-offer-table td:last-child { width: 1%; text-align: center; }
+.simulator-offer-remove { min-width: 30px; min-height: 30px; padding: 4px 7px; }
 .simulator-actions { padding-top: 4px; }
 html[data-theme="escuro"] .simulator-mode-switch,
 html[data-theme="escuro"] .simulator-input-section,
@@ -4058,6 +4095,7 @@ html[data-theme="escuro"] .simulator-mode-option input:checked + span {
 }
 html[data-theme="escuro"] .simulator-viability { color: #fcd34d; }
 html[data-theme="escuro"] .simulator-viability[data-state="ok"] { color: #86efac; }
+html[data-theme="escuro"] .simulator-offer-summary { background: rgba(15, 23, 42, .45); }
 html[data-theme="escuro"] .statement-reader-status[data-state="loading"] { color: #93c5fd; }
 html[data-theme="escuro"] .statement-reader-status[data-state="success"] { color: #86efac; }
 html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: #fca5a5; }
@@ -4073,6 +4111,8 @@ html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: 
     .simulator-source-or { justify-self: center; }
     .simulator-section-heading { align-items: flex-start; flex-direction: column; }
     .simulator-actions-bottom .btn { flex: 1 1 auto; }
+    .simulator-offer-summary-heading { align-items: flex-start; flex-direction: column; }
+    .simulator-offer-summary-heading > div:last-child { text-align: left; }
     .statement-reader { grid-template-columns: 1fr; }
     .statement-reader-actions { align-items: stretch; flex-direction: column; }
     .statement-reader-actions input[type="file"] { max-width: none; width: 100%; }
