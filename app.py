@@ -2141,6 +2141,40 @@ def reaproveitar_cadastro_cliente(dados: dict[str, Any]) -> dict[str, Any]:
     return resultado
 
 
+def reaproveitar_cadastro_cliente_por_matricula(dados: dict[str, Any]) -> dict[str, Any]:
+    """Reaproveita o cadastro já existente quando o simulador só possui o NB."""
+    nb = normalizar_matricula(dados.get("nb_matricula"))
+    if not nb:
+        return dados
+
+    cliente = get_db().execute(
+        """
+        SELECT nome, cpf, nascimento, nb_matricula, especie, telefone,
+               tipo_cliente, endereco, dados_bancarios
+        FROM clientes
+        WHERE NORMALIZAR_MATRICULA(nb_matricula) = ?
+        ORDER BY data_atualizacao DESC, id DESC
+        LIMIT 1
+        """,
+        (nb,),
+    ).fetchone()
+    if not cliente:
+        return dados
+
+    resultado = dict(dados)
+    for campo in (
+        "nome", "cpf", "nascimento", "nb_matricula", "especie", "telefone",
+        "tipo_cliente", "endereco", "dados_bancarios",
+    ):
+        # O telefone preenchido durante a simulação é mais recente que o cadastro.
+        if campo == "telefone" and limpar_texto(resultado.get("telefone")):
+            continue
+        valor_cadastrado = cliente[campo]
+        if limpar_texto(valor_cadastrado):
+            resultado[campo] = valor_cadastrado
+    return resultado
+
+
 def salvar_cliente_dos_dados(dados: dict[str, Any] | sqlite3.Row) -> int | None:
     """Cria ou atualiza o cadastro do cliente a partir dos dados da proposta.
 
@@ -3154,6 +3188,7 @@ def dados_simulador_inss() -> dict[str, Any]:
         "deduzir_negativo": deduzir_negativo,
         "mensagem_modelo": mensagem_modelo,
         "observacoes": limpar_texto(request.form.get("observacoes")),
+        "data_averbacao": limpar_texto(request.form.get("data_averbacao")),
     }
 
 
@@ -3335,6 +3370,12 @@ def celula_extrato(valor: Any) -> str:
     return re.sub(r"\s+", " ", str(valor or "")).strip()
 
 
+def data_averbacao_extrato(valor: Any) -> str:
+    texto = celula_extrato(valor)
+    correspondencia = re.search(r"\b\d{2}/\d{2}/(?:\d{2}|\d{4})\b", texto)
+    return correspondencia.group(0) if correspondencia else ""
+
+
 def banco_extrato(valor: Any) -> tuple[str, str]:
     descricao = celula_extrato(valor)
     codigo = re.match(r"^(\d{3})\b", descricao)
@@ -3485,6 +3526,7 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
             "situacao": celula_extrato(linha[2]),
             "competencia_inicio": celula_extrato(linha[5]),
             "competencia_fim": celula_extrato(linha[6]),
+            "data_averbacao": data_averbacao_extrato(linha[4]) if len(linha) > 4 else "",
             "prazo_total": total,
             "parcelas_pagas": pagas,
             "parcelas_restantes": restantes,
@@ -3607,7 +3649,7 @@ def simulador_inss():
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
         "parcelas_pagas": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
-        "taxa_nova": 0, "coeficiente_port_refin": 0, "observacoes": "",
+        "taxa_nova": 0, "coeficiente_port_refin": 0, "observacoes": "", "data_averbacao": "",
         "margem_disponivel_importada": 0, "deduzir_negativo": "nao",
         "mensagem_modelo": INSS_PORT_REFIN_MENSAGEM_MODELO,
     }
@@ -3654,6 +3696,7 @@ def simulador_inss_criar_proposta():
                     "prazo_contrato": max(0, int(parse_moeda(oferta.get("prazoContrato")))),
                     "parcelas_pagas": max(0, int(parse_moeda(oferta.get("parcelasPagas")))),
                     "taxa_contrato_atual": parse_percentual(oferta.get("taxaContratoAtual")),
+                    "data_averbacao": limpar_texto(oferta.get("dataAverbacao")),
                     "tabela_port_refin": limpar_texto(oferta.get("tabelaPortRefin")),
                     "novo_prazo": max(0, int(parse_moeda(oferta.get("novoPrazo")))),
                     "nova_parcela": parse_moeda(oferta.get("novaParcela")),
@@ -3679,6 +3722,15 @@ def simulador_inss_criar_proposta():
             for dados_oferta, resultado_oferta in propostas_lote:
                 proposta = proposta_vazia()
                 tabela = resultado_oferta.get("tabela_nome") or "Cálculo livre"
+                observacoes_oferta = [
+                    "Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.",
+                    f"Contrato portado: {dados_oferta['numero_contrato'] or 'não informado'}.",
+                    f"Saldo devedor informado: {br_moeda(resultado_oferta['saldo_quitacao'])}.",
+                    f"Tabela: {resultado_oferta.get('tabela_codigo') or 'livre'} - {tabela}.",
+                    f"Novo contrato estimado: {br_moeda(resultado_oferta['valor_contrato'])}; troco estimado: {br_moeda(resultado_oferta['troco'])}.",
+                ]
+                if dados_oferta["data_averbacao"]:
+                    observacoes_oferta.append(f"Data de averbação: {dados_oferta['data_averbacao']}.")
                 proposta.update({
                     "nome": dados_oferta["nome"], "cpf": dados_oferta["cpf"], "nascimento": dados_oferta["nascimento"], "nb_matricula": dados_oferta["nb_matricula"], "especie": dados_oferta["especie"],
                     "tipo_cliente": "INSS", "banco_atual": dados_oferta["banco_atual"], "banco_digitado": "QUALI", "produto": "Portabilidade com Refinanciamento", "promotora": dados_oferta["promotora"],
@@ -3686,14 +3738,12 @@ def simulador_inss_criar_proposta():
                     "troco": resultado_oferta["saldo_quitacao"], "comissao_percentual": resultado_oferta["comissao_percentual"], "comissao": resultado_oferta["comissao_portabilidade"],
                     "refin_troco": resultado_oferta["troco"], "refin_comissao_percentual": resultado_oferta["comissao_percentual"], "refin_comissao": resultado_oferta["comissao_refinanciamento"],
                     "telefone": dados_oferta["telefone"], "endereco": dados_oferta["endereco"], "dados_bancarios": dados_oferta["dados_bancarios"],
-                    "observacoes": "\n".join(["Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.", f"Contrato portado: {dados_oferta['numero_contrato'] or 'não informado'}.", f"Saldo devedor informado: {br_moeda(resultado_oferta['saldo_quitacao'])}.", f"Tabela: {resultado_oferta.get('tabela_codigo') or 'livre'} - {tabela}.", f"Novo contrato estimado: {br_moeda(resultado_oferta['valor_contrato'])}; troco estimado: {br_moeda(resultado_oferta['troco'])}."]),
+                    "observacoes": "\n".join(observacoes_oferta),
                 })
-                proposta = reaproveitar_cadastro_cliente(proposta)
-                pendentes = validar_nova_proposta(proposta)
-                if pendentes:
-                    db.rollback()
-                    flash("Informe antes de inserir: " + ", ".join(pendentes) + ".", "erro")
-                    return redirect(url_for("simulador_inss"))
+                # O Resumo de Ofertas não pede CPF nem telefone. Quando a matrícula
+                # já existe, os dados cadastrais são reutilizados; caso contrário,
+                # a proposta continua sendo criada para complemento posterior.
+                proposta = reaproveitar_cadastro_cliente_por_matricula(proposta)
                 cursor = db.execute("""INSERT INTO propostas (cliente_id, nome, cpf, nascimento, nb_matricula, especie, numero_proposta, numero_port_vinculada, numero_refin_vinculada, tipo_cliente, banco_atual, banco_destino, banco_digitado, produto, promotora, beneficio_bloqueado, valor_caiu_promotora, valor_sacado, data_verificacao, parcela_atual, nova_parcela, troco, comissao_percentual, comissao, margem_apos, status, responsavel, telefone, endereco, dados_bancarios, data_criacao, data_atualizacao, data_encerramento, proxima_acao, data_retorno, observacoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (salvar_cliente_dos_dados(proposta), proposta["nome"], proposta["cpf"], proposta["nascimento"], proposta["nb_matricula"], proposta["especie"], proposta["numero_proposta"], proposta["numero_port_vinculada"], proposta["numero_refin_vinculada"], proposta["tipo_cliente"], proposta["banco_atual"], proposta["banco_destino"], proposta["banco_digitado"], proposta["produto"], proposta["promotora"], proposta["beneficio_bloqueado"], proposta["valor_caiu_promotora"], proposta["valor_sacado"], hoje_iso(), proposta["parcela_atual"], proposta["nova_parcela"], proposta["troco"], proposta["comissao_percentual"], proposta["comissao"], proposta["margem_apos"], proposta["status"], proposta["responsavel"], proposta["telefone"], proposta["endereco"], proposta["dados_bancarios"], agora, agora, data_encerramento_para_status(None, proposta["status"]), proposta["proxima_acao"], proposta["data_retorno"], proposta["observacoes"]))
                 proposta_id = cursor.lastrowid
                 sincronizar_beneficio_bloqueado(proposta["nb_matricula"], proposta["beneficio_bloqueado"], proposta_id, agora)
@@ -3722,6 +3772,7 @@ def simulador_inss_criar_proposta():
         observacoes = [
             "Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.",
             f"Contrato portado: {dados_sim['numero_contrato'] or 'não informado'}.",
+            *([f"Data de averbação: {dados_sim['data_averbacao']}."] if dados_sim["data_averbacao"] else []),
             f"Saldo devedor informado: {br_moeda(resultado['saldo_quitacao'])}.",
             f"Prazo original: {dados_sim['prazo_contrato'] or 'não informado'}; parcelas pagas: {dados_sim['parcelas_pagas'] or 'não informado'}.",
             f"Taxa atual usada para conferência do saldo: {br_percentual(dados_sim['taxa_contrato_atual']) if dados_sim['taxa_contrato_atual'] else 'não informada'}.",

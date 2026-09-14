@@ -88,6 +88,7 @@
         setField('dados_bancarios', importedData.dados_bancarios, highlighted);
         setField('banco_atual', firstBankName(contract.banco), highlighted);
         setField('numero_contrato', contract.numero, highlighted);
+        setField('data_averbacao', contract.data_averbacao, highlighted);
         setField('parcela_atual', contract.parcela, highlighted);
         setField('saldo_quitacao', contract.saldo_devedor, highlighted);
         setField('prazo_contrato', contract.prazo_total, highlighted);

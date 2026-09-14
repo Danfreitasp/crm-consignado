@@ -730,6 +730,70 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
     cursor: help;
     padding: 0;
 }
+.simulator-label-with-help {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.simulator-help {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+}
+.simulator-help-button {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--primary);
+    cursor: help;
+    font-size: 14px;
+    line-height: 1;
+}
+.simulator-help-button:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, .38);
+    outline-offset: 2px;
+}
+.simulator-help-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 50;
+    width: min(280px, calc(100vw - 32px));
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-3px);
+    transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+.simulator-help--end .simulator-help-tooltip {
+    right: 0;
+    left: auto;
+}
+.simulator-help:hover .simulator-help-tooltip,
+.simulator-help:focus-within .simulator-help-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
 .charts-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 18px; }
 .card h2 { margin: 0; font-weight: 600; font-size: 18px; }
 .bar-row { display: grid; grid-template-columns: minmax(90px, 1fr) 2fr 32px; gap: 10px; align-items: center; font-size: 13px; }
@@ -3774,6 +3838,12 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     font-size: 12px;
     line-height: 1.45;
 }
+.simulator-parameter-note-help {
+    width: fit-content;
+    align-items: center;
+    padding: 4px 7px;
+    line-height: 1;
+}
 .simulator-recalculate-field {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -3781,6 +3851,15 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     gap: 7px;
 }
 .simulator-recalculate-field .btn { justify-content: center; }
+.simulator-recalculate-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.simulator-recalculate-action > .btn {
+    min-width: 0;
+    flex: 1 1 auto;
+}
 .simulator-source-switch {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -3873,6 +3952,10 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     border: 1px solid var(--line);
     border-radius: 12px;
     background: rgba(248, 250, 252, .78);
+}
+.statement-reader.is-dragging {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, .08);
 }
 .statement-reader-copy { display: grid; gap: 3px; }
 .statement-reader-copy small,

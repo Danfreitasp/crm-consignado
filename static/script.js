@@ -31,6 +31,7 @@ function tituloContratoExtrato(contrato, textoPrincipal) {
     if (contrato.situacao) detalhes.push(`Situação: ${contrato.situacao}`);
     if (contrato.competencia_inicio) detalhes.push(`Início: ${contrato.competencia_inicio}`);
     if (contrato.competencia_fim) detalhes.push(`Fim: ${contrato.competencia_fim}`);
+    if (contrato.data_averbacao) detalhes.push(`Averbação: ${contrato.data_averbacao}`);
     detalhes.push(`${contrato.parcelas_restantes} parcelas restantes`);
     return detalhes.join(' · ');
 }
@@ -2127,12 +2128,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const recalcularSaldo = document.getElementById('portRecalcularSaldo');
     const saldoRecalculadoStatus = document.getElementById('portSaldoRecalculadoStatus');
     const extratoArquivo = document.getElementById('portExtratoArquivo');
+    const statementReader = extratoArquivo?.closest('.statement-reader');
     const lerExtrato = document.getElementById('portLerExtrato');
     const extratoStatus = document.getElementById('portExtratoStatus');
     const extratoContractPicker = document.getElementById('portExtratoContractPicker');
     const extratoContractSelect = document.getElementById('portExtratoContractSelect');
     const bancoAtualInput = document.getElementById('portBancoAtual');
     const numeroContratoInput = document.getElementById('portNumeroContrato');
+    const dataAverbacaoInput = document.getElementById('portDataAverbacao');
     const adicionarOferta = document.getElementById('portAdicionarOferta');
     const resumoOfertas = document.getElementById('portResumoOfertas');
     const resumoOfertasLinhas = document.getElementById('portResumoOfertasLinhas');
@@ -2170,6 +2173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const camposContratoDaFonte = [
         'banco_atual', 'numero_contrato', 'parcela_atual', 'saldo_quitacao',
         'prazo_contrato', 'parcelas_pagas', 'taxa_contrato_atual', 'margem_disponivel_importada',
+        'data_averbacao',
     ];
 
     function limparDadosDaFonteAnterior() {
@@ -2322,6 +2326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 prazoContrato: Math.max(0, Math.trunc(Number(portFields.prazoContrato?.value || 0))),
                 parcelasPagas: Math.max(0, Math.trunc(Number(portFields.parcelasPagas?.value || 0))),
                 taxaContratoAtual: parseCoeficiente(portFields.taxaContratoAtual?.value),
+                dataAverbacao: dataAverbacaoInput?.value.trim() || '',
                 tabelaPortRefin: portFields.tabela?.value || '',
                 novoPrazo: prazoNovo,
                 taxaNova: taxaMensal,
@@ -2404,6 +2409,49 @@ document.addEventListener('DOMContentLoaded', () => {
         extratoStatus.textContent = mensagem;
     }
 
+    function selecionarArquivoExtrato(arquivo) {
+        if (!arquivo || !extratoArquivo) return;
+        if (arquivo.type !== 'application/pdf' && !/\.pdf$/i.test(arquivo.name || '')) {
+            atualizarStatusExtrato('error', 'Selecione um arquivo PDF do extrato do INSS.');
+            return;
+        }
+        try {
+            const transferencia = new DataTransfer();
+            transferencia.items.add(arquivo);
+            extratoArquivo.files = transferencia.files;
+            atualizarStatusExtrato('idle', `Arquivo selecionado: ${arquivo.name}. Clique em "Ler extrato".`);
+        } catch (error) {
+            atualizarStatusExtrato('error', 'Não foi possível selecionar o arquivo arrastado. Escolha-o pelo botão.');
+        }
+    }
+
+    if (extratoArquivo) {
+        extratoArquivo.addEventListener('change', () => {
+            const arquivo = extratoArquivo.files?.[0];
+            if (arquivo) atualizarStatusExtrato('idle', `Arquivo selecionado: ${arquivo.name}. Clique em "Ler extrato".`);
+        });
+    }
+    if (statementReader) {
+        let arrasteAtivo = 0;
+        statementReader.addEventListener('dragenter', (event) => {
+            event.preventDefault();
+            arrasteAtivo += 1;
+            statementReader.classList.add('is-dragging');
+        });
+        statementReader.addEventListener('dragover', (event) => event.preventDefault());
+        statementReader.addEventListener('dragleave', (event) => {
+            event.preventDefault();
+            arrasteAtivo = Math.max(0, arrasteAtivo - 1);
+            if (!arrasteAtivo) statementReader.classList.remove('is-dragging');
+        });
+        statementReader.addEventListener('drop', (event) => {
+            event.preventDefault();
+            arrasteAtivo = 0;
+            statementReader.classList.remove('is-dragging');
+            selecionarArquivoExtrato(event.dataTransfer?.files?.[0]);
+        });
+    }
+
     function definirLeituraExtratoEmAndamento(emAndamento) {
         if (!lerExtrato) return;
         lerExtrato.disabled = emAndamento;
@@ -2431,6 +2479,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!contrato) return;
         preencherCampoExtrato(bancoAtualInput, contrato.banco || contrato.banco_descricao || '');
         preencherCampoExtrato(numeroContratoInput, contrato.numero || '');
+        preencherCampoExtrato(dataAverbacaoInput, contrato.data_averbacao || '');
         preencherCampoExtrato(portFields.parcelaAtual, brl(contrato.parcela));
         preencherCampoExtrato(portFields.saldo, brl(contrato.saldo_calculado));
         preencherCampoExtrato(portFields.prazoContrato, contrato.prazo_total);
