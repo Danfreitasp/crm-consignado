@@ -183,7 +183,7 @@
                 </div>
                 <div class="simulator-offer-table-wrap">
                     <table class="simulator-offer-table">
-                        <thead><tr><th>Contrato</th><th>Parcela atual</th><th>Saldo</th><th>Tabela</th><th>Nova parcela</th><th>Novo contrato</th><th>Troco</th><th><span class="sr-only">Ação</span></th></tr></thead>
+                        <thead><tr><th>Contrato</th><th>Parcela atual</th><th>Saldo</th><th>Prazo / parcelas</th><th>Tabela</th><th>Nova parcela</th><th>Novo contrato</th><th>Troco</th><th><span class="sr-only">Ação</span></th></tr></thead>
                         <tbody id="portResumoOfertasLinhas"></tbody>
                     </table>
                 </div>
@@ -219,5 +219,5 @@
 
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
 <script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
-<script src="{{ url_for('static', filename='portal_import.js', v='20260914-data-averbacao') }}"></script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20260915-extrato-detalhes') }}"></script>
 {% endblock %}

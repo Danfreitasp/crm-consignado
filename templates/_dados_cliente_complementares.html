@@ -8,5 +8,6 @@
     <h3>Dados bancários do cliente</h3>
     <label class="full-label">
         <textarea id="proposta-dados-bancarios" name="dados_bancarios" rows="4" placeholder="BANCO EXEMPLO&#10;Agência: 123&#10;Conta Corrente: 000000000">{{ proposta.dados_bancarios or proposta['dados_bancarios'] or '' }}</textarea>
+        <small class="muted">Altere este campo para atualizar o cadastro e todas as propostas do cliente. “Nova anotação” registra apenas o histórico.</small>
     </label>
 </section>

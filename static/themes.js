@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const validThemes = ['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism', 'monochrome', 'flat'];
     const themeColors = {
         classico: '#111827',
-        lite: '#f4f6f8',
+        lite: '#f6f7f9',
         newsprint: '#f9f9f7',
         'retro-90s': '#c0c0c0',
         dopamine: '#0d0d1a',

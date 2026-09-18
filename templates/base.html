@@ -51,7 +51,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='dopamine.css', v='20260825-dopamine-7') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='soft-ui.css', v='20260825-soft-ui-3') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='neo-brutalism.css', v='20260825-neo-brutalism-4') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='lite.css', v='20260826-crm-lite-source-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lite.css', v='20260918-lite-clean-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='monochrome.css', v='20260909-2') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='flat.css', v='20260909-1') }}">
 </head>
@@ -132,7 +132,7 @@
                     <summary class="btn visual-theme-toggle" title="Escolher tema visual"><i class="bi bi-grid" aria-hidden="true"></i><span>Temas</span></summary>
                     <div class="theme-menu-panel" role="group" aria-label="Escolha um tema visual">
                         <button type="button" class="theme-option" data-visual-theme-option="classico" aria-pressed="false"><span class="theme-swatch theme-swatch-classico" aria-hidden="true"></span><span><strong>Clássico</strong><small>Interface original</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
-                        <button type="button" class="theme-option" data-visual-theme-option="lite" aria-pressed="false"><span class="theme-swatch theme-swatch-lite" aria-hidden="true"></span><span><strong>Lite</strong><small>Visual original do CRM Lite</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                        <button type="button" class="theme-option" data-visual-theme-option="lite" aria-pressed="false"><span class="theme-swatch theme-swatch-lite" aria-hidden="true"></span><span><strong>Lite</strong><small>Neutro e compacto</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="newsprint" aria-pressed="false"><span class="theme-swatch theme-swatch-newsprint" aria-hidden="true"></span><span><strong>Newsprint</strong><small>Editorial em papel</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="retro-90s" aria-pressed="false"><span class="theme-swatch theme-swatch-retro-90s" aria-hidden="true"></span><span><strong>Retro 90s</strong><small>Windows 95 / Web 1.0</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="dopamine" aria-pressed="false"><span class="theme-swatch theme-swatch-dopamine" aria-hidden="true"></span><span><strong>Dopamine</strong><small>Maximalismo hyperpop</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
@@ -161,7 +161,7 @@
 
         {% block content %}{% endblock %}
     </main>
-<script src="{{ url_for('static', filename='script.js', v='20260914-data-averbacao') }}"></script>
-    <script src="{{ url_for('static', filename='themes.js', v='20260909-monochrome') }}"></script>
+<script src="{{ url_for('static', filename='script.js', v='20260915-extrato-detalhes') }}"></script>
+    <script src="{{ url_for('static', filename='themes.js', v='20260918-lite-clean-1') }}"></script>
 </body>
 </html>

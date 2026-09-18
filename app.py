@@ -2243,6 +2243,78 @@ def salvar_cliente_dos_dados(dados: dict[str, Any] | sqlite3.Row) -> int | None:
     return int(cursor.lastrowid)
 
 
+def sincronizar_dados_cadastrais_nas_propostas(
+    cliente_id: int | None,
+    dados: dict[str, Any] | sqlite3.Row,
+    atualizado_em: str | None = None,
+) -> int:
+    """Mantém os dados compartilhados do cliente iguais em todas as propostas.
+
+    A edição de uma proposta também pode alterar o cadastro compartilhado. Sem
+    esta etapa, propostas antigas do mesmo cliente permanecem com os valores
+    anteriores e acabam reapresentando dados bancários desatualizados.
+    """
+    if not cliente_id:
+        return 0
+
+    db = get_db()
+    cliente = db.execute(
+        """
+        SELECT nome, cpf, nascimento, nb_matricula, especie, telefone,
+               tipo_cliente, endereco, dados_bancarios
+        FROM clientes
+        WHERE id = ?
+        """,
+        (cliente_id,),
+    ).fetchone()
+    if not cliente:
+        return 0
+
+    # O cadastro é a fonte canônica dos dados compartilhados. Isso evita que
+    # uma proposta antiga, com algum campo vazio, apague um valor já salvo.
+    item = dict(cliente)
+    cpf, nb = chave_cliente(item.get("cpf"), item.get("nb_matricula"))
+    agora = atualizado_em or agora_iso()
+    resultado = db.execute(
+        """
+        UPDATE propostas
+        SET cliente_id = ?,
+            nome = ?,
+            cpf = ?,
+            nascimento = ?,
+            nb_matricula = ?,
+            especie = ?,
+            telefone = ?,
+            tipo_cliente = ?,
+            endereco = ?,
+            dados_bancarios = ?,
+            data_atualizacao = ?
+        WHERE cliente_id = ?
+           OR (
+                cpf = ?
+                AND NORMALIZAR_MATRICULA(nb_matricula) = ?
+           )
+        """,
+        (
+            cliente_id,
+            limpar_texto(item.get("nome")),
+            limpar_texto(item.get("cpf")),
+            limpar_texto(item.get("nascimento")),
+            limpar_texto(item.get("nb_matricula")),
+            limpar_texto(item.get("especie")),
+            limpar_texto(item.get("telefone")),
+            limpar_texto(item.get("tipo_cliente")),
+            limpar_texto(item.get("endereco")),
+            limpar_texto(item.get("dados_bancarios")),
+            agora,
+            cliente_id,
+            cpf,
+            nb,
+        ),
+    )
+    return int(resultado.rowcount)
+
+
 def migrar_clientes_a_partir_de_propostas() -> None:
     db = get_db()
     propostas = db.execute(
@@ -3350,11 +3422,12 @@ def competencia_mes(valor: Any) -> date | None:
 
 
 def parcelas_pagas_ate_competencia(inicio: Any, total: int, referencia: date) -> int:
+    """Estima competências pagas incluindo o mês inicial e o de referência."""
     competencia_inicio = competencia_mes(inicio)
     if not competencia_inicio or total <= 0:
         return 0
     meses = (referencia.year - competencia_inicio.year) * 12 + referencia.month - competencia_inicio.month
-    return min(total, max(0, meses))
+    return min(total, max(0, meses + 1))
 
 
 def saldo_estimado_por_taxa(parcela: float, parcelas_restantes: int, taxa_percentual: float) -> float:
@@ -3371,9 +3444,14 @@ def celula_extrato(valor: Any) -> str:
 
 
 def data_averbacao_extrato(valor: Any) -> str:
-    texto = celula_extrato(valor)
-    correspondencia = re.search(r"\b\d{2}/\d{2}/(?:\d{2}|\d{4})\b", texto)
-    return correspondencia.group(0) if correspondencia else ""
+    """Extrai a data de inclusão/averbação de uma célula ou linha do extrato."""
+    valores = valor if isinstance(valor, (list, tuple)) else [valor]
+    for item in valores:
+        texto = celula_extrato(item)
+        correspondencia = re.search(r"\b\d{2}[./-]\d{2}[./-](?:\d{2}|\d{4})\b", texto)
+        if correspondencia:
+            return correspondencia.group(0).replace(".", "/").replace("-", "/")
+    return ""
 
 
 def banco_extrato(valor: Any) -> tuple[str, str]:
@@ -3504,7 +3582,8 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
     except Exception as exc:
         raise ValueError("Não foi possível interpretar este extrato em PDF.") from exc
 
-    referencia = referencia or date.today()
+    referencia_calculo = date.today()
+    referencia = referencia or referencia_calculo
     contratos: dict[str, dict[str, Any]] = {}
     for linha in linhas_contratos:
         total_texto = re.sub(r"\D", "", celula_extrato(linha[7]))
@@ -3515,7 +3594,7 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
         total = int(total_texto)
         taxa_extraida = parse_percentual(celula_extrato(linha[14]))
         taxa = taxa_extraida if taxa_extraida > 0 else 1.50
-        pagas = parcelas_pagas_ate_competencia(linha[5], total, referencia)
+        pagas = parcelas_pagas_ate_competencia(linha[5], total, referencia_calculo)
         restantes = max(0, total - pagas)
         banco, banco_descricao = banco_extrato(linha[1])
         saldo = round(saldo_estimado_por_taxa(parcela, restantes, taxa), 2)
@@ -3526,7 +3605,10 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
             "situacao": celula_extrato(linha[2]),
             "competencia_inicio": celula_extrato(linha[5]),
             "competencia_fim": celula_extrato(linha[6]),
-            "data_averbacao": data_averbacao_extrato(linha[4]) if len(linha) > 4 else "",
+            # O Meu INSS pode deslocar a coluna de inclusão/averbação entre
+            # versões do PDF; procurar a primeira data completa na linha evita
+            # perder o dado quando a posição da tabela muda.
+            "data_averbacao": data_averbacao_extrato(linha),
             "prazo_total": total,
             "parcelas_pagas": pagas,
             "parcelas_restantes": restantes,
@@ -3542,6 +3624,7 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
     dados_beneficiario = dados_beneficiario_extrato("\n".join(textos_paginas))
     return {
         "data_extrato": referencia.strftime("%d/%m/%Y"),
+        "competencia_calculo": referencia_calculo.strftime("%m/%Y"),
         "contratos": list(contratos.values()),
         "margem_disponivel": round(margem_disponivel, 2),
         **dados_beneficiario,
@@ -3725,12 +3808,12 @@ def simulador_inss_criar_proposta():
                 observacoes_oferta = [
                     "Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.",
                     f"Contrato portado: {dados_oferta['numero_contrato'] or 'não informado'}.",
+                    *([f"Data de inclusão/averbação: {dados_oferta['data_averbacao']}."] if dados_oferta["data_averbacao"] else []),
                     f"Saldo devedor informado: {br_moeda(resultado_oferta['saldo_quitacao'])}.",
+                    f"Prazo total: {dados_oferta['prazo_contrato'] or 'não informado'} parcelas; parcelas pagas: {dados_oferta['parcelas_pagas'] or 'não informado'}; parcelas restantes: {max(0, dados_oferta['prazo_contrato'] - dados_oferta['parcelas_pagas']) if dados_oferta['prazo_contrato'] else 'não informado'}.",
                     f"Tabela: {resultado_oferta.get('tabela_codigo') or 'livre'} - {tabela}.",
                     f"Novo contrato estimado: {br_moeda(resultado_oferta['valor_contrato'])}; troco estimado: {br_moeda(resultado_oferta['troco'])}.",
                 ]
-                if dados_oferta["data_averbacao"]:
-                    observacoes_oferta.append(f"Data de averbação: {dados_oferta['data_averbacao']}.")
                 proposta.update({
                     "nome": dados_oferta["nome"], "cpf": dados_oferta["cpf"], "nascimento": dados_oferta["nascimento"], "nb_matricula": dados_oferta["nb_matricula"], "especie": dados_oferta["especie"],
                     "tipo_cliente": "INSS", "banco_atual": dados_oferta["banco_atual"], "banco_digitado": "QUALI", "produto": "Portabilidade com Refinanciamento", "promotora": dados_oferta["promotora"],
@@ -3772,9 +3855,9 @@ def simulador_inss_criar_proposta():
         observacoes = [
             "Dados preparados pelo Simulador INSS - Portabilidade com Refinanciamento.",
             f"Contrato portado: {dados_sim['numero_contrato'] or 'não informado'}.",
-            *([f"Data de averbação: {dados_sim['data_averbacao']}."] if dados_sim["data_averbacao"] else []),
+            *([f"Data de inclusão/averbação: {dados_sim['data_averbacao']}."] if dados_sim["data_averbacao"] else []),
             f"Saldo devedor informado: {br_moeda(resultado['saldo_quitacao'])}.",
-            f"Prazo original: {dados_sim['prazo_contrato'] or 'não informado'}; parcelas pagas: {dados_sim['parcelas_pagas'] or 'não informado'}.",
+            f"Prazo total: {dados_sim['prazo_contrato'] or 'não informado'} parcelas; parcelas pagas: {dados_sim['parcelas_pagas'] or 'não informado'}; parcelas restantes: {resultado['parcelas_abertas'] if dados_sim['prazo_contrato'] else 'não informado'}.",
             f"Taxa atual usada para conferência do saldo: {br_percentual(dados_sim['taxa_contrato_atual']) if dados_sim['taxa_contrato_atual'] else 'não informada'}.",
             f"Tabela: {resultado.get('tabela_codigo') or 'livre'} - {tabela}.",
             f"Novo contrato estimado: {br_moeda(resultado['valor_contrato'])}; troco estimado: {br_moeda(resultado['troco'])}.",
@@ -5568,6 +5651,7 @@ def editar_proposta(proposta_id: int):
             proposta["data_encerramento"] if "data_encerramento" in proposta.keys() else None,
         )
         atualizado_em = agora_iso()
+        cliente_id_atualizado = salvar_cliente_dos_dados(dados)
         db.execute(
             """
             UPDATE propostas SET
@@ -5578,7 +5662,7 @@ def editar_proposta(proposta_id: int):
             WHERE id = ?
             """,
             (
-                salvar_cliente_dos_dados(dados), dados["nome"], dados["cpf"], dados["nascimento"], dados["nb_matricula"], dados["especie"], dados["numero_proposta"],
+                cliente_id_atualizado, dados["nome"], dados["cpf"], dados["nascimento"], dados["nb_matricula"], dados["especie"], dados["numero_proposta"],
                 dados["numero_port_vinculada"], dados["numero_refin_vinculada"], dados["tipo_cliente"],
                 dados["banco_atual"], dados["banco_destino"], dados["banco_digitado"], dados["produto"],
                 dados["promotora"], dados["beneficio_bloqueado"], dados["valor_caiu_promotora"], dados["valor_sacado"], dados["parcela_atual"], dados["nova_parcela"], dados["troco"], dados["comissao_percentual"], dados["comissao"], dados["margem_apos"],
@@ -5594,6 +5678,11 @@ def editar_proposta(proposta_id: int):
         )
         refin_id, refin_criado, refin_status = sincronizar_refin_da_portabilidade(
             proposta_id,
+            dados,
+            atualizado_em,
+        )
+        sincronizar_dados_cadastrais_nas_propostas(
+            cliente_id_atualizado,
             dados,
             atualizado_em,
         )
