@@ -3899,7 +3899,9 @@ def simulador_inss_criar_proposta():
                 "observacoes": "\n".join(observacoes),
             }
         )
-        proposta = reaproveitar_cadastro_cliente(proposta)
+        # O Extrato não informa CPF; a matrícula/NB é a chave única do cliente
+        # neste fluxo e deve reaproveitar o cadastro antes de abrir a proposta.
+        proposta = reaproveitar_cadastro_cliente_por_matricula(proposta)
         return render_template("nova_proposta.html", proposta=proposta, origem_simulador=True)
 
     resultado = calcular_simulador_inss(dados_sim)
