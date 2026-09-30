@@ -34,7 +34,7 @@
                         <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Perdido</span></button>
                     </form>
                 </div>
-                <form method="post" action="{{ url_for('excluir_proposta', proposta_id=proposta.id) }}" onsubmit="return confirm('Excluir definitivamente este lead/proposta? Esta ação remove também anotações, histórico e anexos cadastrados no CRM.');">
+                <form method="post" action="{{ url_for('excluir_proposta', proposta_id=proposta.id) }}" onsubmit="return confirm('Excluir definitivamente este lead/proposta? Anotações e histórico serão removidos, mas os documentos permanecerão na pasta.');">
                     <input type="hidden" name="next" value="{{ url_retorno_padrao() }}">
                     <button class="btn btn-danger" type="submit"><i class="bi bi-trash" aria-hidden="true"></i><span>Excluir lead</span></button>
                 </form>

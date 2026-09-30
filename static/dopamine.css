@@ -814,7 +814,7 @@ html[data-visual-theme="dopamine"] .encerradas-kanban .encerrada-card.card-paid 
 html[data-visual-theme="dopamine"] .encerradas-kanban .encerrada-card.card-lost { border-left-color: #ff6b35; }
 
 html[data-visual-theme="dopamine"] .encerradas-kanban .encerrada-card :is(a, p, small, strong, span, em),
-html[data-visual-theme="dopamine"] .encerradas-kanban .encerrada-finance-editor summary {
+html[data-visual-theme="dopamine"] .encerradas-kanban .encerrada-finance-button {
     color: #fff;
 }
 

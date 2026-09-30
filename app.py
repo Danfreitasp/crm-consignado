@@ -5842,8 +5842,32 @@ def atualizar_financeiro_rapido(proposta_id: int):
         flash("Proposta não encontrada.", "erro")
         return redirect(url_for("encerradas"))
 
-    valor = parse_moeda(request.form.get("troco"))
-    comissao = parse_moeda(request.form.get("comissao"))
+    total_informado = request.form.get("total_comissao")
+    if total_informado is not None:
+        valor = float(proposta["troco"] or 0)
+        todas_propostas = get_db().execute("SELECT * FROM propostas").fetchall()
+        comissao_refin_vinculado = sum(
+            float(refin["comissao"] or 0)
+            for refin in refins_ativos_vinculados(proposta, todas_propostas)
+        )
+        total_comissao = round(parse_moeda(total_informado), 2)
+        if total_comissao < comissao_refin_vinculado:
+            mensagem = (
+                f"A comissão total não pode ser menor que a comissão do refin vinculado "
+                f"({br_moeda(comissao_refin_vinculado)})."
+            )
+            if is_fetch:
+                return jsonify({"success": False, "message": mensagem}), 422
+            flash(mensagem, "erro")
+            return redirect(request.form.get("next") or url_for("encerradas"))
+        comissao = round(total_comissao - comissao_refin_vinculado, 2)
+    else:
+        # Mantém compatibilidade com chamadas antigas do endpoint.
+        valor = parse_moeda(request.form.get("troco"))
+        comissao = parse_moeda(request.form.get("comissao"))
+        comissao_refin_vinculado = 0.0
+        total_comissao = round(comissao, 2)
+
     percentual = round((comissao / valor) * 100, 4) if valor > 0 and comissao > 0 else 0.0
 
     get_db().execute(
@@ -5855,21 +5879,33 @@ def atualizar_financeiro_rapido(proposta_id: int):
         (valor, comissao, percentual, agora_iso(), proposta_id),
     )
     get_db().commit()
+    registro_ajustado = (
+        "a Portabilidade"
+        if produto_eh_portabilidade_com_refin(proposta)
+        else "a proposta"
+    )
     registrar_historico(
         proposta_id,
         proposta["status"],
         proposta["status"],
-        f"Valor/comissão atualizados em Encerradas. Percentual calculado: {percentual:.2f}%",
+        (
+            f"Comissão total atualizada em Encerradas para {br_moeda(total_comissao)}; "
+            f"comissão de {registro_ajustado} ajustada para {br_moeda(comissao)}."
+            if total_informado is not None
+            else f"Valor/comissão atualizados em Encerradas. Percentual calculado: {percentual:.2f}%"
+        ),
     )
     if is_fetch:
         return jsonify({
             "success": True,
-            "message": "Valores atualizados.",
+            "message": "Comissão total atualizada.",
             "proposta_id": proposta_id,
             "troco": br_moeda(valor),
             "comissao": br_moeda(comissao),
             "comissao_percentual": br_percentual(percentual),
             "comissao_numero": comissao,
+            "comissao_total": br_moeda(total_comissao),
+            "comissao_total_numero": total_comissao,
         })
     flash("Valor e comissão atualizados.", "ok")
     return redirect(request.form.get("next") or url_for("encerradas"))
@@ -5887,10 +5923,6 @@ def excluir_proposta(proposta_id: int):
     ids_para_excluir = sorted({proposta_id, *(item["id"] for item in vinculadas)})
     marcadores = ",".join("?" for _ in ids_para_excluir)
     excluir_par = len(ids_para_excluir) > 1
-    anexos = db.execute(
-        f"SELECT * FROM anexos WHERE proposta_id IN ({marcadores})",
-        ids_para_excluir,
-    ).fetchall()
     registrar_notificacao_importante(
         proposta_id=None,
         proposta_nome=proposta["nome"],
@@ -5903,17 +5935,6 @@ def excluir_proposta(proposta_id: int):
         ),
     )
 
-    # Remove arquivos físicos dos anexos, quando existirem.
-    # Se algum arquivo estiver aberto/bloqueado pelo Windows, o registro ainda será removido do CRM.
-    arquivos_com_erro = 0
-    for anexo in anexos:
-        caminho = Path(anexo["caminho"])
-        try:
-            if caminho.exists():
-                caminho.unlink()
-        except OSError:
-            arquivos_com_erro += 1
-
     # Remove registros relacionados mesmo quando o SQLite antigo não estiver com cascade ativo.
     db.execute(f"DELETE FROM anexos WHERE proposta_id IN ({marcadores})", ids_para_excluir)
     db.execute(f"DELETE FROM anotacoes WHERE proposta_id IN ({marcadores})", ids_para_excluir)
@@ -5921,18 +5942,14 @@ def excluir_proposta(proposta_id: int):
     db.execute(f"DELETE FROM propostas WHERE id IN ({marcadores})", ids_para_excluir)
     db.commit()
 
-    # Tenta remover a pasta do cliente se ela ficar vazia.
-    try:
-        pasta = pasta_cliente(proposta)
-        if pasta.exists() and not any(pasta.iterdir()):
-            pasta.rmdir()
-    except OSError:
-        pass
-
-    if arquivos_com_erro:
-        flash(f"Proposta excluída. {arquivos_com_erro} arquivo(s) não puderam ser apagados da pasta.", "erro")
-    else:
-        flash("Portabilidade + Refinanciamento excluídos com sucesso." if excluir_par else "Lead/proposta excluído com sucesso.", "ok")
+    flash(
+        (
+            "Portabilidade + Refinanciamento excluídos; os documentos foram mantidos na pasta."
+            if excluir_par
+            else "Lead/proposta excluído; os documentos foram mantidos na pasta."
+        ),
+        "ok",
+    )
 
     destino = request.form.get("next") or url_for("index")
     return redirect(destino)

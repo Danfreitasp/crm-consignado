@@ -573,7 +573,7 @@ html[data-visual-theme="neo-brutalism"][data-theme="escuro"] .encerradas-kanban 
 html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-card.card-paid { border-left-color: #000; }
 html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-card.card-lost { background: #ff6b6b; border-left-color: #000; }
 html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-card :is(a, p, small, strong, span, em),
-html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-finance-editor summary { color: #000; }
+html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-finance-button { color: #000; }
 html[data-visual-theme="neo-brutalism"] .encerradas-kanban .encerrada-finance-summary span { background: #ffd93d; border: 2px solid #000; }
 
 html[data-visual-theme="neo-brutalism"] :is(.calendar-day, .week-calendar-day),

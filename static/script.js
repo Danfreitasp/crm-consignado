@@ -1289,13 +1289,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const payload = await response.json();
                 if (!response.ok || payload.success === false) throw new Error(payload.message || 'Não foi possível atualizar os valores.');
 
-                const comissaoVinculada = Number(card.dataset.comissaoVinculada) || 0;
-                const comissaoTotal = (Number(payload.comissao_numero) || 0) + comissaoVinculada;
+                const comissaoTotal = Number(payload.comissao_total_numero);
                 card.dataset.comissao = String(comissaoTotal);
                 card.querySelector('[data-finance-value]').textContent = payload.troco;
                 card.querySelector('[data-finance-commission]').textContent = formatarMoeda(comissaoTotal);
                 card.querySelector('[data-finance-percent]').textContent = payload.comissao_percentual;
-                card.querySelector('.encerrada-finance-editor').open = false;
+                const totalInput = form.querySelector('input[name="total_comissao"]');
+                if (totalInput) totalInput.value = payload.comissao_total;
+                const menu = form.closest('.encerrada-finance-menu');
+                if (menu) menu.open = false;
                 atualizarResumoEncerradas(card.closest('.kanban-column'));
                 card.classList.add('card-recently-saved');
                 setTimeout(() => card.classList.remove('card-recently-saved'), 1400);
