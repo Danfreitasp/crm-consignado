@@ -2116,6 +2116,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tabela: document.getElementById('portTabela'),
         parcelaAtual: document.getElementById('portParcelaAtual'),
         saldo: document.getElementById('portSaldoQuitacao'),
+        descontosBanco: document.getElementById('portDescontosBanco'),
+        dataSimulacao: document.getElementById('portDataSimulacao'),
+        dataRefinanciamento: document.getElementById('portDataRefinanciamento'),
+        vencimentoPort: document.getElementById('portVencimentoPort'),
+        vencimentoRefin: document.getElementById('portVencimentoRefin'),
         prazoContrato: document.getElementById('portPrazoContrato'),
         parcelasPagas: document.getElementById('portParcelasPagas'),
         taxaContratoAtual: document.getElementById('portTaxaContratoAtual'),
@@ -2175,7 +2180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const camposContratoDaFonte = [
         'banco_atual', 'numero_contrato', 'parcela_atual', 'saldo_quitacao',
         'prazo_contrato', 'parcelas_pagas', 'taxa_contrato_atual', 'margem_disponivel_importada',
-        'data_averbacao',
+        'data_averbacao', 'descontos_banco',
     ];
 
     function limparDadosDaFonteAnterior() {
@@ -2250,7 +2255,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(oferta?.contrato || '').trim().toLocaleUpperCase('pt-BR');
     }
 
+    function dataFluxoQuali(valor) {
+        const data = Date.parse(`${valor}T00:00:00Z`);
+        return Number.isFinite(data) && new Date(data).toISOString().slice(0, 10) === valor ? data : NaN;
+    }
+
+    function diasFluxoQuali(primeiro, referencia, prazo) {
+        const data = new Date(primeiro);
+        return Array.from({ length: prazo }, (_, indice) => {
+            const mes = data.getUTCMonth() + indice;
+            const ultimoDia = new Date(Date.UTC(data.getUTCFullYear(), mes + 1, 0)).getUTCDate();
+            const vencimento = Date.UTC(data.getUTCFullYear(), mes, Math.min(data.getUTCDate(), ultimoDia));
+            return (vencimento - referencia) / 86400000;
+        });
+    }
+
+    function coeficienteFluxoQuali(taxa, dias) {
+        return 1 / dias.reduce((total, dia) => total + Math.pow(1 + taxa, -dia / 30), 0);
+    }
+
+    function taxaFluxoQuali(parcela, saldo, dias) {
+        let inferior = 0;
+        let superior = 1;
+        for (let indice = 0; indice < 80; indice += 1) {
+            const taxa = (inferior + superior) / 2;
+            const valorPresente = parcela / coeficienteFluxoQuali(taxa, dias);
+            if (valorPresente > saldo) inferior = taxa;
+            else superior = taxa;
+        }
+        return (inferior + superior) / 2;
+    }
+
     function calcularPortRefin() {
+        const tabelaAtiva = portFields.tabela?.selectedOptions?.[0];
+        const usaTabela = Boolean(portFields.tabela?.value);
+        [portFields.taxa, portFields.novoPrazo, portFields.coeficiente].forEach((field) => {
+            if (field) field.readOnly = usaTabela;
+        });
+        if (usaTabela) {
+            if (portFields.taxa) portFields.taxa.value = String(tabelaAtiva.dataset.taxa).replace('.', ',');
+            if (portFields.novoPrazo) portFields.novoPrazo.value = tabelaAtiva.dataset.prazo;
+        }
         const parcelaAtual = parseBR(portFields.parcelaAtual?.value);
         const saldo = parseBR(portFields.saldo?.value);
         const prazoNovo = Math.max(0, Number(portFields.novoPrazo?.value || 0));
@@ -2264,10 +2309,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const taxaMensal = parseCoeficiente(portFields.taxa?.value);
         const coeficienteInformado = parseCoeficiente(portFields.coeficiente?.value);
         const tabelaSelecionada = portFields.tabela?.selectedOptions?.[0];
-        const fatorSaldo = Number(tabelaSelecionada?.dataset.fatorSaldo || 1);
+        const descontosInformados = Boolean(portFields.descontosBanco?.value.trim());
+        const descontosBanco = parseBR(portFields.descontosBanco?.value);
+        const usaQuali = Boolean(portFields.tabela?.value);
+        const dataSimulacao = dataFluxoQuali(portFields.dataSimulacao?.value || '');
+        const dataRefinanciamento = dataFluxoQuali(portFields.dataRefinanciamento?.value || '');
+        const fatorLiquido = Number((dataRefinanciamento === dataSimulacao
+            ? tabelaSelecionada?.dataset.fatorLiquidoMesmoDia
+            : tabelaSelecionada?.dataset.fatorLiquido) || 1);
+        const vencimentoPort = dataFluxoQuali(portFields.vencimentoPort?.value || '');
+        const vencimentoRefin = dataFluxoQuali(portFields.vencimentoRefin?.value || '');
+        const fluxoValido = [dataSimulacao, dataRefinanciamento, vencimentoPort, vencimentoRefin].every(Number.isFinite)
+            && dataRefinanciamento >= dataSimulacao && vencimentoPort > dataSimulacao && vencimentoRefin > dataRefinanciamento;
+        const parcelasRestantes = Math.max(0, Number(portFields.prazoContrato?.value || 0) - Number(portFields.parcelasPagas?.value || 0));
         const comissaoPercentual = Number(tabelaSelecionada?.dataset.comissaoPercentual || 0);
         let coeficiente = coeficienteInformado;
         let origem = portFields.tabela?.value ? `Tabela Quali ${portFields.tabela.value}` : 'Coeficiente informado';
+
+        if (usaQuali && fluxoValido && taxaMensal > 0 && prazoNovo > 0) {
+            coeficiente = coeficienteFluxoQuali(taxaMensal / 100, diasFluxoQuali(vencimentoRefin, dataRefinanciamento, prazoNovo));
+            if (portFields.coeficiente) portFields.coeficiente.value = coeficiente.toFixed(12);
+        }
 
         if (!coeficiente && taxaMensal > 0 && prazoNovo > 0) {
             const taxa = taxaMensal / 100;
@@ -2275,9 +2337,19 @@ document.addEventListener('DOMContentLoaded', () => {
             origem = 'Calculado pela taxa mensal';
         }
 
-        const valorContrato = coeficiente > 0 && coeficiente <= 1 ? novaParcela / coeficiente : 0;
-        const saldoConsiderado = saldo * fatorSaldo;
-        const troco = valorContrato - saldoConsiderado;
+        const arredondarCentavos = (valor) => Math.round((valor + Number.EPSILON) * 100) / 100;
+        const valorContrato = coeficiente > 0 && coeficiente <= 1 ? arredondarCentavos(novaParcela / coeficiente) : 0;
+        let saldoConsiderado = arredondarCentavos(saldo);
+        if (usaQuali && fluxoValido && parcelasRestantes > 0 && parcelaAtual > 0 && saldo > 0) {
+            const taxaPort = taxaFluxoQuali(parcelaAtual, saldo, diasFluxoQuali(vencimentoPort, dataSimulacao, parcelasRestantes));
+            saldoConsiderado = arredondarCentavos(saldo * Math.pow(1 + taxaPort, (dataRefinanciamento - dataSimulacao) / 86400000 / 30));
+        }
+        const trocoBruto = arredondarCentavos(valorContrato - saldoConsiderado);
+        const trocoAutomatico = trocoBruto > 0 ? arredondarCentavos(trocoBruto * (usaQuali ? fatorLiquido : 1)) : trocoBruto;
+        const troco = descontosInformados
+            ? arredondarCentavos(valorContrato - arredondarCentavos(saldo) - arredondarCentavos(descontosBanco))
+            : trocoAutomatico;
+        const descontosEstimados = arredondarCentavos(valorContrato - saldo - trocoAutomatico);
         const comissaoPortabilidade = saldo * (comissaoPercentual / 100);
         const comissaoRefinanciamento = Math.max(0, troco) * (comissaoPercentual / 100);
         const comissaoTotal = comissaoPortabilidade + comissaoRefinanciamento;
@@ -2287,9 +2359,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (prazoNovo <= 0) erros.push('Informe o novo prazo.');
         if (coeficiente <= 0) erros.push('Informe a taxa ou o coeficiente.');
         if (coeficiente > 1) erros.push('O coeficiente precisa ser menor ou igual a 1.');
+        if (descontosBanco < 0) erros.push('Os descontos do banco não podem ser negativos.');
+        if (usaQuali && parcelasRestantes <= 0) erros.push('Informe prazo original e parcelas pagas para calcular as parcelas restantes.');
+        if (usaQuali && !fluxoValido) erros.push('Revise as datas dos vencimentos da simulação.');
 
         if (portOutputs.valorContrato) portOutputs.valorContrato.textContent = brl(valorContrato);
         if (portOutputs.troco) portOutputs.troco.textContent = brl(troco);
+        const trocoLabel = document.getElementById('portTrocoLabel');
+        if (trocoLabel) trocoLabel.textContent = 'Troco estimado';
+        const descontosLabel = document.getElementById('portDescontosEstimados');
+        if (descontosLabel) descontosLabel.textContent = descontosInformados
+            ? 'Total informado substitui a estimativa automática.'
+            : `Automático: ${brl(descontosEstimados)} (atualização do saldo e desconto líquido).`;
         if (portOutputs.comissaoPercentual) {
             portOutputs.comissaoPercentual.textContent = comissaoPercentual
                 ? `${comissaoPercentual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
@@ -2322,6 +2403,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 contrato: [bancoAtualInput?.value.trim() || 'Banco não informado', numeroContratoInput?.value.trim() || 'Sem número'].join(' · '),
                 parcelaAtual,
                 saldo,
+                descontosBanco: descontosInformados ? descontosBanco : null,
+                dataSimulacao: portFields.dataSimulacao?.value,
+                dataRefinanciamento: portFields.dataRefinanciamento?.value,
+                primeiroVencimentoPort: portFields.vencimentoPort?.value,
+                primeiroVencimentoRefin: portFields.vencimentoRefin?.value,
                 tabela: portFields.tabela?.value ? `Quali ${portFields.tabela.value}` : 'Cálculo livre',
                 novaParcela,
                 valorContrato,
@@ -2366,7 +2452,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function aplicarTabelaPortRefin() {
+        if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         const option = portFields.tabela?.selectedOptions?.[0];
+        [portFields.taxa, portFields.novoPrazo, portFields.coeficiente].forEach((field) => {
+            if (field) field.readOnly = Boolean(option?.value);
+        });
         if (!option?.value) {
             calcularPortRefin();
             return;
@@ -2394,6 +2484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const taxaDecimal = taxaPercentual / 100;
         const saldoAtualizado = parcela * (1 - Math.pow(1 + taxaDecimal, -parcelasRestantes)) / taxaDecimal;
         if (portFields.saldo) portFields.saldo.value = brl(saldoAtualizado);
+        if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         if (saldoRecalculadoStatus) {
             saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes à taxa de ${taxaPercentual.toLocaleString('pt-BR')}% a.m. Confira com o extrato.`;
         }
@@ -2481,6 +2572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function aplicarContratoDoExtrato() {
         const contrato = contratosDoExtrato[Number(extratoContractSelect?.value)];
         if (!contrato) return;
+        if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         preencherCampoExtrato(bancoAtualInput, contrato.banco || contrato.banco_descricao || '');
         preencherCampoExtrato(numeroContratoInput, contrato.numero || '');
         preencherCampoExtrato(dataAverbacaoInput, contrato.data_averbacao || '');
@@ -2576,10 +2668,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     Object.values(portFields).forEach((field) => {
         if (!field) return;
+        if (field !== portFields.descontosBanco && field !== portFields.tabela) {
+            field.addEventListener('input', () => {
+                if (portFields.descontosBanco) portFields.descontosBanco.value = '';
+            });
+        }
         field.addEventListener('input', calcularPortRefin);
         field.addEventListener('change', calcularPortRefin);
     });
-    deduzirNegativoInputs.forEach((input) => input.addEventListener('change', calcularPortRefin));
+    deduzirNegativoInputs.forEach((input) => input.addEventListener('change', () => {
+        if (portFields.descontosBanco) portFields.descontosBanco.value = '';
+        calcularPortRefin();
+    }));
     if (mensagemModelo) {
         mensagemModelo.addEventListener('input', () => {
             try { localStorage.setItem(mensagemModeloStorageKey, mensagemModelo.value); } catch (e) {}
