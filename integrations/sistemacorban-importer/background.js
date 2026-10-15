@@ -27,7 +27,7 @@ async function enviarParaCrm(dados) {
   const candidatas = abas.filter((aba) => {
     try {
       const caminho = new URL(aba.url).pathname.replace(/\/$/, '');
-      return caminho === '/nova' || caminho === '/simulador-inss' || /^\/cliente\/\d+\/editar$/.test(caminho);
+      return caminho === '/nova' || caminho === '/simulador-inss' || caminho === '/simulador-inss/criar-proposta' || /^\/cliente\/\d+\/editar$/.test(caminho);
     } catch (_) {
       return false;
     }

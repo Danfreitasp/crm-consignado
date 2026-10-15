@@ -2138,6 +2138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statementReader = extratoArquivo?.closest('.statement-reader');
     const lerExtrato = document.getElementById('portLerExtrato');
     const extratoStatus = document.getElementById('portExtratoStatus');
+    const extratoBeneficio = document.getElementById('portExtratoBeneficio');
     const extratoContractPicker = document.getElementById('portExtratoContractPicker');
     const extratoContractSelect = document.getElementById('portExtratoContractSelect');
     const bancoAtualInput = document.getElementById('portBancoAtual');
@@ -2192,6 +2193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
         }
         if (extratoContractPicker) extratoContractPicker.hidden = true;
+        atualizarBeneficioExtrato({});
         if (saldoRecalculadoStatus) {
             saldoRecalculadoStatus.textContent = 'O recálculo considera a parcela atual e as parcelas restantes. Confira o resultado com o extrato.';
         }
@@ -2504,6 +2506,31 @@ document.addEventListener('DOMContentLoaded', () => {
         extratoStatus.textContent = mensagem;
     }
 
+    // Mostra de forma discreta o número e o tipo do benefício lidos do extrato.
+    function atualizarBeneficioExtrato(payload = {}) {
+        if (!extratoBeneficio) return;
+        const nb = normalizarMatricula(payload.nb_matricula);
+        const especie = String(payload.especie || '').trim();
+        const descricao = String(payload.especie_descricao || '').trim();
+        const itens = [];
+        if (nb) itens.push(['NB', nb]);
+        if (descricao) itens.push(['Benefício', especie ? `${descricao} (espécie ${especie})` : descricao]);
+        else if (especie) itens.push(['Benefício', `espécie ${especie}`]);
+        extratoBeneficio.replaceChildren();
+        if (!itens.length) {
+            extratoBeneficio.hidden = true;
+            return;
+        }
+        itens.forEach(([rotulo, valor]) => {
+            const item = document.createElement('span');
+            const rotuloEl = document.createElement('b');
+            rotuloEl.textContent = `${rotulo}: `;
+            item.append(rotuloEl, document.createTextNode(valor));
+            extratoBeneficio.appendChild(item);
+        });
+        extratoBeneficio.hidden = false;
+    }
+
     function selecionarArquivoExtrato(arquivo) {
         if (!arquivo || !extratoArquivo) return;
         if (arquivo.type !== 'application/pdf' && !/\.pdf$/i.test(arquivo.name || '')) {
@@ -2610,6 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
             limparDadosDaFonteAnterior();
             contratosDoExtrato = contratosLidos;
             aplicarDadosBeneficiarioDoExtrato(payload);
+            atualizarBeneficioExtrato(payload);
             if (extratoContractSelect) {
                 extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
                 contratosDoExtrato.forEach((contrato, indice) => {
@@ -2630,6 +2658,7 @@ document.addEventListener('DOMContentLoaded', () => {
             atualizarStatusExtrato('success', `Extrato importado com sucesso. ${contratosEncontrados} no extrato de ${payload.data_extrato}.${especie} Selecione o contrato que deseja simular.`);
         } catch (error) {
             contratosDoExtrato = [];
+            atualizarBeneficioExtrato({});
             atualizarStatusExtrato('error', error.message);
         } finally {
             definirLeituraExtratoEmAndamento(false);

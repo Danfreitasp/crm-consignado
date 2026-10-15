@@ -663,6 +663,11 @@ tbody tr:hover {
 .portal-import-panel h2, .portal-import-panel p { margin: 0; }
 .portal-import-panel h2 { font-size: 16px; }
 .portal-import-panel .is-waiting { border-color: var(--primary); color: var(--primary); }
+.portal-import-confirm { align-items: flex-start; }
+.portal-import-confirm.is-aguardando { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+.portal-import-confirm .portal-import-question { font-weight: 600; }
+.portal-import-confirm-actions { margin: 10px 0 8px; flex-wrap: wrap; }
+.portal-import-confirm .portal-import-description { margin-top: 0; }
 .portal-contract-picker { display: grid; gap: 6px; margin-top: 10px; min-width: min(760px, 75vw); }
 .portal-contract-picker[hidden] { display: none; }
 .portal-contract-picker select { width: 100%; }
@@ -4000,8 +4005,19 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     font-size: 12px;
 }
 .statement-contract-picker,
-.statement-reader-status { grid-column: 1 / -1; }
+.statement-reader-status,
+.statement-reader-beneficio { grid-column: 1 / -1; }
 .statement-contract-picker { margin: 0; }
+.statement-reader-beneficio {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.statement-reader-beneficio[hidden] { display: none !important; }
+.statement-reader-beneficio b { color: var(--text); font-weight: 700; }
 .simulator-installment-field {
     display: grid;
     align-content: start;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sistemacorban para CRM Consignado",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "Importa manualmente o benefício e seus contratos bancários para o CRM local.",
   "permissions": [
     "storage",

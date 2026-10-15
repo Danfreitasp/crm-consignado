@@ -25,6 +25,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Importação e exportação CSV/XLSX.
 - Simulador INSS para pré-atendimento.
 - Simulador INSS com empréstimo novo, portabilidade com refinanciamento, leitura de Extrato em PDF e integração com dados do Sistemacorban.
+- Complementação opcional dos dados faltantes de uma proposta criada com extrato usando a base do Corban, preenchendo apenas campos vazios sem sobrescrever o extrato nem o cadastro do cliente.
 - Reaproveitamento de cadastro por matrícula/NB normalizada, inclusive quando o Extrato não informa CPF.
 - Resumo de ofertas para preparar e inserir várias propostas simuladas em lote.
 - Gerador de mensagens comerciais com modelos editáveis.
@@ -54,6 +55,8 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 Na portabilidade com refinanciamento, o contrato atual pode ser preenchido pelo Extrato INSS em PDF, pela integração do Sistemacorban ou manualmente. O simulador calcula saldo, nova parcela, contrato estimado, troco e comissões.
 
 Ao preparar uma proposta pelo Extrato ou pelo Resumo de Ofertas, a matrícula/NB é normalizada e usada para localizar o cadastro existente. Assim, CPF, telefone e demais dados cadastrais podem ser reaproveitados mesmo quando o Extrato não informa CPF, evitando a criação de um segundo cadastro para a mesma matrícula.
+
+Depois de criar a proposta a partir do Extrato, a tela de revisão pergunta se os dados faltantes devem ser complementados com a base do Corban. Ao confirmar, abra o benefício no Sistemacorban e envie os dados pela extensão; somente campos vazios na proposta e sem informação no cadastro do cliente são preenchidos. Nenhum dado do extrato ou do cadastro é sobrescrito, e a importação pode ser recusada sem consultar o Corban.
 
 ## Tecnologias
 

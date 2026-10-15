@@ -1,8 +1,15 @@
-<section class="portal-import-panel" aria-labelledby="portalImportTitle">
+<section class="portal-import-panel{% if origem_extrato %} portal-import-confirm{% endif %}" aria-labelledby="portalImportTitle"{% if origem_extrato %} id="corbanComplemento" data-corban-endpoint="{{ url_for('api_corban_complementar') }}"{% endif %}>
     <div>
         <h2 id="portalImportTitle">{% if request.endpoint == 'simulador_inss' %}Simulação Corban / Manual{% else %}Importação do Corban{% endif %}</h2>
         {% if request.endpoint == 'simulador_inss' %}
         <small class="portal-import-description">Receba os contratos do Sistemacorban ou preencha os campos abaixo manualmente.</small>
+        {% elif origem_extrato %}
+        <p class="portal-import-question">Deseja importar os dados faltantes da base do Corban?</p>
+        <div class="actions portal-import-confirm-actions">
+            <button class="btn btn-primary" type="button" id="corbanComplementoSim"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i><span>Sim, complementar dados</span></button>
+            <button class="btn" type="button" id="corbanComplementoNao"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Não, continuar sem importar</span></button>
+        </div>
+        <small class="portal-import-description">Somente campos vazios serão preenchidos. Os dados do extrato e do cadastro do cliente não são sobrescritos.</small>
         {% endif %}
         <p id="portalImportStatus" class="muted" role="status">Abra o benefício no Sistemacorban e deixe esta página aberta.</p>
         {% if request.endpoint == 'simulador_inss' %}

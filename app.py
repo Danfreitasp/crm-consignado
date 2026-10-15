@@ -2190,6 +2190,181 @@ def reaproveitar_cadastro_cliente_por_matricula(dados: dict[str, Any]) -> dict[s
     return resultado
 
 
+# Campos cadastrais que podem ser complementados com a base do Corban.
+# Telefone não entra: a extensão não o extrai e o número informado no CRM é
+# sempre tratado como o mais recente.
+CAMPOS_CORBAN = (
+    "nome",
+    "cpf",
+    "nascimento",
+    "nb_matricula",
+    "especie",
+    "endereco",
+    "dados_bancarios",
+)
+
+ROTULOS_CORBAN = {
+    "nome": "Nome",
+    "cpf": "CPF",
+    "nascimento": "Data de nascimento",
+    "nb_matricula": "NB ou matrícula",
+    "especie": "Espécie do benefício",
+    "endereco": "Endereço",
+    "dados_bancarios": "Dados bancários",
+}
+
+
+def normalizar_dados_corban(dados: dict[str, Any] | None) -> dict[str, str]:
+    """Converte o payload recebido do Corban nos campos cadastrais do CRM.
+
+    A extensão envia o NB como ``nb`` e não envia telefone. O CPF e a matrícula
+    são normalizados para permitir comparação com o cadastro e a proposta.
+    """
+    item = dados or {}
+    origem = {
+        "nome": item.get("nome"),
+        "cpf": item.get("cpf"),
+        "nascimento": item.get("nascimento"),
+        "nb_matricula": item.get("nb_matricula") or item.get("nb"),
+        "especie": item.get("especie"),
+        "endereco": item.get("endereco"),
+        "dados_bancarios": item.get("dados_bancarios"),
+    }
+    normalizado: dict[str, str] = {}
+    for campo in CAMPOS_CORBAN:
+        valor = limpar_texto(origem.get(campo))
+        if not valor:
+            continue
+        if campo == "cpf":
+            valor = formatar_cpf(valor)
+        elif campo == "nb_matricula":
+            valor = normalizar_matricula(valor)
+        normalizado[campo] = valor
+    return normalizado
+
+
+def complementar_proposta_com_corban(
+    proposta: dict[str, Any],
+    corban: dict[str, Any] | None,
+    cliente: dict[str, Any] | sqlite3.Row | None = None,
+) -> dict[str, Any]:
+    """Calcula os campos que podem ser preenchidos com a base do Corban.
+
+    Prioridade: cadastro do cliente > dados já preenchidos (extrato/proposta) >
+    Corban. O Corban só preenche campos vazios na proposta e sem informação no
+    cadastro, nunca sobrescrevendo dados existentes. O CPF é o identificador
+    principal; se as fontes divergirem, os dados do Corban são descartados.
+    """
+    dados_corban = normalizar_dados_corban(corban)
+    if not dados_corban:
+        return {
+            "encontrado": False,
+            "campos": {},
+            "preenchidos": [],
+            "ignorados": [],
+            "mensagem": "Nenhum dado adicional foi encontrado na base do Corban. Os dados atuais foram mantidos.",
+        }
+
+    cadastro = dict(cliente) if cliente else {}
+
+    cpfs = {
+        formatar_cpf(limpar_texto(proposta.get("cpf"))),
+        dados_corban.get("cpf", ""),
+        formatar_cpf(limpar_texto(cadastro.get("cpf"))),
+    }
+    cpfs.discard("")
+    if len(cpfs) > 1:
+        return {
+            "encontrado": False,
+            "campos": {},
+            "preenchidos": [],
+            "ignorados": [],
+            "mensagem": "O CPF recebido do Corban não corresponde ao cliente desta proposta. Nada foi alterado.",
+        }
+
+    campos: dict[str, str] = {}
+    preenchidos: list[str] = []
+    ignorados: list[str] = []
+    for campo in CAMPOS_CORBAN:
+        valor = dados_corban.get(campo, "")
+        if not valor:
+            continue
+        if limpar_texto(proposta.get(campo)):
+            # O extrato ou a edição manual já preencheu este campo.
+            ignorados.append(campo)
+            continue
+        if limpar_texto(cadastro.get(campo)):
+            # O cadastro do cliente já possui este dado e deve ser preservado.
+            ignorados.append(campo)
+            continue
+        campos[campo] = valor
+        preenchidos.append(campo)
+
+    if not preenchidos:
+        return {
+            "encontrado": True,
+            "campos": {},
+            "preenchidos": [],
+            "ignorados": ignorados,
+            "mensagem": "Os dados do Corban não acrescentaram nada: os campos já estavam preenchidos pelo extrato ou pelo cadastro do cliente.",
+        }
+
+    rotulos = ", ".join(ROTULOS_CORBAN.get(campo, campo) for campo in preenchidos)
+    return {
+        "encontrado": True,
+        "campos": campos,
+        "preenchidos": preenchidos,
+        "ignorados": ignorados,
+        "mensagem": f"{len(preenchidos)} campo(s) complementado(s) com a base do Corban: {rotulos}.",
+    }
+
+
+def buscar_cadastro_cliente_para_corban(cpf: Any, nb_matricula: Any) -> sqlite3.Row | None:
+    """Localiza o cadastro do cliente para não sobrescrever dados existentes.
+
+    A busca usa CPF + matrícula (a mesma chave do cadastro do CRM); quando uma
+    das chaves não está disponível, usa apenas a que existe.
+    """
+    cpf = formatar_cpf(limpar_texto(cpf))
+    nb = normalizar_matricula(nb_matricula)
+    colunas = "nome, cpf, nascimento, nb_matricula, especie, endereco, dados_bancarios"
+    db = get_db()
+    if cpf and nb:
+        return db.execute(
+            f"""
+            SELECT {colunas}
+            FROM clientes
+            WHERE cpf = ? AND NORMALIZAR_MATRICULA(nb_matricula) = ?
+            ORDER BY data_atualizacao DESC, id DESC
+            LIMIT 1
+            """,
+            (cpf, nb),
+        ).fetchone()
+    if nb:
+        return db.execute(
+            f"""
+            SELECT {colunas}
+            FROM clientes
+            WHERE NORMALIZAR_MATRICULA(nb_matricula) = ?
+            ORDER BY data_atualizacao DESC, id DESC
+            LIMIT 1
+            """,
+            (nb,),
+        ).fetchone()
+    if cpf:
+        return db.execute(
+            f"""
+            SELECT {colunas}
+            FROM clientes
+            WHERE cpf = ?
+            ORDER BY data_atualizacao DESC, id DESC
+            LIMIT 1
+            """,
+            (cpf,),
+        ).fetchone()
+    return None
+
+
 def salvar_cliente_dos_dados(dados: dict[str, Any] | sqlite3.Row) -> int | None:
     """Cria ou atualiza o cadastro do cliente a partir dos dados da proposta.
 
@@ -4023,7 +4198,12 @@ def simulador_inss_criar_proposta():
         # O Extrato não informa CPF; a matrícula/NB é a chave única do cliente
         # neste fluxo e deve reaproveitar o cadastro antes de abrir a proposta.
         proposta = reaproveitar_cadastro_cliente_por_matricula(proposta)
-        return render_template("nova_proposta.html", proposta=proposta, origem_simulador=True)
+        return render_template(
+            "nova_proposta.html",
+            proposta=proposta,
+            origem_simulador=True,
+            origem_extrato=dados_sim.get("fonte_simulacao") == "extrato",
+        )
 
     resultado = calcular_simulador_inss(dados_sim)
     if not dados_sim["nome"]:
@@ -5154,6 +5334,51 @@ def api_clientes_por_cpf():
             "beneficio_bloqueado": beneficio_bloqueado_global(nb),
         })
     return jsonify(resposta)
+
+
+@app.post("/api/corban/complementar")
+def api_corban_complementar():
+    """Complementa os campos vazios da proposta com os dados do Corban.
+
+    Recebe os dados atuais do formulário e o payload enviado pela extensão do
+    Sistemacorban. Compara com o cadastro do cliente e devolve apenas os campos
+    que podem ser preenchidos, sem sobrescrever o extrato nem o cadastro.
+    """
+    payload = request.get_json(silent=True) or {}
+    proposta = payload.get("proposta") if isinstance(payload.get("proposta"), dict) else {}
+    corban = payload.get("corban") if isinstance(payload.get("corban"), dict) else {}
+    if not proposta:
+        return jsonify({"sucesso": False, "erro": "Os dados da proposta não foram enviados."}), 400
+
+    try:
+        dados_corban = normalizar_dados_corban(corban)
+        cpf = limpar_texto(proposta.get("cpf")) or dados_corban.get("cpf", "")
+        nb = limpar_texto(proposta.get("nb_matricula")) or dados_corban.get("nb_matricula", "")
+        cliente = buscar_cadastro_cliente_para_corban(cpf, nb)
+        resultado = complementar_proposta_com_corban(proposta, corban, cliente)
+    except Exception:
+        app.logger.exception("Falha ao complementar os dados da base do Corban")
+        return (
+            jsonify(
+                {
+                    "sucesso": False,
+                    "erro": "Não foi possível consultar a base do Corban agora. Os dados atuais foram preservados.",
+                }
+            ),
+            500,
+        )
+
+    return jsonify(
+        {
+            "sucesso": True,
+            "encontrado": resultado["encontrado"],
+            "campos": resultado["campos"],
+            "preenchidos": resultado["preenchidos"],
+            "ignorados": resultado["ignorados"],
+            "mensagem": resultado["mensagem"],
+        }
+    )
+
 
 @app.route("/proposta/<int:proposta_id>/anexos", methods=["POST"])
 def enviar_anexos(proposta_id: int):

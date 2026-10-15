@@ -12,9 +12,23 @@
 
     let aguardando = false;
 
+    const confirmacaoCorban = document.getElementById('corbanComplemento');
+    const botaoComplementar = document.getElementById('corbanComplementoSim');
+    const botaoDispensar = document.getElementById('corbanComplementoNao');
+    const endpointComplemento = confirmacaoCorban?.dataset.corbanEndpoint || '';
+    let modoComplementar = false;
+    let decisaoCorban = !confirmacaoCorban;
+
     function atualizarEstado(novoEstado, mensagem) {
         aguardando = novoEstado;
         document.body.dataset.crmImportacaoPortal = novoEstado ? 'aguardando' : 'inativa';
+        status.textContent = mensagem;
+    }
+
+    // Atualiza apenas a mensagem, preservando o estado de espera atual (usado
+    // quando uma falha não deve descartar a tentativa de importação).
+    function mostrarStatus(mensagem) {
+        document.body.dataset.crmImportacaoPortal = aguardando ? 'aguardando' : 'inativa';
         status.textContent = mensagem;
     }
 
@@ -118,6 +132,7 @@
     }
 
     document.addEventListener('crm:cliente-reaproveitado', (event) => {
+        if (!decisaoCorban) return;
         const novaMatricula = Boolean(event.detail?.novaMatricula);
         if (novaMatricula) {
             atualizarEstado(false, 'Dados cadastrais reaproveitados. Informe somente a nova matrícula e os dados da nova proposta.');
@@ -127,20 +142,116 @@
     });
 
     document.addEventListener('crm:clientes-localizados', () => {
+        if (!decisaoCorban) return;
         atualizarEstado(false, 'Cadastro existente encontrado. Selecione a matrícula para reaproveitar os dados.');
     });
 
     document.addEventListener('crm:cliente-nao-localizado', () => {
+        if (!decisaoCorban) return;
         atualizarEstado(true, 'Cliente não cadastrado. Aguardando dados do Sistemacorban nesta aba.');
     });
 
-    atualizarEstado(true, 'Aguardando dados do Sistemacorban nesta aba.');
+    if (confirmacaoCorban) {
+        // A proposta veio de um extrato: só consulta o Corban depois da escolha.
+        atualizarEstado(false, 'O extrato preencheu os dados disponíveis. Escolha se deseja complementar com a base do Corban.');
+    } else {
+        atualizarEstado(true, 'Aguardando dados do Sistemacorban nesta aba.');
+    }
+
+    const CAMPOS_COMPLEMENTO = ['nome', 'cpf', 'nascimento', 'nb_matricula', 'especie', 'tipo_cliente', 'telefone', 'endereco', 'dados_bancarios'];
+
+    function coletarPropostaParaComplemento() {
+        const proposta = {};
+        CAMPOS_COMPLEMENTO.forEach((name) => {
+            const field = document.querySelector(`[name="${name}"]`);
+            if (field) proposta[name] = field.value;
+        });
+        return proposta;
+    }
+
+    function aplicarCamposComplementares(campos) {
+        const aplicados = [];
+        Object.entries(campos || {}).forEach(([name, value]) => {
+            if (value === undefined || value === null || String(value).trim() === '') return;
+            const field = document.querySelector(`[name="${name}"]`);
+            if (!field) return;
+            // Defesa extra: nunca sobrescreve o que já está preenchido na tela.
+            if (String(field.value || '').trim() !== '') return;
+            field.value = String(value);
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            field.classList.add('portal-import-highlight');
+            aplicados.push(field);
+        });
+        window.setTimeout(() => aplicados.forEach((field) => field.classList.remove('portal-import-highlight')), 3500);
+        return aplicados;
+    }
+
+    function encerrarConfirmacao() {
+        decisaoCorban = true;
+        [botaoComplementar, botaoDispensar].forEach((botao) => {
+            if (!botao) return;
+            botao.disabled = true;
+            botao.setAttribute('aria-disabled', 'true');
+        });
+        confirmacaoCorban?.classList.remove('is-aguardando');
+    }
+
+    async function complementarComCorban(dados) {
+        if (!endpointComplemento) {
+            mostrarStatus('A complementação pela base do Corban não está disponível nesta página. Os dados atuais foram preservados.');
+            return { sucesso: false, motivo: 'Endpoint de complementação indisponível.' };
+        }
+        try {
+            const response = await fetch(endpointComplemento, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proposta: coletarPropostaParaComplemento(), corban: dados }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.erro || 'Falha ao consultar a base do Corban.');
+            const aplicados = aplicarCamposComplementares(payload.campos || {});
+            modoComplementar = false;
+            aguardando = false;
+            encerrarConfirmacao();
+            const mensagem = payload.mensagem || `${aplicados.length} campo(s) complementado(s) com a base do Corban.`;
+            mostrarStatus(mensagem);
+            return { sucesso: true, mensagem, camposPreenchidos: aplicados.length };
+        } catch (error) {
+            // Preserva os dados já preenchidos e permite uma nova tentativa.
+            mostrarStatus(`Não foi possível complementar os dados (${error.message}). Os dados atuais foram preservados.`);
+            return { sucesso: false, motivo: error.message };
+        }
+    }
+
+    if (botaoComplementar) {
+        botaoComplementar.addEventListener('click', () => {
+            decisaoCorban = true;
+            modoComplementar = true;
+            confirmacaoCorban?.classList.add('is-aguardando');
+            const cpf = (document.querySelector('[name="cpf"]')?.value || '').trim();
+            const referencia = cpf ? ` do CPF ${cpf}` : '';
+            atualizarEstado(true, `Abra o benefício${referencia} no Sistemacorban e clique em "Enviar para o CRM".`);
+        });
+    }
+
+    if (botaoDispensar) {
+        botaoDispensar.addEventListener('click', () => {
+            modoComplementar = false;
+            encerrarConfirmacao();
+            atualizarEstado(false, 'Importação do Corban ignorada. Continue o cadastro normalmente.');
+        });
+    }
 
     // Ponte chamada pela extensão no contexto principal da aba do CRM.
     // Preenche campos, mas deliberadamente não dispara submit nem requisição.
     window.aplicarDadosConsultaINSS = function (dados = {}) {
         if (!aguardando) {
             return { sucesso: false, motivo: 'Esta tela do CRM não está aguardando importação.' };
+        }
+
+        if (modoComplementar) {
+            return complementarComCorban(dados);
         }
 
         if (simulatorForm) {

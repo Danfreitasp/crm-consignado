@@ -1,6 +1,6 @@
 # Sistemacorban para CRM Consignado
 
-Extensão Chrome Manifest V3 para enviar manualmente os dados do benefício atualmente visível no Sistemacorban para **Simulador INSS**, **Nova Proposta** ou **Editar cliente** do CRM.
+Extensão Chrome Manifest V3 para enviar manualmente os dados do benefício atualmente visível no Sistemacorban para **Simulador INSS**, **Nova Proposta**, **Editar cliente** ou para a **revisão de uma proposta criada a partir do extrato** do CRM.
 
 ## Instalação
 
@@ -25,6 +25,10 @@ A extensão declara origens HTTP/HTTPS como permissões opcionais para suportar 
 5. No Simulador INSS, escolha na lista qual contrato bancário deseja usar; o banco de destino fica fixo como Quali. A margem disponível é importada, mas um valor negativo só será deduzido da nova parcela quando você marcar “Deduzir negativo: Sim”. A taxa do contrato também é importada e pode ser corrigida para recalcular o saldo. Nas demais telas, revise os campos destacados e salve somente se estiverem corretos.
 
 A extensão não executa login, não pesquisa CPF, não escolhe benefício, não cria filas e não salva os dados.
+
+### Complementar uma proposta criada com extrato
+
+Quando uma proposta é criada a partir do Extrato no Simulador INSS, a tela de revisão pergunta se os dados faltantes devem ser complementados com a base do Corban. Ao escolher **Sim, complementar dados**, abra o benefício desse cliente no Sistemacorban e clique em **Enviar para o CRM**. Apenas os campos que estão vazios na proposta e sem informação no cadastro do cliente são preenchidos; nada que já exista é sobrescrito. Ao escolher **Não**, o Corban não é consultado.
 
 ## Seletores e ajustes do portal
 
