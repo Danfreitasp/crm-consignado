@@ -614,6 +614,8 @@ tbody tr:hover {
 .metric-card { padding: 18px; }
 .metric-card small { display: block; color: var(--muted); margin-bottom: 8px; }
 .metric-card strong { font-size: 24px; font-weight: 600; }
+/* Ícone opcional dos cartões do Dashboard; exibido apenas por temas que o habilitam. */
+.metric-card-icon { display: none; }
 .metric-label-row {
     display: flex;
     align-items: center;

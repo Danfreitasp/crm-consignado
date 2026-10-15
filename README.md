@@ -33,6 +33,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Conversor de contatos.
 - Tema claro e modo escuro salvos no navegador.
 - Tema visual Clay no menu `Temas`: lavanda, cores vibrantes, superfícies arredondadas e sombras em camadas. Usa uma paleta clara independente do modo claro/escuro, preserva a preferência de modo dos outros temas e respeita a redução de movimento do sistema. Nunito e DM Sans são carregadas via Google Fonts, com fontes locais como fallback.
+- Tema visual Midnight no menu `Temas`: painel escuro com acentos neon (violeta e verde-água), faixa de título em gradiente no Dashboard, cartões com ícone e pílulas de status coloridas. Usa uma paleta escura independente do modo claro/escuro e fica isolado dos demais temas.
 - Histórico automático de status e alterações relevantes.
 - Cadastro auxiliar de clientes alimentado a partir das propostas.
 - Vínculo manual e criação rápida de refinanciamento vinculado à portabilidade.

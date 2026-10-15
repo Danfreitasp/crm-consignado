@@ -1,6 +1,21 @@
 {% extends 'base.html' %}
 {% set titulo = 'Dashboard' %}
 {% set subtitulo = 'Resumo mensal de propostas, valores e conversões.' %}
+{% set icones_metricas = {
+    'total': 'bi-plus-circle',
+    'pagas': 'bi-check-circle',
+    'perdidas': 'bi-x-circle',
+    'troco_previsto': 'bi-cash-coin',
+    'troco_pago': 'bi-cash-coin',
+    'comissao_prevista': 'bi-bar-chart-line',
+    'comissao_paga': 'bi-bar-chart-line',
+    'valor_a_sacar': 'bi-download',
+    'falta_cair_promotora': 'bi-upload',
+    'valor_ja_sacado': 'bi-archive',
+    'saldo_em_conta': 'bi-cash-coin',
+    'valor_previsto': 'bi-diagram-3',
+    'valor_a_receber': 'bi-download',
+} %}
 {% block content %}
 <section class="card">
     <div class="toolbar">
@@ -27,6 +42,7 @@
     {% for item in metricas_dashboard %}
     <div class="metric-card dashboard-managed-card color-{{ item.cor }}{% if item.chave == 'valor_a_sacar' %} highlight-card{% endif %}{% if item.chave == 'saldo_em_conta' %} saldo-conta-card{% endif %}">
         <div class="metric-label-row">
+            <span class="metric-card-icon" aria-hidden="true"><i class="bi {{ icones_metricas.get(item.chave, 'bi-info-circle') }}"></i></span>
             <small>{{ item.nome }}</small>
             {% if item.ajuda %}
             <button type="button" class="metric-help-button" title="{{ item.ajuda }}" aria-label="Ajuda sobre {{ item.nome }}"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
@@ -64,6 +80,7 @@
         {% for campo in campos_dashboard %}
         <div class="metric-card dashboard-custom-card color-{{ campo.cor }}">
             <div class="metric-label-row">
+                <span class="metric-card-icon" aria-hidden="true"><i class="bi {% if campo.modalidade == 'manual' %}bi-pencil-square{% elif campo.modalidade == 'agregado' %}bi-diagram-3{% else %}bi-calculator{% endif %}"></i></span>
                 <small>{{ campo.nome }}</small>
                 <button type="button" class="metric-help-button" title="{{ campo.ajuda }}" aria-label="Cálculo de {{ campo.nome }}: {{ campo.ajuda }}"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
                 <div class="dashboard-item-actions">

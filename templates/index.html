@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>{{ p.produto }}</td>
                     <td>{{ p.promotora }}</td>
                     <td>{{ p.beneficio_bloqueado or 'NÃO' }}</td>
-                    <td><span class="badge">{{ p.status }}</span></td>
+                    <td>{% set status_atual = (p.status or '')|lower %}<span class="badge{% if 'perd' in status_atual or 'cancel' in status_atual or 'recus' in status_atual or 'reprov' in status_atual %} badge-danger{% elif 'aguard' in status_atual or 'pendent' in status_atual or 'sacar' in status_atual or 'cair' in status_atual or 'reapresent' in status_atual %} badge-warn{% elif 'anál' in status_atual or 'analis' in status_atual or 'atendimento' in status_atual or 'simula' in status_atual or 'atua' in status_atual or 'averb' in status_atual %} badge-info{% elif 'pag' in status_atual or 'aprov' in status_atual or 'conclu' in status_atual or 'quitad' in status_atual %} badge-ok{% endif %}">{{ p.status }}</span></td>
                     <td>{{ br_moeda(p.troco) }}</td>
                     <td>{{ br_percentual(p.comissao_percentual) }}</td>
                     <td>{{ br_moeda(p.comissao) }}</td>
