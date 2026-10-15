@@ -161,3 +161,11 @@
         width: auto;
     }
 }
+
+.theme-swatch-clay {
+    border: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c4b5fd, #7c3aed 60%, #db2777);
+    box-shadow: 3px 3px 6px rgba(124, 58, 237, .3), -2px -2px 5px #fff,
+        inset 2px 2px 4px rgba(255, 255, 255, .6), inset -2px -2px 4px rgba(69, 26, 125, .2);
+}

@@ -31,6 +31,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Gerenciamento de modelos de mensagens da proposta.
 - Conversor de contatos.
 - Tema claro e modo escuro salvos no navegador.
+- Tema visual Clay no menu `Temas`: lavanda, cores vibrantes, superfícies arredondadas e sombras em camadas. Usa uma paleta clara independente do modo claro/escuro, preserva a preferência de modo dos outros temas e respeita a redução de movimento do sistema. Nunito e DM Sans são carregadas via Google Fonts, com fontes locais como fallback.
 - Histórico automático de status e alterações relevantes.
 - Cadastro auxiliar de clientes alimentado a partir das propostas.
 - Vínculo manual e criação rápida de refinanciamento vinculado à portabilidade.

@@ -1,0 +1,327 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Nunito:wght@700;800;900&display=swap');
+
+/* Digital clay: uma paleta clara independente de crmTema, sem alterar sua preferência.
+   O escopo com data-theme evita que os estilos escuros herdados contaminem o tema. */
+html[data-visual-theme="clay"][data-theme] {
+    --bg: #f4f1fa;
+    --bg-secondary: #efebf5;
+    --panel: #faf8fd;
+    --surface: #faf8fd;
+    --surface-soft: #efebf5;
+    --surface-muted: #f4f1fa;
+    --text: #332f3a;
+    --muted: #635f69;
+    --line: #ddd5ea;
+    --border: #ddd5ea;
+    --primary: #7c3aed;
+    --primary-hover: #6d28d9;
+    --primary-soft: #ede5fc;
+    --danger: #a61d59;
+    --danger-soft: #fce7f3;
+    --ok: #087b56;
+    --ok-soft: #d9f7eb;
+    --warning: #885400;
+    --warning-soft: #fff0ce;
+    --info: #03688e;
+    --info-soft: #def3fc;
+    --clay-surface: 30px 30px 60px #cdc6d9, -30px -30px 60px #fff,
+        inset 10px 10px 20px rgba(139, 92, 246, .05), inset -10px -10px 20px rgba(255, 255, 255, .8);
+    --clay-card: 16px 16px 32px rgba(160, 150, 180, .2), -10px -10px 24px rgba(255, 255, 255, .9),
+        inset 6px 6px 12px rgba(139, 92, 246, .03), inset -6px -6px 12px #fff;
+    --clay-button: 8px 8px 18px rgba(139, 92, 246, .24), -6px -6px 14px rgba(255, 255, 255, .5),
+        inset 4px 4px 8px rgba(255, 255, 255, .4), inset -4px -4px 8px rgba(0, 0, 0, .1);
+    --clay-pressed: inset 8px 8px 16px #d9d4e3, inset -8px -8px 16px #fff;
+    --shadow: var(--clay-card);
+    --shadow-soft: var(--clay-card);
+    --shadow-hover: 20px 24px 38px rgba(160, 150, 180, .28), -10px -10px 24px rgba(255, 255, 255, .9),
+        inset 6px 6px 12px rgba(139, 92, 246, .03), inset -6px -6px 12px #fff;
+    --focus-ring: 0 0 0 4px rgba(124, 58, 237, .3);
+    --radius-sm: 20px;
+    --radius-md: 24px;
+    --radius: 32px;
+    --transition: .2s ease;
+    background: var(--bg);
+    color-scheme: light;
+}
+
+html[data-visual-theme="clay"][data-theme] body {
+    isolation: isolate;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    line-height: 1.6;
+}
+
+/* Quatro luzes ambientes em duas camadas, sem adicionar elementos ao DOM. */
+html[data-visual-theme="clay"][data-theme] body::before,
+html[data-visual-theme="clay"][data-theme] body::after {
+    content: "";
+    position: fixed;
+    inset: -12vh -10vw;
+    width: auto;
+    height: auto;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 1;
+    border-radius: 50%;
+    filter: blur(48px);
+    background: radial-gradient(ellipse at 10% 12%, rgba(124, 58, 237, .12), transparent 38%),
+        radial-gradient(ellipse at 90% 65%, rgba(219, 39, 119, .1), transparent 38%);
+    animation: clay-drift 10s ease-in-out infinite;
+}
+html[data-visual-theme="clay"][data-theme] body::after {
+    background: radial-gradient(ellipse at 85% 10%, rgba(14, 165, 233, .1), transparent 34%),
+        radial-gradient(ellipse at 25% 90%, rgba(16, 185, 129, .08), transparent 36%);
+    animation-direction: reverse;
+    animation-duration: 12s;
+    animation-delay: -4s;
+}
+
+html[data-visual-theme="clay"][data-theme] :is(h1, h2, h3, h4, .brand p, .metric-card strong, .summary-card strong, .card-values strong, .column-title > span) {
+    color: var(--text);
+    font-family: "Nunito", "Segoe UI", sans-serif;
+    font-weight: 900;
+    letter-spacing: -.025em;
+}
+html[data-visual-theme="clay"][data-theme] :is(label, button, .btn) { font-family: inherit; }
+html[data-visual-theme="clay"][data-theme] :is(small, .muted, .empty, .topbar p, .brand small, .metric-card span, .summary-card small, .card-date-line, .product-label) { color: var(--muted); }
+html[data-visual-theme="clay"][data-theme] a:not(.btn):not(.nav-link) { color: var(--primary-hover); }
+
+html[data-visual-theme="clay"][data-theme] .sidebar {
+    background: rgba(250, 248, 253, .94);
+    color: var(--text);
+    border: 0;
+    border-radius: 0 32px 32px 0;
+    box-shadow: 10px 0 30px rgba(160, 150, 180, .18), inset -4px 0 10px #fff;
+}
+html[data-visual-theme="clay"][data-theme] :is(.brand-mark, .brand-icon) {
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ede5fc, #fce7f3);
+    box-shadow: var(--clay-button);
+}
+html[data-visual-theme="clay"][data-theme] :is(.nav-link, .sidebar-toggle) {
+    min-height: 44px;
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+    color: var(--muted);
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+html[data-visual-theme="clay"][data-theme] .nav-link:hover {
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    transform: translateX(3px);
+}
+html[data-visual-theme="clay"][data-theme] .nav-link.active {
+    color: #fff;
+    background: linear-gradient(135deg, #8050dd, #6d28d9);
+    box-shadow: var(--clay-button);
+}
+html[data-visual-theme="clay"][data-theme] .topbar {
+    border-radius: 40px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, .8);
+    background: rgba(250, 248, 253, .94);
+    box-shadow: var(--clay-card);
+    overflow: visible;
+    animation: none;
+}
+html[data-visual-theme="clay"][data-theme] .topbar h1 {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    line-height: 1.1;
+}
+
+html[data-visual-theme="clay"][data-theme] :is(.card, .metric-card, .summary-card, .today-section, .agenda-section, .operation-section, .settings-section, .encerrada-column) {
+    border: 1px solid rgba(255, 255, 255, .85);
+    border-radius: 32px;
+    background: rgba(250, 248, 253, .8);
+    color: var(--text);
+    box-shadow: var(--clay-card);
+    backdrop-filter: blur(16px);
+    animation: none;
+}
+html[data-visual-theme="clay"][data-theme] .card { padding: 24px; }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card) {
+    padding: 24px;
+    transition: transform .4s ease, box-shadow .4s ease;
+}
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card):hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
+}
+html[data-visual-theme="clay"][data-theme] .metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px; }
+html[data-visual-theme="clay"][data-theme] .metric-card strong { font-size: clamp(1.6rem, 2.5vw, 2.3rem); }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card) > strong { display: block; }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card):nth-child(4n+1) { background: linear-gradient(135deg, #f6f1fe, #ede5fc); }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card):nth-child(4n+2) { background: linear-gradient(135deg, #fdf2f8, #fce7f3); }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card):nth-child(4n+3) { background: linear-gradient(135deg, #f0f9ff, #def3fc); }
+html[data-visual-theme="clay"][data-theme] :is(.metric-card, .summary-card):nth-child(4n) { background: linear-gradient(135deg, #ecfdf5, #d9f7eb); }
+
+html[data-visual-theme="clay"][data-theme] :is(.btn, .mini-btn, .theme-toggle, .notification-toggle, .metric-edit-button, .dashboard-card-action) {
+    min-height: 44px;
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: 20px;
+    background: linear-gradient(135deg, #faf8fd, #efebf5);
+    color: var(--text);
+    box-shadow: var(--clay-button);
+    font-weight: 700;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+html[data-visual-theme="clay"][data-theme] :is(.theme-toggle, .notification-toggle, .dashboard-card-action, .metric-edit-button) { min-width: 44px; }
+html[data-visual-theme="clay"][data-theme] .btn.btn-primary {
+    background: linear-gradient(135deg, #8050dd, #6d28d9);
+    border-color: transparent;
+    color: #fff;
+}
+html[data-visual-theme="clay"][data-theme] .btn.btn-success {
+    background: linear-gradient(135deg, #d9f7eb, #a7f3d0);
+    color: #065f46;
+}
+html[data-visual-theme="clay"][data-theme] :is(.btn.btn-danger, .dashboard-card-action.danger) {
+    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+    color: var(--danger);
+}
+@media (hover: hover) {
+    html[data-visual-theme="clay"][data-theme] :is(.btn, .mini-btn, .theme-toggle, .notification-toggle):hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-hover);
+    }
+}
+html[data-visual-theme="clay"][data-theme] :is(.btn, .mini-btn, .theme-toggle, .notification-toggle):active {
+    transform: scale(.92);
+    box-shadow: var(--clay-pressed);
+}
+html[data-visual-theme="clay"][data-theme] :is(a, button, summary, input, select, textarea):focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+}
+html[data-visual-theme="clay"][data-theme] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+    min-height: 48px;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    padding: 12px 16px;
+    background: #efebf5;
+    color: var(--text);
+    box-shadow: var(--clay-pressed);
+    font-family: inherit;
+}
+html[data-visual-theme="clay"][data-theme] :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
+html[data-visual-theme="clay"][data-theme] .quick-search input { padding-left: 44px; }
+html[data-visual-theme="clay"][data-theme] :is(input, select, textarea):focus-visible { background: #faf8fd; }
+html[data-visual-theme="clay"][data-theme] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--primary); }
+html[data-visual-theme="clay"][data-theme] :is(.quick-search-results, .notification-panel, .theme-menu-panel, .funnel-filter-panel, .metric-edit-form, .dashboard-standard-edit-form) {
+    background: #faf8fd;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: var(--clay-card);
+}
+html[data-visual-theme="clay"][data-theme] .theme-option { border-radius: 20px; color: var(--text); }
+html[data-visual-theme="clay"][data-theme] .theme-option[aria-pressed="true"] { background: var(--primary-soft); }
+
+/* Mantém as colunas, o scroll e o arraste do funil operacional. */
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] {
+    background: rgba(244, 241, 250, .7);
+    border: 0;
+    border-radius: 40px;
+    box-shadow: var(--clay-surface);
+    padding: 20px;
+    gap: 20px;
+    animation: none;
+}
+html[data-visual-theme="clay"][data-theme] :is(.kanban-column, .kanban[data-modulo="funil"] .kanban-column) {
+    background: #efebf5;
+    border: 0;
+    border-radius: 32px;
+    box-shadow: var(--clay-pressed);
+    padding: 16px;
+}
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] .column-title small {
+    background: #faf8fd;
+    color: var(--muted);
+    border-radius: 20px;
+}
+html[data-visual-theme="clay"][data-theme] :is(.kanban-card, .kanban[data-modulo="funil"] .kanban-card, .encerrada-card) {
+    background: #faf8fd;
+    color: var(--text);
+    border: 1px solid #e9e1f3;
+    border-radius: 24px;
+    box-shadow: var(--clay-card);
+    padding: 16px;
+    transition: transform .3s ease, box-shadow .3s ease;
+}
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] .kanban-card::before { display: none; }
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+}
+html[data-visual-theme="clay"][data-theme] .kanban-card a { color: var(--text); }
+html[data-visual-theme="clay"][data-theme] :is(.card-values span, .kanban[data-modulo="funil"] .card-values.port-refin-values) {
+    background: #ede5fc;
+    color: var(--text);
+    border-color: var(--line);
+    border-radius: 20px;
+    box-shadow: none;
+}
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] .port-refin-values small { color: var(--muted); }
+html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] .port-refin-values strong { color: var(--primary-hover); }
+
+html[data-visual-theme="clay"][data-theme] :is(.proposal-form-column, .proposal-form-free-section, .proposal-operation-group, .linked-proposal-field, .simulator-input-section, .simulator-mode-switch, .simulator-message-editor, .statement-reader, .portal-import-panel, .info-grid > div, .note-box, .message-box, .finance-form, .agenda-item, .proposal-task-item, .status-progress-box, .calendar-day, .week-calendar-day) {
+    background: #f4f1fa;
+    color: var(--text);
+    border-color: var(--line);
+    border-radius: 24px;
+    box-shadow: var(--clay-pressed);
+}
+html[data-visual-theme="clay"][data-theme] :is(.proposal-tab, .simulator-mode-option span, .simulator-source-option > span) {
+    border-radius: 20px;
+    background: #efebf5;
+    color: var(--muted);
+}
+html[data-visual-theme="clay"][data-theme] :is(.proposal-tab.is-active, .simulator-mode-option input:checked + span, .simulator-source-option input:checked + span) {
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    border-color: var(--primary);
+    box-shadow: var(--clay-button);
+}
+html[data-visual-theme="clay"][data-theme] :is(.badge, .card-flag, .simulator-step-chip) {
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    border-radius: 20px;
+}
+html[data-visual-theme="clay"][data-theme] .alert { border-radius: 24px; background: var(--info-soft); color: var(--info); }
+html[data-visual-theme="clay"][data-theme] .alert.ok { background: var(--ok-soft); color: var(--ok); }
+html[data-visual-theme="clay"][data-theme] .alert.erro { background: var(--danger-soft); color: var(--danger); }
+html[data-visual-theme="clay"][data-theme] .alert.aviso { background: var(--warning-soft); color: var(--warning); }
+html[data-visual-theme="clay"][data-theme] .table-wrap { border-radius: 24px; }
+html[data-visual-theme="clay"][data-theme] :is(th, td) { color: var(--text); border-color: var(--line); }
+html[data-visual-theme="clay"][data-theme] th { background: #ede5fc; color: var(--primary-hover); }
+html[data-visual-theme="clay"][data-theme] tbody tr:hover { background: var(--primary-soft); }
+html[data-visual-theme="clay"][data-theme] .bar-row div { background: #ede5fc; border-radius: 20px; }
+html[data-visual-theme="clay"][data-theme] .bar-row b { background: linear-gradient(90deg, #7c3aed, #db2777); border-radius: 20px; }
+html[data-visual-theme="clay"][data-theme] ::selection { background: #ddd0fb; color: #332f3a; }
+
+@keyframes clay-drift {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-20px) rotate(2deg); }
+}
+@media (max-width: 980px) {
+    html[data-visual-theme="clay"][data-theme] .sidebar { border-radius: 0 0 32px 32px; }
+    html[data-visual-theme="clay"][data-theme] .main { padding: 16px; }
+}
+@media (max-width: 720px) {
+    html[data-visual-theme="clay"][data-theme] .topbar { border-radius: 32px; padding: 20px; flex-direction: column; align-items: stretch; }
+    html[data-visual-theme="clay"][data-theme] .card { padding: 20px; }
+    html[data-visual-theme="clay"][data-theme] .topbar-actions { display: flex; flex-wrap: wrap; width: 100%; gap: 12px; }
+    html[data-visual-theme="clay"][data-theme] .quick-search { width: 100%; min-width: 0; flex: 1 0 100%; }
+    html[data-visual-theme="clay"][data-theme] .kanban[data-modulo="funil"] { border-radius: 32px; padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-visual-theme="clay"][data-theme] { scroll-behavior: auto; }
+    html[data-visual-theme="clay"][data-theme] *,
+    html[data-visual-theme="clay"][data-theme] *::before,
+    html[data-visual-theme="clay"][data-theme] *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
