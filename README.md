@@ -23,8 +23,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Dashboard mensal com indicadores de produção e comissão e opção de excluir propostas ativas trazidas de meses anteriores.
 - Página Hoje para acompanhamento de propostas que precisam de atenção.
 - Importação e exportação CSV/XLSX.
-- Simulador INSS para pré-atendimento.
-- Simulador INSS com empréstimo novo, portabilidade com refinanciamento, leitura de Extrato em PDF e integração com dados do Sistemacorban.
+- Simulador INSS para pré-atendimento, com empréstimo novo, portabilidade com refinanciamento, leitura de Extrato em PDF e integração com dados do Sistemacorban.
 - Complementação opcional dos dados faltantes de uma proposta criada com extrato usando a base do Corban, preenchendo apenas campos vazios sem sobrescrever o extrato nem o cadastro do cliente.
 - Reaproveitamento de cadastro por matrícula/NB normalizada, inclusive quando o Extrato não informa CPF.
 - Resumo de ofertas para preparar e inserir várias propostas simuladas em lote.
@@ -32,24 +31,29 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Gerenciamento de modelos de mensagens da proposta.
 - Conversor de contatos.
 - Tema claro e modo escuro salvos no navegador.
-- Tema visual Clay no menu `Temas`: lavanda, cores vibrantes, superfícies arredondadas e sombras em camadas. Usa uma paleta clara independente do modo claro/escuro, preserva a preferência de modo dos outros temas e respeita a redução de movimento do sistema. Nunito e DM Sans são carregadas via Google Fonts, com fontes locais como fallback.
-- Tema visual Midnight no menu `Temas`: painel escuro com acentos neon (violeta e verde-água), faixa de título em gradiente no Dashboard, cartões com ícone e pílulas de status coloridas. Usa uma paleta escura independente do modo claro/escuro e fica isolado dos demais temas.
+- Menu `Temas` com 11 estilos visuais (Clássico, Lite, Newsprint, Retro 90s, Dopamine, Clay, Soft UI, Neo Brutal, Monocromático, Flat e Midnight). Cada tema tem paleta própria, preserva a preferência de modo claro/escuro e respeita a redução de movimento do sistema.
+- Tema visual Clay: lavanda, cores vibrantes, superfícies arredondadas e sombras em camadas (Nunito e DM Sans via Google Fonts, com fontes locais como fallback).
+- Tema visual Midnight: painel escuro com acentos neon (violeta e verde-água), faixa de título em gradiente no Dashboard, cartões com ícone e pílulas de status coloridas.
 - Histórico automático de status e alterações relevantes.
 - Cadastro auxiliar de clientes alimentado a partir das propostas.
 - Vínculo manual e criação rápida de refinanciamento vinculado à portabilidade.
 
 ## Telas principais
 
-- `Funil`: visão Kanban das propostas em andamento.
+- `Funil`: visão Kanban das propostas em andamento, com etapas configuráveis.
+- `Nutrição de clientes`: clientes com propostas paradas após a etapa de aguardando interação.
 - `Nova Proposta`: cadastro completo de uma proposta.
 - `Propostas`: lista pesquisável com filtros e importação/exportação.
+- `Base de Clientes`: consulta dos cadastros e exclusão segura de clientes sem propostas.
+- `Agenda`: compromissos, retornos de proposta e tarefas com lembretes.
 - `Hoje`: acompanhamento diário das propostas que precisam de atenção.
 - `Encerradas`: propostas pagas, perdidas ou canceladas.
 - `Dashboard`: visão mensal de produção.
 - `Simulador INSS`: cálculo estimado para pré-atendimento.
 - `Gerador de Mensagens`: mensagens comerciais prontas para WhatsApp.
 - `Converter Contatos`: formatação de contatos para uso operacional.
-- `Editar Etapas`: configuração das etapas do funil.
+- `Mensagens`: cadastro de modelos de mensagens usados nas propostas.
+- `Configurações`: documentos, saldo, cartões do Dashboard e etapas do funil.
 
 ### Simulador INSS
 
@@ -66,7 +70,8 @@ Depois de criar a proposta a partir do Extrato, a tela de revisão pergunta se o
 - SQLite
 - Jinja templates
 - HTML, CSS e JavaScript
-- Bootstrap Icons via CDN
+- Ícones em Material Symbols Rounded, carregados do Google Fonts e mapeados pelas classes `.bi-*`
+- Tipografia via Google Fonts (Inter e as fontes dos temas visuais), com fallback local
 - OpenPyXL para arquivos XLSX
 - pdfplumber para leitura de Extrato INSS em PDF
 
@@ -166,6 +171,7 @@ README.md
 templates/
 static/
 data/modelos_mensagens.json
+data/inss_especies_beneficios.json
 ```
 
 Não substitua:
@@ -176,7 +182,7 @@ backups/
 .venv/
 ```
 
-Os modelos editados pelo CRM ficam salvos no banco. O arquivo `data/modelos_mensagens.json` funciona como fallback legível.
+Os modelos editados pelo CRM ficam salvos no banco. O arquivo `data/modelos_mensagens.json` funciona como fallback legível. O arquivo `data/inss_especies_beneficios.json` mantém a lista de espécies de benefício do INSS usada pelo simulador.
 
 ## Estrutura do projeto
 
@@ -186,17 +192,22 @@ CRM Consignado/
 ├─ requirements.txt
 ├─ README.md
 ├─ data/
-│  └─ modelos_mensagens.json
+│  ├─ modelos_mensagens.json
+│  └─ inss_especies_beneficios.json
 ├─ static/
 │  ├─ favicon.svg
-│  ├─ script.js
-│  └─ style.css
+│  ├─ style.css
+│  ├─ script.js, portal_import.js, nutricao.js
+│  ├─ themes.css, themes.js
+│  ├─ organic-glass.css e os temas (clay, midnight, flat, ...)
+│  └─ icons/navigation/
 ├─ integrations/
 │  └─ sistemacorban-importer/
 ├─ tests/
 └─ templates/
    ├─ base.html
    ├─ _form.html
+   ├─ dashboard.html
    ├─ detalhe_proposta.html
    ├─ funil.html
    ├─ hoje.html
@@ -216,7 +227,12 @@ CRM Consignado/
 - `/converter-contatos`
 - `/clientes`
 - `/agenda`
+- `/mensagens`
+- `/configuracoes`
 - `/configuracoes/status`
+- `/configuracoes/dashboard`
+- `/exportar/csv` e `/exportar/xlsx`
+- `/importar`
 
 ## Validação para desenvolvimento
 
@@ -225,9 +241,13 @@ Após alterações no código, execute:
 ```powershell
 .venv\Scripts\python.exe -m py_compile app.py
 node --check static\script.js
+node --check static\themes.js
+node --check static\portal_import.js
 .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
 git diff --check
 ```
+
+A pasta `tests/` cobre o simulador de portabilidade com refinanciamento, a leitura de competência do Extrato e a complementação de dados pelo Corban.
 
 Alterações que envolvem SQLite devem ser validadas usando uma cópia do banco e, ao final, conferindo:
 
@@ -244,4 +264,5 @@ PRAGMA foreign_key_check;
 - Ao alterar o simulador, validar os fluxos manual, Extrato e Sistemacorban.
 - Ao alterar o cadastro, validar busca por CPF, matrícula/NB e sincronização entre propostas.
 - Antes de alterar fluxos importantes, validar Funil, Propostas, Hoje, Encerradas, Dashboard e edição de proposta.
+- Ao alterar temas visuais, validar que os demais temas e os dados continuam inalterados.
 - O histórico detalhado de versões deve ficar no Git, não no README.
