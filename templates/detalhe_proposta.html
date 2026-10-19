@@ -199,18 +199,18 @@
         </section>
 
         <section class="proposal-tab-panel" data-tab-panel="editar" hidden>
-            <div class="section-title-row">
+            <div class="section-title-row quick-edit-title">
                 <div>
                     <h2>Editar dados desta proposta</h2>
                     <small>Altere os campos principais sem sair da tela.</small>
                 </div>
-            </div>
-            <form method="post" action="{{ url_for('editar_proposta', proposta_id=proposta.id) }}" class="stack quick-edit-form">
-                <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
-                <div class="actions form-actions-top">
-                    <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
-                    <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
+                <div class="actions">
+                    <button form="quickEditForm" class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
+                    <button form="quickEditForm" class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
                 </div>
+            </div>
+            <form id="quickEditForm" method="post" action="{{ url_for('editar_proposta', proposta_id=proposta.id) }}" class="stack quick-edit-form">
+                <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
                 {% include '_form.html' %}
                 <div class="actions">
                     <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>

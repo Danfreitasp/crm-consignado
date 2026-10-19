@@ -2226,6 +2226,15 @@ html[data-theme="escuro"] .status-step-form.is-current .status-step-circle {
     margin-top: 0;
 }
 
+.section-title-row.quick-edit-title {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.section-title-row.quick-edit-title .actions {
+    flex-wrap: nowrap;
+}
+
 /* v27 - proposta com abas internas e resumo menos poluído */
 .proposal-page {
     max-width: 1500px;
