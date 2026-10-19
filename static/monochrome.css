@@ -141,8 +141,12 @@ html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] :i
 html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .port-refin-values strong { color: #000; font: 500 14px/1.3 var(--mono-body); font-variant-numeric: tabular-nums; }
 html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .port-refin-values small { color: #525252; }
 html[data-visual-theme="monochrome"][data-theme] .card-values span { background: #fff; border-color: #e5e5e5; }
-html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover { background: #000; border-color: #000; color: #fff; transform: none; }
-html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover :is(a,p,small,strong,em,span,button) { color: #fff; background-color: #000; border-color: #525252; }
+html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover {
+    background: #fff;
+    border-color: #000;
+    color: #000;
+    transform: none;
+}
 html[data-visual-theme="monochrome"][data-theme] :is(.beneficio-bloqueado-icon,.legend-task,.legend-return,.legend-return-done) { color: #000 !important; background: #fff; }
 html[data-visual-theme="monochrome"][data-theme] .bi { color: inherit; }
 html[data-visual-theme="monochrome"][data-theme] ::selection { background: #000; color: #fff; }
@@ -168,7 +172,6 @@ html[data-visual-theme="monochrome"][data-theme] .verification-dot { background:
 html[data-visual-theme="monochrome"][data-theme] .verification-dot.dot-ok { background: #000; }
 html[data-visual-theme="monochrome"][data-theme] .verification-dot.dot-pending { background: repeating-linear-gradient(45deg,#fff 0 2px,#000 2px 3px); }
 html[data-visual-theme="monochrome"][data-theme] .benefit-blocked-alert { color: #000 !important; }
-html[data-visual-theme="monochrome"][data-theme] .kanban-card:hover .benefit-blocked-alert { color: #fff !important; }
 html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .port-refin-values strong { font-size: 13px; white-space: nowrap; }
 html[data-visual-theme="monochrome"][data-theme] :is(.dashboard-card-action,.metric-edit-button) { background: #fff; color: #000; border: 1px solid #000; }
 html[data-visual-theme="monochrome"][data-theme] .metric-card :is(.dashboard-card-action,.metric-edit-button) { background: #000; color: #fff; border-color: #fff; }
