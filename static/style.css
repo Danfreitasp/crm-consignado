@@ -834,7 +834,7 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
 }
 .module-help p { margin: 0; }
 
-.kanban-card { cursor: grab; }
+.kanban-card { cursor: pointer; }
 .kanban-card.dragging { opacity: .55; border-style: dashed; cursor: grabbing; }
 .kanban-card.is-processing {
     opacity: .72;
