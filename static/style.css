@@ -1205,7 +1205,8 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
     max-height: min(70vh, 420px);
     overflow-y: auto;
     padding: 14px 16px;
-    background: var(--panel);
+    background: var(--bg);
+    background: rgb(from var(--panel) r g b / 1);
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow);
