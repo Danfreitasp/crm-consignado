@@ -143,7 +143,7 @@ html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .p
 html[data-visual-theme="monochrome"][data-theme] .card-values span { background: #fff; border-color: #e5e5e5; }
 html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover { background: #000; border-color: #000; color: #fff; transform: none; }
 html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .kanban-card:hover :is(a,p,small,strong,em,span,button) { color: #fff; background-color: #000; border-color: #525252; }
-html[data-visual-theme="monochrome"][data-theme] :is(.beneficio-bloqueado-icon,.legend-task,.legend-return) { color: #000 !important; background: #fff; }
+html[data-visual-theme="monochrome"][data-theme] :is(.beneficio-bloqueado-icon,.legend-task,.legend-return,.legend-return-done) { color: #000 !important; background: #fff; }
 html[data-visual-theme="monochrome"][data-theme] .bi { color: inherit; }
 html[data-visual-theme="monochrome"][data-theme] ::selection { background: #000; color: #fff; }
 @media (max-width: 700px) {

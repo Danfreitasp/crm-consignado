@@ -2943,6 +2943,8 @@ html[data-theme="escuro"] .today-section {
 .calendar-event.return { background: #dcfce7; color: #166534; border-left: 3px solid #22c55e; }
 .calendar-task.is-done { opacity: .55; }
 .calendar-task.is-done .calendar-event { text-decoration: line-through; }
+.calendar-event.return.is-done { opacity: .55; }
+.calendar-event.return.is-done span { text-decoration: line-through; }
 .calendar-event-actions { display: flex; gap: 2px; }
 .calendar-event-actions form { margin: 0; }
 .calendar-event-actions button { border: 0; border-radius: 5px; background: #eef2f7; color: #475569; cursor: pointer; font-size: 11px; padding: 3px 5px; }
@@ -2986,6 +2988,8 @@ html[data-theme="escuro"] .today-section {
 .week-all-day-event.task { color: #1e3a8a; background: #dbeafe; border-left: 3px solid #3b82f6; }
 .week-all-day-event.return { color: #166534; background: #dcfce7; border-left: 3px solid #22c55e; }
 .week-all-day-event.is-done { opacity: .55; text-decoration: line-through; }
+.week-all-day-event.return.is-done { text-decoration: none; }
+.week-all-day-event.return.is-done strong { text-decoration: line-through; }
 .week-timeline-body { display: grid; grid-template-columns: 72px minmax(0, 1fr); }
 .week-time-labels { position: relative; height: 896px; border-right: 1px solid var(--line); background: var(--panel); }
 .week-time-labels span { position: absolute; right: 8px; color: var(--muted); font-size: 11px; }
@@ -3012,6 +3016,8 @@ html[data-theme="escuro"] .today-section {
 .legend-task, .legend-return { border-radius: 5px; padding: 4px 8px; }
 .legend-task { background: #dbeafe; color: #1e3a8a !important; }
 .legend-return { background: #dcfce7; color: #166534 !important; }
+.legend-return-done { background: #f0fdf4; color: #15803d !important; }
+.legend-return-done i { margin-right: 3px; }
 
 .agenda-board {
     display: grid;

@@ -57,7 +57,7 @@
                             </div>
                         </div>
                         {% else %}
-                        <a class="calendar-event return" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}" title="{{ evento.proposta_nome }}: {{ evento.titulo }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>{{ evento.proposta_nome }}</span></a>
+                        <a class="calendar-event return{% if evento.ja_atuado %} is-done{% endif %}" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}" title="{{ evento.proposta_nome }}: {{ evento.titulo }}{% if evento.ja_atuado %} (retorno j&aacute; atuado){% endif %}"><i class="bi {% if evento.ja_atuado %}bi-check-circle-fill{% else %}bi-arrow-repeat{% endif %}" aria-hidden="true"></i><span>{{ evento.proposta_nome }}</span></a>
                         {% endif %}
                     {% endfor %}
                 </div>
@@ -84,7 +84,7 @@
                     {% if evento.tipo == 'tarefa' %}
                     <a class="week-all-day-event task priority-{{ evento.prioridade }} {% if evento.status == 'concluida' %}is-done{% endif %}" href="{{ url_for('editar_tarefa', tarefa_id=evento.id, origem=url_origem_atual()) }}"><strong>{{ evento.titulo }}</strong></a>
                     {% else %}
-                    <a class="week-all-day-event return" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><strong>{{ evento.proposta_nome }}</strong></a>
+                    <a class="week-all-day-event return{% if evento.ja_atuado %} is-done{% endif %}" href="{{ url_for('detalhe_proposta', proposta_id=evento.id, origem=url_origem_atual()) }}" title="{{ evento.proposta_nome }}{% if evento.ja_atuado %} (retorno j&aacute; atuado){% endif %}"><i class="bi {% if evento.ja_atuado %}bi-check-circle-fill{% else %}bi-arrow-repeat{% endif %}" aria-hidden="true"></i><strong>{{ evento.proposta_nome }}</strong></a>
                     {% endif %}
                 {% endfor %}
             </div>
@@ -113,5 +113,5 @@
     </div>
 </section>
 {% endif %}
-<p class="calendar-legend"><span class="legend-task">Tarefa</span><span class="legend-return">Retorno de proposta</span><span>Concluído fica riscado.</span></p>
+<p class="calendar-legend"><span class="legend-task">Tarefa</span><span class="legend-return">Retorno de proposta</span><span class="legend-return legend-return-done"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Retorno atuado</span><span>Concluído fica riscado.</span></p>
 {% endblock %}

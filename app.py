@@ -6537,10 +6537,23 @@ def mes_agenda_de_args(args: Any) -> date:
 
 
 def carregar_retornos_agenda(inicio: date, fim: date) -> list[sqlite3.Row]:
-    """Retorna uma previsão por operação, sem duplicar portabilidade + refin."""
+    """Retorna uma previsão por operação, sem duplicar portabilidade + refin.
+
+    A coluna ``ja_atuado`` marca o retorno quando a proposta já passou por
+    "Aguardando CIP" e hoje está em outra etapa do funil.
+    """
     return get_db().execute(
         """
-        SELECT p.id, p.nome, p.data_retorno, p.proxima_acao, p.status
+        SELECT p.id, p.nome, p.data_retorno, p.proxima_acao, p.status,
+               CASE
+                   WHEN p.status <> 'Aguardando CIP' AND EXISTS (
+                       SELECT 1 FROM historico h
+                       WHERE h.proposta_id = p.id
+                         AND h.status_anterior = 'Aguardando CIP'
+                         AND COALESCE(h.status_novo, '') <> 'Aguardando CIP'
+                   ) THEN 1
+                   ELSE 0
+               END AS ja_atuado
         FROM propostas p
         WHERE p.data_retorno >= ? AND p.data_retorno < ?
           AND p.status NOT IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
@@ -6589,7 +6602,7 @@ def contexto_calendario(mes: date) -> dict[str, Any]:
             "tipo": "retorno", "id": retorno["id"],
             "titulo": retorno["proxima_acao"] or "Retorno programado",
             "horario": "", "prioridade": "normal", "status": retorno["status"],
-            "proposta_nome": retorno["nome"],
+            "proposta_nome": retorno["nome"], "ja_atuado": bool(retorno["ja_atuado"]),
         })
     semanas = []
     for semana in calendar.Calendar(firstweekday=6).monthdatescalendar(mes.year, mes.month):
@@ -6644,6 +6657,7 @@ def contexto_semana_agenda(referencia: date) -> dict[str, Any]:
         eventos_dia_inteiro.setdefault(retorno["data_retorno"][:10], []).append({
             "tipo": "retorno", "id": retorno["id"], "titulo": retorno["proxima_acao"] or "Retorno programado",
             "horario": "", "prioridade": "normal", "status": retorno["status"], "proposta_nome": retorno["nome"],
+            "ja_atuado": bool(retorno["ja_atuado"]),
         })
     nomes = ("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb")
     dias = []
