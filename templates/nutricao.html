@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
-{% set titulo = 'Nutrição de clientes' %}
-{% set subtitulo = 'Clientes com propostas após Aguardando interação. Mantenha cada cliente informado.' %}
+{% from '_funil_switch.html' import funil_switch with context %}
+{% block topbar_tools %}
+{{ funil_switch(funil, 'nutricao') }}
+{% endblock %}
+{% set titulo = 'Nutrição de clientes' if funil == 'padrao' else 'Nutrição · ' ~ FUNIS['margem'].curto %}
+{% set subtitulo = 'Clientes com propostas após Aguardando interação. Mantenha cada cliente informado.' if funil == 'padrao' else 'Clientes do Funil Margem de Aumento com propostas após Aguardando interação. Fila e marcações independentes do funil padrão.' %}
 {% block content %}
+{% set origem_nutricao = url_for('nutricao', funil=funil) %}
 <link rel="stylesheet" href="{{ url_for('static', filename='nutricao.css', v='20260908-6') }}">
 <section class="summary-grid nutricao-resumo">
     <div class="summary-card"><small>Clientes</small><strong>{{ clientes|length }}</strong></div>
@@ -38,11 +43,12 @@
                         <div class="nutricao-valor">Valor liberado: <strong>{{ br_moeda(p.valor_liberado_nutricao) }}</strong></div>
                         {% if p.status == 'Aguardando CIP' %}<div class="nutricao-previsao">Previsão de saldo: <strong>{{ br_data(p.previsao_saldo_nutricao) or 'Sem data' }}</strong></div>{% endif %}
                         <div class="nutricao-anotacao"><small>Última anotação{% if p.ultima_anotacao_em %} · {{ br_data_hora(p.ultima_anotacao_em) }}{% endif %}</small><p>{{ p.ultima_anotacao_texto or 'Sem anotação registrada.' }}</p></div>
-                        <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=p.id, aba='resumo', origem=url_for('nutricao')) }}">Ir até a proposta</a>
+                        <a class="mini-btn" href="{{ url_for('detalhe_proposta', proposta_id=p.id, aba='resumo', origem=origem_nutricao) }}">Ir até a proposta</a>
                     </section>{% endfor %}
                 {% if c.propostas|length > 1 %}</details>{% else %}</div>{% endif %}
             </td>
             <td><form class="nutricao-retorno" action="{{ url_for('nutricao_retornar') }}" method="post">
+                <input type="hidden" name="funil" value="{{ funil }}">
                 <input type="hidden" name="cliente_chave" value="{{ c.chave }}">
                 <label class="nutricao-marcacao"><input type="checkbox" name="nutrido" {% if c.nutrido %}checked{% endif %} aria-label="Nutrido hoje: {{ c.nome }}"><span>{{ 'Nutrido hoje' if c.nutrido else 'Não nutrido hoje' }}</span></label>
                 <small>Último retorno: <span data-ultimo-retorno>{{ br_data_hora(c.ultimo_retorno) if c.ultimo_retorno else 'Sem retorno registrado' }}</span></small>

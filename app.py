@@ -353,12 +353,42 @@ def init_db() -> None:
     db = get_db()
     db.execute("""
         CREATE TABLE IF NOT EXISTS nutricao_retornos (
+            funil TEXT NOT NULL DEFAULT 'padrao',
             cliente_chave TEXT NOT NULL,
             dia TEXT NOT NULL,
             registrado_em TEXT NOT NULL,
-            PRIMARY KEY (cliente_chave, dia)
+            PRIMARY KEY (funil, cliente_chave, dia)
         )
     """)
+
+    # A marcação de "nutrido hoje" passou a ser independente por funil.
+    # Bases antigas tinham a chave única apenas por cliente e dia; recria a
+    # tabela (é um histórico curto, mantido para o dia corrente) preservando
+    # as marcações existentes no funil padrão.
+    colunas_nutricao = {
+        row["name"] for row in db.execute("PRAGMA table_info(nutricao_retornos)").fetchall()
+    }
+    if "funil" not in colunas_nutricao:
+        db.execute("ALTER TABLE nutricao_retornos RENAME TO nutricao_retornos_anterior")
+        db.execute(
+            """
+            CREATE TABLE nutricao_retornos (
+                funil TEXT NOT NULL DEFAULT 'padrao',
+                cliente_chave TEXT NOT NULL,
+                dia TEXT NOT NULL,
+                registrado_em TEXT NOT NULL,
+                PRIMARY KEY (funil, cliente_chave, dia)
+            )
+            """
+        )
+        db.execute(
+            """
+            INSERT INTO nutricao_retornos (funil, cliente_chave, dia, registrado_em)
+            SELECT 'padrao', cliente_chave, dia, registrado_em
+            FROM nutricao_retornos_anterior
+            """
+        )
+        db.execute("DROP TABLE nutricao_retornos_anterior")
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS propostas (
@@ -4891,13 +4921,15 @@ def api_buscar_propostas():
     return jsonify(resultados)
 
 
-def carregar_clientes_nutricao() -> list[dict[str, Any]]:
-    etapas = nomes_status()
+def carregar_clientes_nutricao(funil: str = FUNIL_PADRAO) -> list[dict[str, Any]]:
+    funil = normalizar_funil(funil)
+    etapas = nomes_status(funil)
     if "Aguardando interação" not in etapas:
         return []
     posteriores = etapas[etapas.index("Aguardando interação") + 1:]
     if not posteriores:
         return []
+    filtro_funil, parametros_funil = filtro_sql_funil(funil)
     db = get_db()
     registros = db.execute(f"""
         SELECT p.*, c.nome AS cadastro_nome, c.cpf AS cadastro_cpf,
@@ -4909,13 +4941,16 @@ def carregar_clientes_nutricao() -> list[dict[str, Any]]:
             ORDER BY a2.data_hora DESC, a2.id DESC LIMIT 1
         )
         WHERE p.status IN ({','.join('?' for _ in posteriores)})
+          AND {filtro_funil}
           AND (p.status NOT IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
                OR substr(p.data_encerramento, 1, 10) = ?)
         ORDER BY p.data_atualizacao DESC, p.id DESC
-    """, [*posteriores, hoje_iso()]).fetchall()
+    """, [*posteriores, *parametros_funil, hoje_iso()]).fetchall()
     ids_exibidos = {row["id"] for row in registros}
     retornos = {r["cliente_chave"]: r["ultimo"] for r in db.execute(
-        "SELECT cliente_chave, MAX(registrado_em) AS ultimo FROM nutricao_retornos GROUP BY cliente_chave"
+        "SELECT cliente_chave, MAX(registrado_em) AS ultimo FROM nutricao_retornos"
+        " WHERE funil = ? GROUP BY cliente_chave",
+        (funil,),
     )}
     grupos: dict[str, dict[str, Any]] = {}
     for row in registros:
@@ -4953,29 +4988,40 @@ def carregar_clientes_nutricao() -> list[dict[str, Any]]:
 
 @app.get("/nutricao")
 def nutricao():
-    clientes = carregar_clientes_nutricao()
+    funil_selecionado = funil_atual()
+    clientes = carregar_clientes_nutricao(funil_selecionado)
     return render_template("nutricao.html", clientes=clientes,
-                           nutridos=sum(c["nutrido"] for c in clientes))
+                           nutridos=sum(c["nutrido"] for c in clientes),
+                           funil=funil_selecionado,
+                           funil_info=FUNIS[funil_selecionado])
 
 
 @app.post("/nutricao/retorno")
 def nutricao_retornar():
+    funil = normalizar_funil(request.form.get("funil"))
     chave = request.form.get("cliente_chave", "")
     valor = request.form.get("nutrido")
     if valor not in {"SIM", "NÃO"}:
         return jsonify(erro="Marcação inválida."), 400
-    if not any(c["chave"] == chave for c in carregar_clientes_nutricao()):
+    if not any(c["chave"] == chave for c in carregar_clientes_nutricao(funil)):
         return jsonify(erro="Cliente não encontrado nesta fila."), 404
     db = get_db()
     if valor == "SIM":
-        db.execute("INSERT OR IGNORE INTO nutricao_retornos VALUES (?, ?, ?)",
-                   (chave, hoje_iso(), agora_iso()))
+        db.execute(
+            "INSERT OR IGNORE INTO nutricao_retornos (funil, cliente_chave, dia, registrado_em)"
+            " VALUES (?, ?, ?, ?)",
+            (funil, chave, hoje_iso(), agora_iso()),
+        )
     else:
-        db.execute("DELETE FROM nutricao_retornos WHERE cliente_chave = ? AND dia = ?",
-                   (chave, hoje_iso()))
+        db.execute(
+            "DELETE FROM nutricao_retornos WHERE funil = ? AND cliente_chave = ? AND dia = ?",
+            (funil, chave, hoje_iso()),
+        )
     db.commit()
-    ultimo = db.execute("SELECT MAX(registrado_em) FROM nutricao_retornos WHERE cliente_chave = ?",
-                        (chave,)).fetchone()[0]
+    ultimo = db.execute(
+        "SELECT MAX(registrado_em) FROM nutricao_retornos WHERE funil = ? AND cliente_chave = ?",
+        (funil, chave),
+    ).fetchone()[0]
     return jsonify(nutrido=valor == "SIM", ultimo=br_data_hora(ultimo) if ultimo else "Sem retorno registrado")
 
 

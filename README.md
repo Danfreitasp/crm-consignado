@@ -41,7 +41,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 ## Telas principais
 
 - `Funil`: visão Kanban das propostas em andamento, com etapas configuráveis.
-- `Nutrição de clientes`: clientes com propostas paradas após a etapa de aguardando interação.
+- `Nutrição de clientes`: clientes com propostas paradas após a etapa de aguardando interação, com fila e marcações de retorno independentes por funil (Padrão e Margem de Aumento).
 - `Nova Proposta`: cadastro completo de uma proposta.
 - `Propostas`: lista pesquisável com filtros e importação/exportação.
 - `Base de Clientes`: consulta dos cadastros e exclusão segura de clientes sem propostas.
