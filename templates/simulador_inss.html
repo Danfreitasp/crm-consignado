@@ -77,7 +77,7 @@
         </div>
 
         <div class="stack" data-simulator-panel="port_refin" {% if modo != 'port_refin' %}hidden{% endif %}>
-            <section class="simulator-input-section">
+            <section class="simulator-input-section simulator-contract-section">
                 <div class="simulator-section-heading"><div><small>1. Contrato atual</small><h3>Dados da portabilidade</h3></div><span class="simulator-step-chip">Contrato portado</span></div>
                 <fieldset class="simulator-source-switch">
                     <legend>Como deseja preencher o contrato atual?</legend>
@@ -96,15 +96,16 @@
                     <div class="statement-reader">
                         <div class="statement-reader-copy">
                             <strong class="simulator-label-with-help">Leitor de extrato INSS <span class="simulator-help"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o leitor de extrato INSS"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Localiza os contratos ativos, calcula as parcelas pagas e estima o saldo. O PDF não é armazenado.</span></span></strong>
+                            <small class="muted statement-reader-hint">Arraste o PDF aqui ou escolha um arquivo.</small>
                         </div>
                         <div class="statement-reader-actions">
-                            <input type="file" id="portExtratoArquivo" accept=".pdf,application/pdf" aria-label="Selecionar extrato do INSS em PDF">
+                            <input type="file" id="portExtratoArquivo" accept=".pdf,application/pdf" aria-label="Selecionar extrato do INSS em PDF" title="Arraste o PDF aqui ou escolha um arquivo.">
                             <button class="btn" id="portLerExtrato" type="button"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i><span>Ler extrato</span></button>
                         </div>
                         <label class="statement-contract-picker" id="portExtratoContractPicker" hidden>Contrato encontrado
                             <select id="portExtratoContractSelect"><option value="">Selecione um contrato</option></select>
                         </label>
-                        <small class="muted statement-reader-status" id="portExtratoStatus" role="status" aria-live="polite" data-state="idle">Arraste o arquivo PDF aqui ou escolha um arquivo.</small>
+                        <small class="muted statement-reader-status" id="portExtratoStatus" role="status" aria-live="polite" data-state="idle" hidden>Arraste o arquivo PDF aqui ou escolha um arquivo.</small>
                         <small class="muted statement-reader-beneficio" id="portExtratoBeneficio" hidden></small>
                     </div>
                 </div>
@@ -113,7 +114,6 @@
                     {% include '_portal_import_panel.html' %}
                 </div>
 
-                <p class="simulator-source-help"><i class="bi bi-pencil-square" aria-hidden="true"></i> Os dados abaixo permanecem editáveis e também podem ser preenchidos manualmente.</p>
                 <div class="form-grid form-grid-four">
                     <label>Banco atual<input name="banco_atual" id="portBancoAtual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
                     <label><span class="simulator-label-with-help">Telefone do cliente (opcional) <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o telefone do cliente"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Se preferir, informe depois ao complementar a proposta. Quando preenchido, será reaproveitado em todas as ofertas inseridas.</span></span></span><input name="telefone" id="portTelefone" value="{{ dados.telefone }}" inputmode="tel" placeholder="Ex.: (11) 99999-9999"></label>
@@ -134,10 +134,11 @@
                 <small class="muted" id="portSaldoRecalculadoStatus" role="status"></small>
             </section>
 
-            <section class="simulator-input-section">
-                <div class="simulator-section-heading"><div><small>2. Nova operação</small><h3>Condições do refinanciamento</h3></div><span class="simulator-step-chip">Banco destino</span></div>
+            <section class="simulator-input-section simulator-operation-section">
+                <div class="simulator-section-heading"><div><small>2. Nova operação</small><h3>Condições do refinanciamento</h3></div><span class="simulator-step-chip">Destino: QUALI</span></div>
+                {% set margem_negativa = dados.margem_disponivel_importada and dados.margem_disponivel_importada < 0 %}
                 <div class="form-grid form-grid-four">
-                    <label><span class="simulator-label-with-help">Tabela Quali <span class="simulator-help"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre a tabela Quali"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Selecionar a tabela preenche taxa, prazo, coeficiente e comissão.</span></span></span>
+                    <label class="simulator-wide-field simulator-table-field"><span class="simulator-label-with-help">Tabela Quali <span class="simulator-help"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre a tabela Quali"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Selecionar a tabela preenche taxa, prazo, coeficiente e comissão.</span></span></span>
                         <select name="tabela_port_refin" id="portTabela">
                             <option value="">Cálculo livre (sem tabela)</option>
                             {% for codigo, tabela in tabelas_port_refin.items() %}
@@ -145,46 +146,50 @@
                             {% endfor %}
                         </select>
                     </label>
-                    <label>Banco destino<input name="banco_destino" value="QUALI" readonly aria-readonly="true"></label>
                     <label>Novo prazo<input name="novo_prazo" id="portNovoPrazo" value="{{ dados.novo_prazo or 84 }}" type="number" min="1" step="1"></label>
-                    <div class="simulator-installment-field">
-                        <label><span class="simulator-label-with-help">Nova parcela <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre a nova parcela"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Se ficar em branco, usa a parcela atual.</span></span></span><input name="nova_parcela" id="portNovaParcela" class="money-mask" value="{{ br_moeda(dados.nova_parcela) if dados.nova_parcela else '' }}" placeholder="Em branco: usa a atual"></label>
-                        <fieldset class="simulator-negative-choice">
-                            <legend>Deduzir negativo</legend>
-                            <label><input type="radio" name="deduzir_negativo" value="nao" {% if dados.deduzir_negativo != 'sim' %}checked{% endif %}><span>Não</span></label>
-                            <label><input type="radio" name="deduzir_negativo" value="sim" {% if dados.deduzir_negativo == 'sim' %}checked{% endif %}><span>Sim</span></label>
-                        </fieldset>
-                    </div>
-                    <label><span class="simulator-label-with-help">Margem negativa (se houver) <span class="simulator-help"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre a margem negativa"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" id="portNegativeHelp" role="tooltip">Por padrão, a margem negativa importada não altera a nova parcela.</span></span></span><input name="margem_disponivel_importada" id="portMargemImportada" class="money-mask" value="{{ br_moeda(dados.margem_disponivel_importada) if dados.margem_disponivel_importada else '' }}" placeholder="Ex.: -50,00"></label>
+                    <label>Nova parcela<input name="nova_parcela" id="portNovaParcela" class="money-mask" value="{{ br_moeda(dados.nova_parcela) if dados.nova_parcela else '' }}" placeholder="Em branco: usa a atual"></label>
                     <label>Taxa mensal (%)<input name="taxa_nova" id="portTaxaNova" value="{{ br_percentual(dados.taxa_nova)|replace('%', '') if dados.taxa_nova else '' }}" inputmode="decimal" placeholder="Ex.: 1,80"></label>
-                    <label><span class="simulator-label-with-help">Coeficiente do banco <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o coeficiente do banco"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Nas tabelas Quali, é calculado automaticamente pelos vencimentos. No cálculo livre, o coeficiente informado prevalece sobre a taxa.</span></span></span><input name="coeficiente_port_refin" id="portCoeficiente" value="{{ ('%.12f'|format(dados.coeficiente_port_refin)).rstrip('0').rstrip('.') if dados.coeficiente_port_refin else '' }}" inputmode="decimal" placeholder="Ex.: 0,024119"></label>
-                    <label><span class="simulator-label-with-help">Descontos do banco (opcional) <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre os descontos do banco"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Em branco, calcula automaticamente. Para ajustar ao resultado do banco, informe o desconto total em relação ao saldo original, incluindo atualização do saldo e encargos. Informar 0 substitui a estimativa automática por zero.</span></span></span><input name="descontos_banco" id="portDescontosBanco" class="money-mask" value="{{ br_moeda(dados.descontos_banco) if dados.descontos_banco is not none else '' }}" placeholder="Em branco: cálculo automático"><small class="muted" id="portDescontosEstimados"></small></label>
-                </div>
-                <details class="simulator-collapsible">
-                    <summary><span><strong>Datas da simulação</strong><small>Datas sugeridas; ajuste conforme o banco</small></span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
-                    <div class="simulator-collapsible-content form-grid form-grid-four">
-                        <label>Data da portabilidade<input type="date" name="data_simulacao" id="portDataSimulacao" value="{{ dados.data_simulacao }}"></label>
-                        <label>Liberação do refinanciamento<input type="date" name="data_refinanciamento" id="portDataRefinanciamento" value="{{ dados.data_refinanciamento }}"></label>
-                        <label>1º vencimento da portabilidade<input type="date" name="primeiro_vencimento_port" id="portVencimentoPort" value="{{ dados.primeiro_vencimento_port }}"></label>
-                        <label>1º vencimento do refinanciamento<input type="date" name="primeiro_vencimento_refin" id="portVencimentoRefin" value="{{ dados.primeiro_vencimento_refin }}"></label>
+                    <div class="simulator-negative-toggle-cell">
+                        <label class="simulator-negative-toggle">
+                            <input type="checkbox" id="portPossuiMargemNegativa" {% if margem_negativa %}checked{% endif %}>
+                            <span>Possui margem negativa?</span>
+                        </label>
                     </div>
-                </details>
-                <p class="simulator-parameter-note simulator-parameter-note-help"><span class="simulator-help"><button type="button" class="simulator-help-button" aria-label="Informações sobre o cálculo"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">O cálculo usa os dias reais dos vencimentos, atualiza o saldo até o refinanciamento e estima o desconto sobre o troco positivo. Calibrado com simulações Quali/NewCorban em 30/09/2026. As datas sugeridas e o resultado devem ser conferidos com o banco.</span></span></p>
+                    <details class="simulator-collapsible simulator-advanced simulator-wide-field">
+                        <summary><span><strong>Ajustes avançados</strong><small>Coeficiente, descontos e vencimentos</small></span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+                        <div class="simulator-collapsible-content form-grid form-grid-four">
+                            <label><span class="simulator-label-with-help">Coeficiente do banco <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o coeficiente do banco"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Nas tabelas Quali, é calculado automaticamente pelos vencimentos. No cálculo livre, o coeficiente informado prevalece sobre a taxa.</span></span></span><input name="coeficiente_port_refin" id="portCoeficiente" value="{{ ('%.12f'|format(dados.coeficiente_port_refin)).rstrip('0').rstrip('.') if dados.coeficiente_port_refin else '' }}" inputmode="decimal" placeholder="Ex.: 0,024119"></label>
+                            <label><span class="simulator-label-with-help">Descontos do banco (opcional) <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre os descontos do banco"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Em branco, calcula automaticamente. Para ajustar ao resultado do banco, informe o desconto total em relação ao saldo original, incluindo atualização do saldo e encargos. Informar 0 substitui a estimativa automática por zero.</span></span></span><input name="descontos_banco" id="portDescontosBanco" class="money-mask" value="{{ br_moeda(dados.descontos_banco) if dados.descontos_banco is not none else '' }}" placeholder="Em branco: cálculo automático"><small class="muted" id="portDescontosEstimados"></small></label>
+                            <label>Data da portabilidade<input type="date" name="data_simulacao" id="portDataSimulacao" value="{{ dados.data_simulacao }}"></label>
+                            <label>Liberação do refinanciamento<input type="date" name="data_refinanciamento" id="portDataRefinanciamento" value="{{ dados.data_refinanciamento }}"></label>
+                            <label>1º vencimento da portabilidade<input type="date" name="primeiro_vencimento_port" id="portVencimentoPort" value="{{ dados.primeiro_vencimento_port }}"></label>
+                            <label>1º vencimento do refinanciamento<input type="date" name="primeiro_vencimento_refin" id="portVencimentoRefin" value="{{ dados.primeiro_vencimento_refin }}"></label>
+                            <p class="simulator-parameter-note simulator-parameter-note-inline"><i class="bi bi-info-circle" aria-hidden="true"></i><span>O cálculo usa os dias reais dos vencimentos, atualiza o saldo até o refinanciamento e estima o desconto sobre o troco positivo. Calibrado com simulações Quali/NewCorban em 30/09/2026. As datas sugeridas e o resultado devem ser conferidos com o banco.</span></p>
+                        </div>
+                    </details>
+                </div>
+                <div class="simulator-negative-panel" id="portMargemNegativaFields" {% if not margem_negativa %}hidden{% endif %}>
+                    <label>Margem negativa (R$)<input name="margem_disponivel_importada" id="portMargemImportada" class="money-mask" value="{{ br_moeda(dados.margem_disponivel_importada) if dados.margem_disponivel_importada else '' }}" placeholder="Ex.: -50,00" {% if not margem_negativa %}disabled{% endif %}></label>
+                    <fieldset class="simulator-negative-choice">
+                        <legend>Deduzir negativo</legend>
+                        <label><input type="radio" name="deduzir_negativo" value="nao" {% if dados.deduzir_negativo != 'sim' %}checked{% endif %} {% if not margem_negativa %}disabled{% endif %}><span>Não</span></label>
+                        <label><input type="radio" name="deduzir_negativo" value="sim" {% if dados.deduzir_negativo == 'sim' %}checked{% endif %} {% if not margem_negativa %}disabled{% endif %}><span>Sim</span></label>
+                    </fieldset>
+                    <small class="muted simulator-negative-hint" id="portNegativeHelp">Por padrão, a margem negativa importada não altera a nova parcela.</small>
+                </div>
             </section>
 
             <section class="simulator-results port-refin-results" aria-live="polite">
                 <div class="summary-card"><small>Novo contrato</small><strong id="portValorContrato">{{ br_moeda(resultado.valor_contrato if resultado and modo == 'port_refin' else 0) }}</strong></div>
                 <div class="summary-card highlight-card"><small id="portTrocoLabel">Troco estimado</small><strong id="portTroco">{{ br_moeda(resultado.troco if resultado and modo == 'port_refin' else 0) }}</strong></div>
-                <div class="summary-card"><small>Comissão da tabela</small><strong id="portComissaoPercentual">{{ br_percentual(resultado.comissao_percentual) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small>Mesma % na portabilidade e no refinanciamento</small></div>
-                <div class="summary-card"><small>Comissão total estimada</small><strong id="portComissaoTotal">{{ br_moeda(resultado.comissao_total) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small>Portabilidade + refinanciamento</small></div>
+                <div class="summary-card"><small>Comissão total estimada</small><strong id="portComissaoTotal">{{ br_moeda(resultado.comissao_total) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small><span id="portComissaoPercentual">{{ br_percentual(resultado.comissao_percentual) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</span> da tabela · mesma % nas duas operações</small></div>
                 <div class="summary-card"><small>Coeficiente usado</small><strong id="portCoeficienteUsado">{{ '%.8f'|format(resultado.coeficiente) if resultado and modo == 'port_refin' and resultado.coeficiente else '-' }}</strong><small id="portOrigemCoeficiente">{{ resultado.origem_coeficiente if resultado and modo == 'port_refin' else 'Informe taxa ou coeficiente' }}</small></div>
             </section>
-            <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}">
+            <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}" {% if not resultado %}hidden{% endif %}>
                 <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{{ 'Operação com troco positivo.' if resultado.operacao_viavel else (resultado.erros|join(' ') if resultado.erros else 'O novo contrato não cobre o saldo para quitação.') }}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
             </div>
             <div class="simulator-offer-actions">
                 <button class="btn" id="portAdicionarOferta" type="button" disabled><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar ao resumo de ofertas</span></button>
-                <small>Inclua cada contrato com troco positivo para acompanhar o total da simulação.</small>
                 <small class="simulator-offer-status" id="portOfertaStatus" role="status" aria-live="polite"></small>
             </div>
             <section class="simulator-offer-summary" id="portResumoOfertas" hidden aria-live="polite">

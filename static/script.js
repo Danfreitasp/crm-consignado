@@ -2251,6 +2251,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const deduzirNegativoInputs = Array.from(form.querySelectorAll('input[name="deduzir_negativo"]'));
     const negativeHelp = document.getElementById('portNegativeHelp');
+    const possuiMargemNegativa = document.getElementById('portPossuiMargemNegativa');
+    const margemNegativaFields = document.getElementById('portMargemNegativaFields');
     const recalcularSaldo = document.getElementById('portRecalcularSaldo');
     const saldoRecalculadoStatus = document.getElementById('portSaldoRecalculadoStatus');
     const extratoArquivo = document.getElementById('portExtratoArquivo');
@@ -2294,6 +2296,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function atualizarMargemNegativa(origem = 'campo') {
+        if (!possuiMargemNegativa) return;
+        const valor = parseBR(portFields.margemImportada?.value);
+        if (origem === 'reset') {
+            possuiMargemNegativa.checked = false;
+        } else if (origem !== 'check' && valor < 0) {
+            possuiMargemNegativa.checked = true;
+        }
+        const ativa = possuiMargemNegativa.checked;
+        if (margemNegativaFields) margemNegativaFields.hidden = !ativa;
+        if (portFields.margemImportada) portFields.margemImportada.disabled = !ativa;
+        deduzirNegativoInputs.forEach((input) => { input.disabled = !ativa; });
+        if (!ativa) {
+            if (portFields.margemImportada) portFields.margemImportada.value = '';
+            const nao = deduzirNegativoInputs.find((input) => input.value === 'nao');
+            if (nao) nao.checked = true;
+        }
+        if (origem === 'campo') calcularPortRefin();
+    }
+
     const camposBeneficiarioDaFonte = [
         'nome', 'cpf', 'nascimento', 'nb_matricula', 'especie', 'endereco', 'dados_bancarios',
     ];
@@ -2307,6 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [...camposBeneficiarioDaFonte, ...camposContratoDaFonte].forEach((nome) => {
             preencherCampoExtrato(form.elements.namedItem(nome), '');
         });
+        atualizarMargemNegativa('reset');
         contratosDoExtrato = [];
         if (extratoContractSelect) {
             extratoContractSelect.innerHTML = '<option value="">Selecione um contrato</option>';
@@ -2505,13 +2528,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let aviso = erros.join(' ');
         let estado = 'attention';
-        if (!erros.length && troco >= 0) {
+        const temDados = [parcelaAtual, saldo, novaParcela, taxaMensal, coeficienteInformado].some((valor) => valor > 0)
+            || Boolean(portFields.tabela?.value);
+        if (!temDados) {
+            aviso = 'Preencha os dados para verificar o troco estimado.';
+        } else if (!erros.length && troco >= 0) {
             aviso = 'Operação com troco positivo.';
             estado = 'ok';
         } else if (!erros.length) {
             aviso = 'O novo contrato não cobre o saldo para quitação.';
         }
         if (portOutputs.viabilidade) {
+            portOutputs.viabilidade.hidden = !temDados;
             portOutputs.viabilidade.dataset.state = estado;
             const texto = portOutputs.viabilidade.querySelector('span');
             if (texto) texto.textContent = aviso;
@@ -2621,6 +2649,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function atualizarStatusExtrato(estado, mensagem) {
         if (!extratoStatus) return;
+        extratoStatus.hidden = false;
         extratoStatus.dataset.state = estado;
         extratoStatus.textContent = mensagem;
     }
@@ -2828,6 +2857,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         calcularPortRefin();
     }));
+    if (possuiMargemNegativa) {
+        possuiMargemNegativa.addEventListener('change', () => {
+            atualizarMargemNegativa('check');
+            if (possuiMargemNegativa.checked && portFields.margemImportada) {
+                portFields.margemImportada.focus();
+            }
+            calcularPortRefin();
+        });
+    }
+    if (portFields.margemImportada) {
+        portFields.margemImportada.addEventListener('input', () => atualizarMargemNegativa('campo'));
+    }
     if (mensagemModelo) {
         mensagemModelo.addEventListener('input', () => {
             try { localStorage.setItem(mensagemModeloStorageKey, mensagemModelo.value); } catch (e) {}
@@ -2843,6 +2884,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     atualizarFonteSimulacao();
+    atualizarMargemNegativa('init');
     atualizarModo();
 });
 
