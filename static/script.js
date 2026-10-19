@@ -1651,9 +1651,11 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('crmTema', tema);
         if (botaoTema) {
             botaoTema.innerHTML = tema === 'escuro'
-                ? '<i class="bi bi-sun" aria-hidden="true"></i><span>Modo claro</span>'
-                : '<i class="bi bi-moon" aria-hidden="true"></i><span>Modo escuro</span>';
-            botaoTema.title = tema === 'escuro' ? 'Alternar para modo claro' : 'Alternar para modo escuro';
+                ? '<i class="bi bi-sun" aria-hidden="true"></i>'
+                : '<i class="bi bi-moon" aria-hidden="true"></i>';
+            const rotulo = tema === 'escuro' ? 'Alternar para modo claro' : 'Alternar para modo escuro';
+            botaoTema.title = rotulo;
+            botaoTema.setAttribute('aria-label', rotulo);
         }
         if (seletorTema) seletorTema.value = tema;
     }

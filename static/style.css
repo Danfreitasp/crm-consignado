@@ -1507,7 +1507,6 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
     }
 
     .topbar-actions .btn-back span,
-    .topbar-actions .theme-toggle span,
     .topbar-actions .visual-theme-toggle span {
         display: none;
     }
@@ -1934,7 +1933,9 @@ html[data-theme="escuro"] .btn-primary {
 }
 
 .theme-toggle {
-    gap: 6px;
+    width: 40px;
+    padding: 0;
+    gap: 0;
     white-space: nowrap;
 }
 
