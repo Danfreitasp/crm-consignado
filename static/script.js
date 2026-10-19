@@ -128,6 +128,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const produtoSelect = document.getElementById('propostaProduto');
     if (produtoSelect) {
+        const statusSelect = document.getElementById('propostaStatus');
+        const statusJson = document.getElementById('statusPorFunil');
+        let statusPorFunil = {};
+        try {
+            statusPorFunil = JSON.parse(statusJson?.textContent || '{}');
+        } catch (error) {
+            statusPorFunil = {};
+        }
+        const normalizarNomeProduto = (valor) => (valor || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLocaleLowerCase('pt-BR');
+        const atualizarStatusDoFunil = () => {
+            if (!statusSelect) return;
+            const funil = normalizarNomeProduto(produtoSelect.value) === 'margem de aumento' ? 'margem' : 'padrao';
+            const opcoes = statusPorFunil[funil] || [];
+            if (!opcoes.length) return;
+            const selecionado = opcoes.includes(statusSelect.value) ? statusSelect.value : opcoes[0];
+            statusSelect.replaceChildren(...opcoes.map((nome) => {
+                const option = document.createElement('option');
+                option.value = nome;
+                option.textContent = nome;
+                if (nome === selecionado) option.selected = true;
+                return option;
+            }));
+        };
         const atualizarCamposPortabilidade = () => {
             const produto = (produtoSelect.value || '').toLocaleLowerCase('pt-BR');
             const portabilidade = ['portabilidade', 'portabilidade com refinanciamento'].includes(produto);
@@ -151,8 +178,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (elemento) elemento.textContent = texto;
             });
         };
-        produtoSelect.addEventListener('change', atualizarCamposPortabilidade);
+        produtoSelect.addEventListener('change', () => {
+            atualizarCamposPortabilidade();
+            atualizarStatusDoFunil();
+        });
         atualizarCamposPortabilidade();
+        atualizarStatusDoFunil();
     }
 
     const weekTimeline = document.querySelector('[data-week-timeline]');
@@ -1450,6 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new URLSearchParams();
             formData.append('status', novoStatus);
             formData.append('origem', modulo);
+            formData.append('funil', kanban?.dataset.funil || 'padrao');
             formData.append('observacao', 'Movido no funil por arrastar e soltar');
             if (modulo === 'funil' && kanban?.dataset.mes) {
                 formData.append('mes_funil', kanban.dataset.mes);

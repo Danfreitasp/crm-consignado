@@ -1,5 +1,18 @@
 {% extends 'base.html' %}
+{% from '_funil_switch.html' import funil_switch with context %}
+{% block topbar_tools %}
+{{ funil_switch(funil, 'configurar_status') }}
+{% endblock %}
 {% block content %}
+<section class="card">
+    <div class="section-title-row">
+        <div>
+            <h2>Etapas do {{ funil_info.nome }}</h2>
+            <p class="muted">{{ funil_info.descricao }} As alterações desta tela valem somente para este funil.</p>
+        </div>
+    </div>
+</section>
+
 <section class="card">
     <div class="section-title-row">
         <div>
@@ -21,6 +34,7 @@
     <h2>Adicionar nova etapa</h2>
     <form method="post" class="status-add-form">
         <input type="hidden" name="acao" value="adicionar">
+        <input type="hidden" name="funil" value="{{ funil }}">
         <label>Nome da etapa
             <input name="nome" placeholder="Ex.: Saldo do dia">
         </label>
@@ -31,6 +45,7 @@
 <section class="card">
     <form method="post" id="statusBulkForm">
         <input type="hidden" name="acao" value="salvar_todas">
+        <input type="hidden" name="funil" value="{{ funil }}">
         <div class="section-title-row sticky-actions-row">
             <div>
                 <h2>Etapas cadastradas</h2>
@@ -78,6 +93,7 @@
     <p class="muted">Para excluir uma etapa com segurança, escolha a etapa e para onde as propostas dela devem ser movidas.</p>
     <form method="post" class="status-delete-panel" onsubmit="return confirm('Excluir esta etapa? As propostas serão movidas para a etapa de destino.');">
         <input type="hidden" name="acao" value="excluir">
+        <input type="hidden" name="funil" value="{{ funil }}">
         <label>Etapa que será excluída
             <select name="etapa_id" required>
                 <option value="">Selecione a etapa...</option>

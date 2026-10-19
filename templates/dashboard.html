@@ -114,6 +114,66 @@
 </section>
 {% endif %}
 
+<section class="card dashboard-margem-section" aria-labelledby="dashboardMargemTitle">
+    <div class="section-title-row">
+        <div>
+            <h2 id="dashboardMargemTitle"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> Margem de Aumento</h2>
+            <p class="muted">Indicadores do funil de empréstimo novo com a margem anual do INSS em {{ dados_margem.mes[5:7] }}/{{ dados_margem.mes[:4] }}.</p>
+        </div>
+        <a class="btn" href="{{ url_for('funil', funil='margem') }}"><i class="bi bi-kanban" aria-hidden="true"></i><span>Abrir funil</span></a>
+    </div>
+    <div class="metrics dashboard-margem-metrics">
+        <div class="metric-card dashboard-margem-card color-azul">
+            <small>Operações</small>
+            <strong>{{ dados_margem.total }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-verde">
+            <small>Pagas</small>
+            <strong>{{ dados_margem.pagas }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-vermelho">
+            <small>Perdidas</small>
+            <strong>{{ dados_margem.perdidas }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-roxo">
+            <small>Comissão prevista</small>
+            <strong>{{ br_moeda(dados_margem.comissao_prevista) }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-verde">
+            <small>Comissão paga</small>
+            <strong>{{ br_moeda(dados_margem.comissao_paga) }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-azul">
+            <small>Valor a sacar</small>
+            <strong>{{ br_moeda(dados_margem.valor_a_sacar) }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-laranja">
+            <small>Falta cair na promotora</small>
+            <strong>{{ br_moeda(dados_margem.falta_cair_promotora) }}</strong>
+        </div>
+        <div class="metric-card dashboard-margem-card color-verde">
+            <small>Já sacado</small>
+            <strong>{{ br_moeda(dados_margem.valor_ja_sacado) }}</strong>
+        </div>
+    </div>
+    {% if dados_margem.por_status %}
+    <div class="dashboard-margem-status">
+        <h3>Propostas por etapa</h3>
+        <ul>
+            {% for item in dados_margem.por_status %}
+            <li>
+                <span class="dashboard-margem-status-label">{{ item.nome }}</span>
+                <span class="dashboard-margem-status-track"><span style="width: {{ item.percentual }}%"></span></span>
+                <strong>{{ item.qtd }}</strong>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <p class="empty small">Nenhuma proposta de Margem de Aumento neste período.</p>
+    {% endif %}
+</section>
+
 <div class="dashboard-charts-grid">
 {% for item in graficos_dashboard %}
 {% if item.tipo == 'grafico_promotoras' %}

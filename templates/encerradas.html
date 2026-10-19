@@ -1,17 +1,22 @@
 {% extends 'base.html' %}
+{% from '_funil_switch.html' import funil_switch with context %}
+{% block topbar_tools %}
+{{ funil_switch(funil, 'encerradas', mes) }}
+{% endblock %}
 {% block content %}
 <section class="card filters-card">
     <form method="get" class="filters encerradas-filter">
+        <input type="hidden" name="funil" value="{{ funil }}">
         <label class="compact-label">Mês das encerradas
             <input type="month" name="mes" value="{{ mes }}">
         </label>
         <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar mês</span></button>
-        <a class="btn" href="{{ url_for('encerradas') }}"><i class="bi bi-arrow-return-left" aria-hidden="true"></i><span>Mês atual</span></a>
+        <a class="btn" href="{{ url_for('encerradas', funil=funil) }}"><i class="bi bi-arrow-return-left" aria-hidden="true"></i><span>Mês atual</span></a>
         <span class="filter-hint">Filtro usado para levantamentos mensais das propostas pagas e perdidas.</span>
     </form>
 </section>
 
-<section class="kanban encerradas-kanban" data-modulo="encerradas">
+<section class="kanban encerradas-kanban" data-modulo="encerradas" data-funil="{{ funil }}">
     {% for status, itens in por_status.items() %}
     <div class="kanban-column encerrada-column {% if 'disponível' in status or 'sacado' in status %}column-paid{% elif 'falta' in status %}column-pending{% else %}column-lost{% endif %}" data-status="{{ status }}">
         <div class="column-title">

@@ -1,0 +1,12 @@
+{% macro funil_switch(funil, endpoint, mes='') %}
+<nav class="funnel-switch" id="funilSwitch" aria-label="Alternar entre os funis">
+    {% for chave, info in FUNIS.items() %}
+    <a class="funnel-switch-option{% if funil == chave %} is-active{% endif %}"
+       href="{{ url_for(endpoint, funil=chave, mes=(mes or None)) }}"
+       {% if funil == chave %}aria-current="page"{% endif %}>
+        <i class="bi {{ 'bi-diagram-3' if chave == 'padrao' else 'bi-graph-up-arrow' }}" aria-hidden="true"></i>
+        <span>{{ info.curto }}</span>
+    </a>
+    {% endfor %}
+</nav>
+{% endmacro %}

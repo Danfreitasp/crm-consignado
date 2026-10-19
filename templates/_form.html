@@ -1,4 +1,5 @@
 {% set refin = refin_vinculado if refin_vinculado is defined and refin_vinculado else {} %}
+<script type="application/json" id="statusPorFunil">{{ status_por_funil|default({}, true)|tojson }}</script>
 <div class="form-grid" id="propostaFormGrid">
     {% include '_dados_cliente_campos.html' %}
     <label>Nº proposta
@@ -43,7 +44,7 @@
         </select>
     </label>
     <label>{% if modo_nova %}Etapa inicial{% else %}Status{% endif %}
-        <select name="status">
+        <select name="status" id="propostaStatus">
             {% for status in STATUS_LIST %}
                 <option value="{{ status }}" {% if (proposta.status or proposta['status'] or '') == status %}selected{% endif %}>{{ status }}</option>
             {% endfor %}

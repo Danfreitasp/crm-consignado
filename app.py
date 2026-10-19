@@ -24,6 +24,7 @@ from flask import (
     render_template,
     request,
     send_file,
+    session,
     url_for,
 )
 from openpyxl import Workbook, load_workbook
@@ -87,11 +88,24 @@ DEFAULT_STATUS_ETAPAS = [
     {"nome": "Perdido / Cancelado", "grupo": "geral", "ordem": 16},
 ]
 
-# Fallback usado antes da criação do banco. A partir da v4 o funil é único.
+# Fallback usado antes da criação do banco.
 STATUS_LIST = [s["nome"] for s in DEFAULT_STATUS_ETAPAS]
 STATUS_VENDEDOR = STATUS_LIST
 STATUS_ADMINISTRATIVO = STATUS_LIST
 STATUS_ENCERRADOS = ["Pago", "Perdido / Cancelado"]
+
+# Funis independentes. O produto da proposta define a qual funil ela pertence.
+FUNIL_PADRAO = "padrao"
+FUNIL_MARGEM = "margem"
+FUNIS = {
+    FUNIL_PADRAO: {"nome": "Funil Padrão", "curto": "Funil Padrão", "descricao": "Operações comuns do dia a dia."},
+    FUNIL_MARGEM: {
+        "nome": "Funil Margem de Aumento",
+        "curto": "Margem de Aumento",
+        "descricao": "Empréstimo novo com a margem anual do INSS.",
+    },
+}
+PRODUTO_MARGEM_AUMENTO = "Margem de Aumento"
 STATUS_ENCERRADOS_COMPATIVEIS = ("Pago", "Perdido / Cancelado", "Perdido", "Cancelado")
 STATUS_COMISSAO_PREVISTA = (
     "Aguardando CIP",
@@ -103,7 +117,7 @@ STATUS_COMISSAO_PREVISTA = (
 INSS_PRAZO_PADRAO = "108_carencia"
 
 TIPOS_CLIENTE = ["INSS", "SIAPE"]
-PRODUTOS = ["Portabilidade", "Portabilidade com Refinanciamento", "Refinanciamento", "Novo", "Cartão", "Saque Complementar", "Outro"]
+PRODUTOS = ["Portabilidade", "Portabilidade com Refinanciamento", "Refinanciamento", "Novo", PRODUTO_MARGEM_AUMENTO, "Cartão", "Saque Complementar", "Outro"]
 TAREFAS_HOJE_PRIORIDADE = ("paradas", "cip", "averbacao", "pagamento", "reapresentacao", "bloqueado", "acompanhamento")
 TAREFAS_HOJE_INFO = {
     "paradas": {"titulo": "Sem interação recente", "vazia": "Nenhuma proposta sem interação recente."},
@@ -468,13 +482,45 @@ def init_db() -> None:
         """
         CREATE TABLE IF NOT EXISTS status_etapas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL UNIQUE,
+            nome TEXT NOT NULL,
+            funil TEXT NOT NULL DEFAULT 'padrao',
             grupo TEXT NOT NULL DEFAULT 'administrativo',
             ordem INTEGER NOT NULL DEFAULT 0,
-            ativo INTEGER NOT NULL DEFAULT 1
+            ativo INTEGER NOT NULL DEFAULT 1,
+            UNIQUE (funil, nome)
         )
         """
     )
+
+    # Bases criadas antes dos funis independentes tinham "nome" como UNIQUE
+    # global. Recria a tabela (são poucas linhas e nenhuma FK aponta para o id)
+    # para permitir a mesma etapa em funis diferentes.
+    colunas_status = {
+        row["name"] for row in db.execute("PRAGMA table_info(status_etapas)").fetchall()
+    }
+    if "funil" not in colunas_status:
+        db.execute("ALTER TABLE status_etapas RENAME TO status_etapas_anterior")
+        db.execute(
+            """
+            CREATE TABLE status_etapas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                funil TEXT NOT NULL DEFAULT 'padrao',
+                grupo TEXT NOT NULL DEFAULT 'administrativo',
+                ordem INTEGER NOT NULL DEFAULT 0,
+                ativo INTEGER NOT NULL DEFAULT 1,
+                UNIQUE (funil, nome)
+            )
+            """
+        )
+        db.execute(
+            """
+            INSERT INTO status_etapas (id, nome, funil, grupo, ordem, ativo)
+            SELECT id, nome, 'padrao', grupo, ordem, ativo
+            FROM status_etapas_anterior
+            """
+        )
+        db.execute("DROP TABLE status_etapas_anterior")
 
     db.execute(
         """
@@ -820,7 +866,7 @@ def init_db() -> None:
     qtd_status = db.execute("SELECT COUNT(*) AS total FROM status_etapas").fetchone()["total"]
     if qtd_status == 0:
         db.executemany(
-            "INSERT INTO status_etapas (nome, grupo, ordem, ativo) VALUES (?, ?, ?, 1)",
+            "INSERT INTO status_etapas (nome, funil, grupo, ordem, ativo) VALUES (?, 'padrao', ?, ?, 1)",
             [(item["nome"], item["grupo"], item["ordem"]) for item in DEFAULT_STATUS_ETAPAS],
         )
 
@@ -871,13 +917,34 @@ def init_db() -> None:
     db.execute("UPDATE status_etapas SET grupo = 'geral'")
 
     # Garante que a etapa unificada exista mesmo em bancos antigos.
-    existentes = {row["nome"] for row in db.execute("SELECT nome FROM status_etapas").fetchall()}
+    existentes = {
+        row["nome"]
+        for row in db.execute(
+            "SELECT nome FROM status_etapas WHERE funil = ?", (FUNIL_PADRAO,)
+        ).fetchall()
+    }
     for item in DEFAULT_STATUS_ETAPAS:
         if item["nome"] not in existentes:
             db.execute(
-                "INSERT INTO status_etapas (nome, grupo, ordem, ativo) VALUES (?, ?, ?, 1)",
-                (item["nome"], item["grupo"], item["ordem"]),
+                "INSERT INTO status_etapas (nome, funil, grupo, ordem, ativo) VALUES (?, ?, ?, ?, 1)",
+                (item["nome"], FUNIL_PADRAO, item["grupo"], item["ordem"]),
             )
+
+    # O funil de Margem de Aumento nasce como cópia do funil padrão e pode ser
+    # ajustado livremente em Configurações > Etapas.
+    qtd_margem = db.execute(
+        "SELECT COUNT(*) AS total FROM status_etapas WHERE funil = ?", (FUNIL_MARGEM,)
+    ).fetchone()["total"]
+    if qtd_margem == 0:
+        db.execute(
+            """
+            INSERT INTO status_etapas (nome, funil, grupo, ordem, ativo)
+            SELECT nome, ?, grupo, ordem, ativo
+            FROM status_etapas
+            WHERE funil = ?
+            """,
+            (FUNIL_MARGEM, FUNIL_PADRAO),
+        )
 
     # v9: migra observações fixas para um diário/log de anotações.
     propostas_com_observacao = db.execute(
@@ -1624,7 +1691,7 @@ def normalizar_status_importacao(valor: Any) -> str:
         return "Perdido / Cancelado"
 
     # Se o texto já corresponder a uma etapa cadastrada, preserva o nome oficial.
-    for status in nomes_status():
+    for status in todos_nomes_status():
         if remover_acentos(status).upper() == texto_sem_data:
             return status
     return original
@@ -1676,26 +1743,28 @@ def banco_digitado_exibicao(proposta: Any) -> str:
     return limpar_texto(dados.get("banco_digitado"))
 
 
-def status_ativos() -> list[str]:
-    return [status for status in nomes_status() if status not in STATUS_ENCERRADOS]
+def status_ativos(funil: str = FUNIL_PADRAO) -> list[str]:
+    return [status for status in nomes_status(funil) if status not in STATUS_ENCERRADOS]
 
 
-def buscar_propostas_funil(mes: str = "") -> list[sqlite3.Row]:
+def buscar_propostas_funil(mes: str = "", funil: str = FUNIL_PADRAO) -> list[sqlite3.Row]:
+    filtro_funil, parametros_funil = filtro_sql_funil(funil)
     if mes:
         return get_db().execute(
-            """SELECT * FROM propostas
-               WHERE substr(data_criacao, 1, 7) = ?
+            f"""SELECT * FROM propostas
+               WHERE substr(data_criacao, 1, 7) = ? AND {filtro_funil}
                ORDER BY data_retorno ASC, id DESC""",
-            (mes,),
+            (mes, *parametros_funil),
         ).fetchall()
     return get_db().execute(
-        "SELECT * FROM propostas ORDER BY data_retorno ASC, id DESC",
+        f"SELECT * FROM propostas WHERE {filtro_funil} ORDER BY data_retorno ASC, id DESC",
+        parametros_funil,
     ).fetchall()
 
 
-def resumo_coluna_funil(status: str, mes: str = "") -> dict[str, Any]:
-    status_visiveis = status_ativos()
-    propostas = buscar_propostas_funil(mes)
+def resumo_coluna_funil(status: str, mes: str = "", funil: str = FUNIL_PADRAO) -> dict[str, Any]:
+    status_visiveis = status_ativos(funil)
+    propostas = buscar_propostas_funil(mes, funil)
     _, totais_status = agrupar_cards_funil(propostas, status_visiveis)
     resumo = totais_status.get(status, {"qtd": 0, "comissao": 0.0})
     return {
@@ -1727,9 +1796,10 @@ def resposta_status_json(
         payload["etapa_destino"] = etapa_destino
     if etapa_origem is not None and etapa_destino is not None:
         mes_funil = limpar_texto(request.form.get("mes_funil"))
+        funil_funil = limpar_texto(request.form.get("funil"))
         payload["colunas"] = {
-            "origem": resumo_coluna_funil(etapa_origem, mes_funil),
-            "destino": resumo_coluna_funil(etapa_destino, mes_funil),
+            "origem": resumo_coluna_funil(etapa_origem, mes_funil, funil_funil),
+            "destino": resumo_coluna_funil(etapa_destino, mes_funil, funil_funil),
         }
     return jsonify(payload), status_http
 
@@ -1784,6 +1854,11 @@ def normalizar_produto_importacao(valor: Any) -> str:
         "REFIN DA PORT": "Refinanciamento",
         "REFINANCIAMENTO": "Refinanciamento",
         "NOVO": "Novo",
+        "MARGEM DE AUMENTO": PRODUTO_MARGEM_AUMENTO,
+        "MARGEM AUMENTO": PRODUTO_MARGEM_AUMENTO,
+        "AUMENTO DE MARGEM": PRODUTO_MARGEM_AUMENTO,
+        "MARGEM": PRODUTO_MARGEM_AUMENTO,
+        "NOVO MARGEM": PRODUTO_MARGEM_AUMENTO,
         "CARTAO": "Cartão",
         "RCC": "Cartão",
         "RMC": "Cartão",
@@ -2009,48 +2084,137 @@ def registrar_anotacao(proposta_id: int, texto: str, data_hora: str | None = Non
     db.commit()
 
 
-def carregar_status_etapas(grupo: str | None = None) -> list[sqlite3.Row]:
-    # O parâmetro grupo é mantido apenas para compatibilidade com versões anteriores.
-    # Na v4 todas as etapas aparecem no mesmo funil compartilhado.
+def normalizar_funil(valor: Any) -> str:
+    return FUNIL_MARGEM if limpar_texto(valor) == FUNIL_MARGEM else FUNIL_PADRAO
+
+
+def funil_do_produto(produto: Any) -> str:
+    chave = remover_acentos(limpar_texto(produto)).upper()
+    marcador = remover_acentos(PRODUTO_MARGEM_AUMENTO).upper()
+    return FUNIL_MARGEM if chave == marcador else FUNIL_PADRAO
+
+
+def funil_da_proposta(proposta: sqlite3.Row | dict[str, Any] | None) -> str:
+    if not proposta:
+        return FUNIL_PADRAO
+    try:
+        produto = proposta["produto"]
+    except (KeyError, IndexError, TypeError):
+        produto = ""
+    return funil_do_produto(produto)
+
+
+def filtro_sql_funil(funil: str) -> tuple[str, tuple[Any, ...]]:
+    """Separa as propostas de um funil pelo produto (fonte única da verdade)."""
+    marcador = remover_acentos(PRODUTO_MARGEM_AUMENTO).upper()
+    if normalizar_funil(funil) == FUNIL_MARGEM:
+        return "UPPER(TRIM(COALESCE(produto, ''))) = ?", (marcador,)
+    return "UPPER(TRIM(COALESCE(produto, ''))) <> ?", (marcador,)
+
+
+def renomear_status_propostas(funil: str, nome_antigo: str, nome_novo: str) -> None:
+    """Renomeia uma etapa somente nas propostas (e histórico) do funil informado."""
     db = get_db()
-    return db.execute("SELECT * FROM status_etapas WHERE ativo = 1 ORDER BY ordem ASC, id ASC").fetchall()
+    filtro_funil, parametros_funil = filtro_sql_funil(funil)
+    db.execute(
+        f"UPDATE propostas SET status = ? WHERE status = ? AND {filtro_funil}",
+        (nome_novo, nome_antigo, *parametros_funil),
+    )
+    db.execute(
+        f"""
+        UPDATE historico SET status_anterior = ?
+        WHERE status_anterior = ?
+          AND proposta_id IN (SELECT id FROM propostas WHERE {filtro_funil})
+        """,
+        (nome_novo, nome_antigo, *parametros_funil),
+    )
+    db.execute(
+        f"""
+        UPDATE historico SET status_novo = ?
+        WHERE status_novo = ?
+          AND proposta_id IN (SELECT id FROM propostas WHERE {filtro_funil})
+        """,
+        (nome_novo, nome_antigo, *parametros_funil),
+    )
 
 
-def nomes_status(grupo: str | None = None) -> list[str]:
-    nomes = [row["nome"] for row in carregar_status_etapas(grupo)]
+def funil_atual() -> str:
+    """Funil pedido na URL/formulário ou, na ausência dele, o último usado na sessão."""
+    funil = limpar_texto(request.values.get("funil"))
+    if funil:
+        funil = normalizar_funil(funil)
+        session["funil_atual"] = funil
+        return funil
+    return normalizar_funil(session.get("funil_atual"))
+
+
+def carregar_status_etapas(funil: str = FUNIL_PADRAO) -> list[sqlite3.Row]:
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM status_etapas WHERE ativo = 1 AND funil = ? ORDER BY ordem ASC, id ASC",
+        (normalizar_funil(funil),),
+    ).fetchall()
+
+
+def nomes_status(funil: str = FUNIL_PADRAO) -> list[str]:
+    nomes = [row["nome"] for row in carregar_status_etapas(funil)]
     return nomes or STATUS_LIST
 
 
-def status_padrao() -> str:
-    lista = nomes_status()
+def status_padrao(funil: str = FUNIL_PADRAO) -> str:
+    lista = nomes_status(funil)
     return lista[0] if lista else "Novo lead"
 
 
-def status_valido(status: str) -> bool:
-    return status in nomes_status()
+def status_valido(status: str, funil: str = FUNIL_PADRAO) -> bool:
+    return status in nomes_status(funil)
 
-def status_entrada_proposta() -> str:
+
+def status_por_funil() -> dict[str, list[str]]:
+    """Etapas de cada funil, usadas pelo formulário para trocar as opções."""
+    return {chave: nomes_status(chave) for chave in FUNIS}
+
+
+def todos_nomes_status() -> list[str]:
+    """Todas as etapas cadastradas, sem repetir nomes entre os funis."""
+    vistos: list[str] = []
+    for chave in FUNIS:
+        for nome in nomes_status(chave):
+            if nome not in vistos:
+                vistos.append(nome)
+    return vistos
+
+
+def status_entrada_proposta(funil: str = FUNIL_PADRAO) -> str:
+    funil = normalizar_funil(funil)
     status = "Aguardando inserção"
     db = get_db()
-    existente = db.execute("SELECT id, ativo FROM status_etapas WHERE nome = ?", (status,)).fetchone()
+    existente = db.execute(
+        "SELECT id, ativo FROM status_etapas WHERE nome = ? AND funil = ?", (status, funil)
+    ).fetchone()
     if existente:
         if not existente["ativo"]:
             db.execute("UPDATE status_etapas SET ativo = 1 WHERE id = ?", (existente["id"],))
             db.commit()
         return status
 
-    proxima_ordem = db.execute("SELECT COALESCE(MAX(ordem), 0) + 1 AS ordem FROM status_etapas").fetchone()["ordem"]
+    proxima_ordem = db.execute(
+        "SELECT COALESCE(MAX(ordem), 0) + 1 AS ordem FROM status_etapas WHERE funil = ?",
+        (funil,),
+    ).fetchone()["ordem"]
     db.execute(
-        "INSERT INTO status_etapas (nome, grupo, ordem, ativo) VALUES (?, 'geral', ?, 1)",
-        (status, proxima_ordem),
+        "INSERT INTO status_etapas (nome, funil, grupo, ordem, ativo) VALUES (?, ?, 'geral', ?, 1)",
+        (status, funil, proxima_ordem),
     )
     db.commit()
     return status
 
 def dados_formulario(proposta_atual: sqlite3.Row | dict[str, Any] | None = None) -> dict[str, Any]:
+    produto_formulario = limpar_texto(request.form.get("produto"))
+    funil_formulario = funil_do_produto(produto_formulario)
     status = limpar_texto(request.form.get("status")) or "Novo lead"
-    if not status_valido(status):
-        status = status_padrao()
+    if not status_valido(status, funil_formulario):
+        status = status_padrao(funil_formulario)
     atual = dict(proposta_atual) if proposta_atual else {}
     dados = {
         "nome": limpar_texto(request.form.get("nome")), "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
@@ -2059,7 +2223,7 @@ def dados_formulario(proposta_atual: sqlite3.Row | dict[str, Any] | None = None)
         "numero_port_vinculada": limpar_texto(atual.get("numero_port_vinculada")), "numero_refin_vinculada": limpar_texto(atual.get("numero_refin_vinculada")),
         "tipo_cliente": limpar_texto(request.form.get("tipo_cliente")), "banco_atual": limpar_texto(request.form.get("banco_atual")),
         "banco_destino": limpar_texto(request.form.get("banco_destino")), "banco_digitado": limpar_texto(request.form.get("banco_digitado")),
-        "produto": limpar_texto(request.form.get("produto")), "promotora": limpar_texto(request.form.get("promotora")),
+        "produto": produto_formulario, "promotora": limpar_texto(request.form.get("promotora")),
         "beneficio_bloqueado": normalizar_bloqueado(request.form.get("beneficio_bloqueado")), "valor_caiu_promotora": normalizar_sim_nao(request.form.get("valor_caiu_promotora")),
         "valor_sacado": normalizar_sim_nao(request.form.get("valor_sacado")), "parcela_atual": parse_moeda(request.form.get("parcela_atual")),
         "nova_parcela": parse_moeda(request.form.get("nova_parcela")), "troco": parse_moeda(request.form.get("troco")),
@@ -2094,9 +2258,9 @@ def dados_nova_proposta() -> dict[str, Any]:
     return dados_formulario()
 
 
-def proposta_vazia(status: str | None = None) -> dict[str, Any]:
+def proposta_vazia(status: str | None = None, funil: str = FUNIL_PADRAO) -> dict[str, Any]:
     proposta = {campo: "" for campo in CAMPOS_PROPOSTA}
-    proposta["status"] = status or status_entrada_proposta()
+    proposta["status"] = status or status_entrada_proposta(funil)
     proposta["beneficio_bloqueado"] = "NÃO"
     proposta["valor_caiu_promotora"] = "NÃO"
     proposta["valor_sacado"] = "NÃO"
@@ -3295,9 +3459,13 @@ def helpers() -> dict[str, Any]:
     total_nao_lidas = sum(1 for notificacao in notificacoes if not notificacao["lida"])
     alerta_agenda = agenda_alerta_info()
     return {
-        "STATUS_LIST": nomes_status(),
-        "STATUS_VENDEDOR": nomes_status("vendedor"),
-        "STATUS_ADMINISTRATIVO": nomes_status("administrativo"),
+        "STATUS_LIST": nomes_status(FUNIL_PADRAO),
+        "STATUS_VENDEDOR": nomes_status(FUNIL_PADRAO),
+        "STATUS_ADMINISTRATIVO": nomes_status(FUNIL_PADRAO),
+        "FUNIS": FUNIS,
+        "FUNIL_PADRAO": FUNIL_PADRAO,
+        "FUNIL_MARGEM": FUNIL_MARGEM,
+        "PRODUTO_MARGEM_AUMENTO": PRODUTO_MARGEM_AUMENTO,
         "TIPOS_CLIENTE": TIPOS_CLIENTE,
         "PRODUTOS": PRODUTOS,
         "TAREFA_STATUS": TAREFA_STATUS,
@@ -4350,7 +4518,7 @@ def nova_proposta():
         pendentes = validar_nova_proposta(dados)
         if pendentes:
             flash("Preencha os campos obrigatórios: " + ", ".join(pendentes) + ".", "erro")
-            return render_template("nova_proposta.html", proposta=dados)
+            return render_template("nova_proposta.html", proposta=dados, status_por_funil=status_por_funil())
 
         agora = agora_iso()
         db = get_db()
@@ -4444,7 +4612,7 @@ def nova_proposta():
                 "dados_bancarios": cliente["dados_bancarios"] or "",
             }
         )
-    return render_template("nova_proposta.html", proposta=proposta)
+    return render_template("nova_proposta.html", proposta=proposta, status_por_funil=status_por_funil())
 
 
 @app.route("/proposta/<int:proposta_id>/criar-refin-vinculado", methods=["POST"])
@@ -4584,6 +4752,7 @@ def detalhe_proposta(proposta_id: int):
     else:
         anuencia_refin = montar_anuencia_refin(proposta, portabilidade_origem)
     mensagens = montar_mensagens(proposta)
+    funil_proposta = funil_da_proposta(proposta)
     return render_template(
         "detalhe_proposta.html",
         proposta=proposta,
@@ -4596,6 +4765,10 @@ def detalhe_proposta(proposta_id: int):
         pasta_anexos=pasta_cliente(proposta),
         mensagens=mensagens,
         modelos_mensagens=carregar_modelos(),
+        STATUS_LIST=nomes_status(funil_proposta),
+        funil=funil_proposta,
+        funil_info=FUNIS[funil_proposta],
+        status_por_funil=status_por_funil(),
     )
 
 
@@ -5989,7 +6162,7 @@ def editar_proposta(proposta_id: int):
         origem = url_retorno_padrao()
         if not dados["nome"]:
             flash("Informe o nome do cliente.", "erro")
-            return render_template("editar_proposta.html", proposta={**dict(proposta), **dados})
+            return render_template("editar_proposta.html", proposta={**dict(proposta), **dados}, status_por_funil=status_por_funil())
 
         status_anterior = proposta["status"]
         db = get_db()
@@ -6066,7 +6239,13 @@ def editar_proposta(proposta_id: int):
 
     vinculadas = buscar_propostas_vinculadas(proposta)
     refin_vinculado = next((item for item in vinculadas if proposta_eh_refin_vinculado(item)), None)
-    return render_template("editar_proposta.html", proposta=proposta, refin_vinculado=refin_vinculado)
+    return render_template(
+        "editar_proposta.html",
+        proposta=proposta,
+        refin_vinculado=refin_vinculado,
+        STATUS_LIST=nomes_status(funil_da_proposta(proposta)),
+        status_por_funil=status_por_funil(),
+    )
 
 
 
@@ -6091,6 +6270,7 @@ def mudar_status(proposta_id: int):
         flash("Proposta não encontrada.", "erro")
         return redirect(url_for("index"))
     novo_status = limpar_texto(request.form.get("status"))
+    funil_proposta = funil_da_proposta(proposta)
     observacao = limpar_texto(request.form.get("observacao")) or "Status atualizado"
     origem = limpar_texto(request.form.get("origem")) or "index"
     status_anterior = proposta["status"]
@@ -6131,7 +6311,7 @@ def mudar_status(proposta_id: int):
             )
         flash("Situação da encerrada atualizada.", "ok")
     else:
-        if not status_valido(novo_status):
+        if not status_valido(novo_status, funil_proposta):
             if is_fetch:
                 return resposta_status_json(False, "Status inválido.", proposta_id=proposta_id, status_http=400)
             flash("Status inválido.", "erro")
@@ -6166,9 +6346,9 @@ def mudar_status(proposta_id: int):
                 etapa_destino=novo_status,
             )
     if origem == "funil":
-        return redirect(url_for("funil"))
+        return redirect(url_for("funil", funil=funil_proposta))
     if origem == "encerradas":
-        return redirect(url_for("encerradas"))
+        return redirect(url_for("encerradas", funil=funil_proposta))
     if origem == "vendedor":
         return redirect(url_for("vendedor"))
     if origem == "administrativo":
@@ -6307,32 +6487,39 @@ def renderizar_funil(
     subtitulo: str,
     modulo: str,
     mes: str = "",
+    funil: str = FUNIL_PADRAO,
 ):
+    funil = normalizar_funil(funil)
     if not status_visiveis:
-        status_visiveis = status_ativos()
-    propostas = buscar_propostas_funil(mes)
+        status_visiveis = status_ativos(funil)
+    propostas = buscar_propostas_funil(mes, funil)
     por_status, totais_status = agrupar_cards_funil(propostas, status_visiveis)
     return render_template(
         "funil.html",
         por_status=por_status,
         totais_status=totais_status,
-        status_opcoes=nomes_status(),
+        status_opcoes=nomes_status(funil),
         titulo=titulo,
         subtitulo=subtitulo,
         modulo=modulo,
         mes=mes,
+        funil=funil,
+        funil_info=FUNIS[funil],
     )
 
 
 @app.route("/funil")
 def funil():
     mes = limpar_texto(request.args.get("mes"))
+    funil_selecionado = funil_atual()
+    titulo = "Funil em andamento" if funil_selecionado == FUNIL_PADRAO else FUNIS[funil_selecionado]["nome"]
     return renderizar_funil(
-        status_ativos(),
-        "Funil em andamento",
+        status_ativos(funil_selecionado),
+        titulo,
         "Mostra apenas propostas abertas. Pagas e perdidas ficam no menu Encerradas.",
         "geral",
         mes,
+        funil_selecionado,
     )
 
 
@@ -7040,14 +7227,17 @@ def agenda():
 @app.route("/encerradas")
 def encerradas():
     mes = limpar_texto(request.args.get("mes")) or mes_atual()
+    funil_selecionado = funil_atual()
+    filtro_funil, parametros_funil = filtro_sql_funil(funil_selecionado)
     propostas = get_db().execute(
-        """
+        f"""
         SELECT * FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
           AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_funil}
         ORDER BY COALESCE(data_encerramento, data_atualizacao) DESC, id DESC
         """,
-        (mes,),
+        (mes, *parametros_funil),
     ).fetchall()
     todas_propostas = get_db().execute("SELECT * FROM propostas").fetchall()
     propostas_encerradas = []
@@ -7086,15 +7276,27 @@ def encerradas():
         }
         for status, itens in grupos.items()
     }
+    titulo_encerradas = (
+        "Propostas encerradas"
+        if funil_selecionado == FUNIL_PADRAO
+        else f"Encerradas · {FUNIS[FUNIL_MARGEM]['nome']}"
+    )
+    subtitulo_encerradas = (
+        "Pagas ficam separadas por comissão: falta cair, disponível para saque e já sacada."
+        if funil_selecionado == FUNIL_PADRAO
+        else f"Encerradas do {FUNIS[FUNIL_MARGEM]['nome']}. Pagas ficam separadas por comissão: falta cair, disponível para saque e já sacada."
+    )
     return render_template(
         "encerradas.html",
         por_status=grupos,
         totais_status=totais_status,
-        status_opcoes=nomes_status(),
-        titulo="Propostas encerradas",
-        subtitulo="Pagas ficam separadas por comissão: falta cair, disponível para saque e já sacada.",
+        status_opcoes=nomes_status(funil_selecionado),
+        titulo=titulo_encerradas,
+        subtitulo=subtitulo_encerradas,
         modulo="encerradas",
         mes=mes,
+        funil=funil_selecionado,
+        funil_info=FUNIS[funil_selecionado],
     )
 
 
@@ -7584,6 +7786,8 @@ def configurar_dashboard():
 @app.route("/configuracoes/status", methods=["GET", "POST"])
 def configurar_status():
     db = get_db()
+    funil = funil_atual()
+    voltar = lambda: redirect(url_for("configurar_status", funil=funil))  # noqa: E731
     if request.method == "POST":
         acao = limpar_texto(request.form.get("acao"))
 
@@ -7592,19 +7796,24 @@ def configurar_status():
             grupo = "geral"
             if not nome:
                 flash("Informe o nome da etapa.", "erro")
-                return redirect(url_for("configurar_status"))
-            existe = db.execute("SELECT id FROM status_etapas WHERE nome = ?", (nome,)).fetchone()
+                return voltar()
+            existe = db.execute(
+                "SELECT id FROM status_etapas WHERE nome = ? AND funil = ?", (nome, funil)
+            ).fetchone()
             if existe:
                 flash("Já existe uma etapa com esse nome.", "erro")
-                return redirect(url_for("configurar_status"))
-            proxima_ordem = db.execute("SELECT COALESCE(MAX(ordem), 0) + 1 AS ordem FROM status_etapas").fetchone()["ordem"]
+                return voltar()
+            proxima_ordem = db.execute(
+                "SELECT COALESCE(MAX(ordem), 0) + 1 AS ordem FROM status_etapas WHERE funil = ?",
+                (funil,),
+            ).fetchone()["ordem"]
             db.execute(
-                "INSERT INTO status_etapas (nome, grupo, ordem, ativo) VALUES (?, ?, ?, 1)",
-                (nome, grupo, proxima_ordem),
+                "INSERT INTO status_etapas (nome, funil, grupo, ordem, ativo) VALUES (?, ?, ?, ?, 1)",
+                (nome, funil, grupo, proxima_ordem),
             )
             db.commit()
             flash("Etapa adicionada.", "ok")
-            return redirect(url_for("configurar_status"))
+            return voltar()
 
         if acao == "salvar":
             # Compatibilidade com versões antigas da tela de etapas.
@@ -7612,31 +7821,31 @@ def configurar_status():
             etapa = db.execute("SELECT * FROM status_etapas WHERE id = ?", (etapa_id,)).fetchone()
             if not etapa:
                 flash("Etapa não encontrada.", "erro")
-                return redirect(url_for("configurar_status"))
+                return voltar()
+            funil_etapa = normalizar_funil(etapa["funil"])
             nome = limpar_texto(request.form.get("nome"))
             grupo = "geral"
             ordem = int(request.form.get("ordem") or etapa["ordem"] or 0)
             ativo = 1 if request.form.get("ativo") == "1" else 0
             if not nome:
                 flash("O nome da etapa não pode ficar vazio.", "erro")
-                return redirect(url_for("configurar_status"))
+                return voltar()
             duplicada = db.execute(
-                "SELECT id FROM status_etapas WHERE nome = ? AND id <> ?", (nome, etapa_id)
+                "SELECT id FROM status_etapas WHERE nome = ? AND funil = ? AND id <> ?",
+                (nome, funil_etapa, etapa_id),
             ).fetchone()
             if duplicada:
                 flash("Já existe outra etapa com esse nome.", "erro")
-                return redirect(url_for("configurar_status"))
+                return voltar()
             db.execute(
                 "UPDATE status_etapas SET nome = ?, grupo = ?, ordem = ?, ativo = ? WHERE id = ?",
                 (nome, grupo, ordem, ativo, etapa_id),
             )
             if nome != etapa["nome"]:
-                db.execute("UPDATE propostas SET status = ? WHERE status = ?", (nome, etapa["nome"]))
-                db.execute("UPDATE historico SET status_anterior = ? WHERE status_anterior = ?", (nome, etapa["nome"]))
-                db.execute("UPDATE historico SET status_novo = ? WHERE status_novo = ?", (nome, etapa["nome"]))
+                renomear_status_propostas(funil_etapa, etapa["nome"], nome)
             db.commit()
             flash("Etapa atualizada.", "ok")
-            return redirect(url_for("configurar_status"))
+            return voltar()
 
         if acao == "salvar_todas":
             ids = request.form.getlist("etapa_id")
@@ -7646,7 +7855,7 @@ def configurar_status():
 
             if not ids:
                 flash("Nenhuma etapa enviada para salvar.", "erro")
-                return redirect(url_for("configurar_status"))
+                return voltar()
 
             total = min(len(ids), len(nomes), len(ordens), len(ativos))
             dados = []
@@ -7660,11 +7869,11 @@ def configurar_status():
                 nome = limpar_texto(nomes[idx])
                 if not nome:
                     flash("Nenhuma etapa pode ficar sem nome.", "erro")
-                    return redirect(url_for("configurar_status"))
+                    return voltar()
                 nome_chave = nome.casefold()
                 if nome_chave in nomes_normalizados:
                     flash(f"Existe etapa duplicada com o nome: {nome}.", "erro")
-                    return redirect(url_for("configurar_status"))
+                    return voltar()
                 nomes_normalizados.append(nome_chave)
                 try:
                     ordem = int(ordens[idx] or idx + 1)
@@ -7675,7 +7884,9 @@ def configurar_status():
 
             etapas_atuais = {
                 row["id"]: row
-                for row in db.execute("SELECT * FROM status_etapas").fetchall()
+                for row in db.execute(
+                    "SELECT * FROM status_etapas WHERE funil = ?", (funil,)
+                ).fetchall()
             }
 
             for etapa_id, nome, ordem, ativo in dados:
@@ -7683,29 +7894,28 @@ def configurar_status():
                 if not etapa:
                     continue
                 duplicada = db.execute(
-                    "SELECT id FROM status_etapas WHERE nome = ? AND id <> ?",
-                    (nome, etapa_id),
+                    "SELECT id FROM status_etapas WHERE nome = ? AND funil = ? AND id <> ?",
+                    (nome, funil, etapa_id),
                 ).fetchone()
                 if duplicada:
                     flash(f"Já existe outra etapa com o nome: {nome}.", "erro")
-                    return redirect(url_for("configurar_status"))
+                    return voltar()
 
             for etapa_id, nome, ordem, ativo in dados:
                 etapa = etapas_atuais.get(etapa_id)
                 if not etapa:
                     continue
+                funil_etapa = normalizar_funil(etapa["funil"])
                 db.execute(
                     "UPDATE status_etapas SET nome = ?, grupo = ?, ordem = ?, ativo = ? WHERE id = ?",
                     (nome, "geral", ordem, ativo, etapa_id),
                 )
                 if nome != etapa["nome"]:
-                    db.execute("UPDATE propostas SET status = ? WHERE status = ?", (nome, etapa["nome"]))
-                    db.execute("UPDATE historico SET status_anterior = ? WHERE status_anterior = ?", (nome, etapa["nome"]))
-                    db.execute("UPDATE historico SET status_novo = ? WHERE status_novo = ?", (nome, etapa["nome"]))
+                    renomear_status_propostas(funil_etapa, etapa["nome"], nome)
 
             db.commit()
             flash("Etapas atualizadas com sucesso.", "ok")
-            return redirect(url_for("configurar_status"))
+            return voltar()
 
         if acao == "excluir":
             etapa_id = int(request.form.get("etapa_id") or 0)
@@ -7713,20 +7923,28 @@ def configurar_status():
             etapa = db.execute("SELECT * FROM status_etapas WHERE id = ?", (etapa_id,)).fetchone()
             if not etapa:
                 flash("Etapa não encontrada.", "erro")
-                return redirect(url_for("configurar_status"))
-            if not destino or destino == etapa["nome"] or not status_valido(destino):
+                return voltar()
+            funil_etapa = normalizar_funil(etapa["funil"])
+            if not destino or destino == etapa["nome"] or not status_valido(destino, funil_etapa):
                 flash("Escolha uma etapa de destino válida antes de excluir.", "erro")
-                return redirect(url_for("configurar_status"))
-            db.execute("UPDATE propostas SET status = ? WHERE status = ?", (destino, etapa["nome"]))
+                return voltar()
+            filtro_funil, parametros_funil = filtro_sql_funil(funil_etapa)
+            db.execute(
+                f"UPDATE propostas SET status = ? WHERE status = ? AND {filtro_funil}",
+                (destino, etapa["nome"], *parametros_funil),
+            )
             db.execute("DELETE FROM status_etapas WHERE id = ?", (etapa_id,))
             db.commit()
             flash("Etapa excluída e propostas movidas para a etapa escolhida.", "ok")
-            return redirect(url_for("configurar_status"))
+            return voltar()
 
-    etapas = carregar_status_etapas()
+    etapas = carregar_status_etapas(funil)
     return render_template(
         "status_config.html",
         etapas=etapas,
+        funil=funil,
+        funil_info=FUNIS[funil],
+        STATUS_LIST=nomes_status(funil),
         titulo="Configurar etapas",
         subtitulo="Edite os nomes, a ordem e quais etapas ficam ativas no funil.",
     )
@@ -7908,6 +8126,106 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         "por_status": agrupar("status"),
         "por_banco": agrupar("banco_digitado"),
         "por_produto": agrupar("produto"),
+    }
+
+
+def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict[str, Any]:
+    """Indicadores exclusivos do funil Margem de Aumento.
+
+    Fica separado do dashboard principal para a operação sazonal não se
+    misturar com as propostas comuns do mês.
+    """
+    db = get_db()
+    filtro_mes, parametros_mes = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
+    filtro_funil, parametros_funil = filtro_sql_funil(FUNIL_MARGEM)
+    propostas = db.execute(
+        f"""
+        SELECT * FROM propostas
+        WHERE ({filtro_mes}) AND {filtro_funil}
+        ORDER BY data_criacao DESC
+        """,
+        (*parametros_mes, *parametros_funil),
+    ).fetchall()
+    propostas_encerradas_mes = db.execute(
+        f"""
+        SELECT *
+        FROM propostas
+        WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
+          AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_funil}
+        """,
+        (mes, *parametros_funil),
+    ).fetchall()
+    todas_propostas = db.execute("SELECT * FROM propostas").fetchall()
+
+    placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
+    filtro_criacao_comissao_prevista = ""
+    parametros_comissao_prevista: list[Any] = [
+        *STATUS_COMISSAO_PREVISTA,
+        *parametros_funil,
+    ]
+    if not incluir_anteriores:
+        filtro_criacao_comissao_prevista = "AND substr(data_criacao, 1, 7) = ?"
+        parametros_comissao_prevista.append(mes)
+    propostas_comissao_prevista = db.execute(
+        f"""
+        SELECT *
+        FROM propostas
+        WHERE status IN ({placeholders_comissao_prevista})
+          AND {filtro_funil}
+          {filtro_criacao_comissao_prevista}
+        """,
+        parametros_comissao_prevista,
+    ).fetchall()
+
+    operacoes = propostas_como_operacoes(propostas, todas_propostas)
+    pagas_registros = [p for p in propostas_encerradas_mes if p["status"] == "Pago"]
+    perdidas_registros = [
+        p for p in propostas_encerradas_mes if p["status"] in ("Perdido", "Cancelado", "Perdido / Cancelado")
+    ]
+    pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
+    perdidas = propostas_como_operacoes(perdidas_registros, todas_propostas)
+    pagas_financeiras = registros_financeiros_pagos(pagas_registros, todas_propostas)
+
+    comissao_prevista = sum(float(p["comissao"] or 0) for p in propostas_comissao_prevista)
+    comissao_paga = sum(float(p["comissao"] or 0) for p in pagas_financeiras)
+    valor_a_sacar = sum(
+        float(p["comissao"] or 0)
+        for p in pagas_financeiras
+        if (p["valor_caiu_promotora"] or "NÃO") == "SIM" and (p["valor_sacado"] or "NÃO") != "SIM"
+    )
+    falta_cair_promotora = sum(
+        float(p["comissao"] or 0)
+        for p in pagas_financeiras
+        if (p["valor_caiu_promotora"] or "NÃO") != "SIM"
+    )
+    valor_ja_sacado = sum(
+        float(p["comissao"] or 0)
+        for p in pagas_financeiras
+        if (p["valor_sacado"] or "NÃO") == "SIM"
+    )
+
+    contagens: dict[str, int] = {}
+    for proposta in operacoes:
+        nome = limpar_texto(proposta["status"]) or "Não informado"
+        contagens[nome] = contagens.get(nome, 0) + 1
+    linhas = sorted(contagens.items(), key=lambda item: (-item[1], item[0]))
+    maior = max([qtd for _, qtd in linhas], default=1)
+
+    return {
+        "mes": mes,
+        "total": len(operacoes),
+        "pagas": len(pagas),
+        "perdidas": len(perdidas),
+        "comissao_prevista": comissao_prevista,
+        "comissao_paga": comissao_paga,
+        "valor_a_sacar": valor_a_sacar,
+        "falta_cair_promotora": falta_cair_promotora,
+        "valor_ja_sacado": valor_ja_sacado,
+        "por_status": [
+            {"nome": nome, "qtd": qtd, "percentual": round((qtd / maior) * 100, 1)}
+            for nome, qtd in linhas
+        ],
     }
 
 
@@ -8245,6 +8563,7 @@ def dashboard():
     somente_mes = request.args.get("somente_mes") == "1"
     incluir_anteriores = not somente_mes
     dados = consulta_dashboard(mes, incluir_anteriores)
+    dados_margem = consulta_dashboard_margem(mes, incluir_anteriores)
     componentes = carregar_dashboard_componentes(apenas_ativos=True)
     metricas_dashboard = []
     graficos_dashboard = []
@@ -8262,6 +8581,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         dados=dados,
+        dados_margem=dados_margem,
         saldo_em_conta=dados["saldo_em_conta"],
         campos_dashboard=calcular_campos_dashboard(dados, mes, incluir_anteriores),
         metricas_dashboard=metricas_dashboard,
@@ -8877,9 +9197,10 @@ def importar():
             continue
         status_original = limpar_texto(row.get("status"))
         status = normalizar_status_importacao(status_original)
-        if not status_valido(status):
-            status = status_padrao()
         produto_importado = normalizar_produto_importacao(row.get("produto"))
+        funil_importado = funil_do_produto(produto_importado)
+        if not status_valido(status, funil_importado):
+            status = status_padrao(funil_importado)
         banco_digitado_importado = texto_planilha(row.get("banco_digitado"))
         banco_destino_importado = ""
         nb_importado = normalizar_matricula(texto_planilha(row.get("nb_matricula")))

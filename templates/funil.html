@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
+{% from '_funil_switch.html' import funil_switch with context %}
 {% block topbar_tools %}
+{{ funil_switch(funil, 'funil', mes) }}
 <details class="funnel-filter-menu" id="funnelFilterMenu">
     <summary class="btn funnel-filter-toggle" title="Filtrar propostas por mês" aria-label="Filtrar propostas por mês{% if mes %}; filtro atual {{ mes[5:7] }}/{{ mes[:4] }}{% endif %}">
         <i class="bi bi-calendar3" aria-hidden="true"></i>
@@ -12,11 +14,12 @@
             <small>Mostra somente propostas abertas criadas no período selecionado.</small>
         </div>
         <form method="get" class="funnel-filter-form">
+            <input type="hidden" name="funil" value="{{ funil }}">
             <label for="funnelMonthInput">Mês de criação</label>
             <input id="funnelMonthInput" type="month" name="mes" value="{{ mes }}" required>
             <div class="funnel-filter-actions">
                 {% if mes %}
-                <a class="btn" href="{{ url_for('funil') }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Todos</span></a>
+                <a class="btn" href="{{ url_for('funil', funil=funil) }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Todos</span></a>
                 {% endif %}
                 <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Aplicar</span></button>
             </div>
@@ -29,7 +32,7 @@
 {% endblock %}
 
 {% block content %}
-<section class="kanban" data-modulo="funil" data-mes="{{ mes }}">
+<section class="kanban" data-modulo="funil" data-funil="{{ funil }}" data-mes="{{ mes }}">
     {% for status, itens in por_status.items() %}
     <div class="kanban-column" data-status="{{ status }}">
         <div class="column-title">

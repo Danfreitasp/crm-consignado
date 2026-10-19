@@ -12,15 +12,15 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 ## Recursos principais
 
 - Cadastro, edição, pesquisa e exclusão controlada de propostas.
-- Funil Kanban com etapas configuráveis, filtro mensal opcional e movimentação por arrastar e soltar.
+- Funil Kanban com etapas configuráveis, filtro mensal opcional e movimentação por arrastar e soltar, com dois funis independentes: Padrão e Margem de Aumento (empréstimo novo com a margem anual do INSS).
 - Tela de detalhes da proposta com resumo, edição rápida, anotações, anexos, mensagens e histórico.
 - Retorno inteligente para preservar a origem da navegação, como Funil, Encerradas, Hoje ou Propostas.
 - Botões de produtividade como `Salvar` e `Salvar e voltar`.
 - Toasts de confirmação para ações salvas sem bloquear a tela.
 - Destaque temporário do card ao voltar para o Funil ou para a página Hoje.
 - Sino de notificações com contador, leitura geral e avisos de etapas alteradas, propostas criadas, pagas, reprovadas, em reapresentação e leads excluídos.
-- Página Encerradas para propostas pagas, perdidas ou canceladas.
-- Dashboard mensal com indicadores de produção e comissão e opção de excluir propostas ativas trazidas de meses anteriores.
+- Página Encerradas para propostas pagas, perdidas ou canceladas, com alternância entre os funis Padrão e Margem de Aumento.
+- Dashboard mensal com indicadores de produção e comissão, opção de excluir propostas ativas trazidas de meses anteriores e um bloco separado com os números do funil Margem de Aumento.
 - Página Hoje para acompanhamento de propostas que precisam de atenção.
 - Importação e exportação CSV/XLSX.
 - Simulador INSS para pré-atendimento, com empréstimo novo, portabilidade com refinanciamento, leitura de Extrato em PDF e integração com dados do Sistemacorban.
