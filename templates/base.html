@@ -43,7 +43,7 @@
         })();
     </script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20261019-tema-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20261019-ajuda-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260826-classic-opaque') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20261015-midnight-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
@@ -115,9 +115,15 @@
                     {% set ajuda_rotulo = 'Ajuda sobre o Editor visual de funil' %}
                 {% endif %}
                 {% if ajuda_pagina %}
-                    <button type="button" class="btn notification-button" title="{{ ajuda_pagina }}" aria-label="{{ ajuda_rotulo }}">
-                        <i class="bi bi-question-circle" aria-hidden="true"></i>
-                    </button>
+                    <details class="help-menu" id="helpMenu">
+                        <summary class="btn notification-button" aria-label="{{ ajuda_rotulo }}">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </summary>
+                        <div class="help-panel" role="note">
+                            <strong>{{ ajuda_rotulo }}</strong>
+                            <p>{{ ajuda_pagina }}</p>
+                        </div>
+                    </details>
                 {% endif %}
                 <details class="notification-menu">
                     <summary class="btn notification-button" title="Notificações importantes">
@@ -165,7 +171,7 @@
 
         {% block content %}{% endblock %}
     </main>
-    <script src="{{ url_for('static', filename='script.js', v='20261019-tema-1') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='20261019-ajuda-1') }}"></script>
     <script src="{{ url_for('static', filename='themes.js', v='20261015-midnight-1') }}"></script>
 </body>
 </html>

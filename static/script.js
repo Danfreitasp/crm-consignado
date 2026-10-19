@@ -336,6 +336,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const helpMenu = document.getElementById('helpMenu');
+    if (helpMenu) {
+        document.addEventListener('click', (event) => {
+            if (!helpMenu.contains(event.target)) helpMenu.open = false;
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && helpMenu.open) {
+                helpMenu.open = false;
+                helpMenu.querySelector('summary')?.focus();
+            }
+        });
+    }
+
     const funnelFilterMenu = document.getElementById('funnelFilterMenu');
     if (funnelFilterMenu) {
         document.addEventListener('click', (event) => {
