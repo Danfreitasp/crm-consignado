@@ -13,13 +13,14 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 
 - Cadastro, edição, pesquisa e exclusão controlada de propostas.
 - Funil Kanban com etapas configuráveis, filtro mensal opcional e movimentação por arrastar e soltar, com dois funis independentes: Padrão e Margem de Aumento (empréstimo novo com a margem anual do INSS).
-- Tela de detalhes da proposta com resumo, edição rápida, anotações, anexos, mensagens e histórico.
+- Tela de detalhes da proposta com resumo, edição rápida (cabeçalho compacto e botões de salvar alinhados), anotações, anexos, mensagens e histórico.
 - Retorno inteligente para preservar a origem da navegação, como Funil, Encerradas, Hoje ou Propostas.
 - Botões de produtividade como `Salvar` e `Salvar e voltar`.
 - Toasts de confirmação para ações salvas sem bloquear a tela.
 - Destaque temporário do card ao voltar para o Funil ou para a página Hoje.
 - Sino de notificações com contador, leitura geral e avisos de etapas alteradas, propostas criadas, pagas, reprovadas, em reapresentação e leads excluídos.
 - Página Encerradas para propostas pagas, perdidas ou canceladas, com alternância entre os funis Padrão e Margem de Aumento.
+- Nutrição de clientes com filas e marcações de retorno independentes por funil, evitando misturar os fluxos Padrão e Margem de Aumento.
 - Dashboard mensal com indicadores de produção e comissão, opção de excluir propostas ativas trazidas de meses anteriores e um bloco separado com os números do funil Margem de Aumento.
 - Página Hoje para acompanhamento de propostas que precisam de atenção.
 - Importação e exportação CSV/XLSX.
@@ -47,7 +48,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - `Base de Clientes`: consulta dos cadastros e exclusão segura de clientes sem propostas.
 - `Agenda`: compromissos, retornos de proposta e tarefas com lembretes.
 - `Hoje`: acompanhamento diário das propostas que precisam de atenção.
-- `Encerradas`: propostas pagas, perdidas ou canceladas.
+- `Encerradas`: propostas pagas, perdidas ou canceladas, com alternância entre os funis Padrão e Margem de Aumento.
 - `Dashboard`: visão mensal de produção.
 - `Simulador INSS`: cálculo estimado para pré-atendimento.
 - `Gerador de Mensagens`: mensagens comerciais prontas para WhatsApp.
@@ -207,6 +208,7 @@ CRM Consignado/
 └─ templates/
    ├─ base.html
    ├─ _form.html
+   ├─ _funil_switch.html
    ├─ dashboard.html
    ├─ detalhe_proposta.html
    ├─ funil.html
@@ -217,6 +219,7 @@ CRM Consignado/
 ## Rotas úteis
 
 - `/funil`
+- `/nutricao`
 - `/propostas`
 - `/nova`
 - `/hoje`
@@ -241,6 +244,7 @@ Após alterações no código, execute:
 ```powershell
 .venv\Scripts\python.exe -m py_compile app.py
 node --check static\script.js
+node --check static\nutricao.js
 node --check static\themes.js
 node --check static\portal_import.js
 .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
