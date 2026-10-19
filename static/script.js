@@ -349,6 +349,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // v24 - Barra de pesquisa com largura ajustável e preferência salva no navegador.
+    const buscaRapida = document.querySelector('.topbar-actions .quick-search');
+    const alcaBusca = buscaRapida?.querySelector('.quick-search-resizer');
+    if (buscaRapida && alcaBusca) {
+        const buscaLarguraMin = 200;
+        const buscaLarguraMax = 640;
+        const limiteBusca = () => Math.min(
+            buscaLarguraMax,
+            Math.max(buscaLarguraMin, Math.round(window.innerWidth * 0.45))
+        );
+        const larguraBuscaAtual = () => Math.round(buscaRapida.getBoundingClientRect().width);
+
+        function aplicarLarguraBusca(valor, persistir) {
+            const largura = Math.max(buscaLarguraMin, Math.min(limiteBusca(), Math.round(valor)));
+            buscaRapida.style.setProperty('--quick-search-width', `${largura}px`);
+            alcaBusca.setAttribute('aria-valuenow', String(largura));
+            alcaBusca.setAttribute('aria-valuemax', String(limiteBusca()));
+            if (persistir) localStorage.setItem('crmBuscaLargura', String(largura));
+            return largura;
+        }
+
+        const larguraSalva = Number(localStorage.getItem('crmBuscaLargura'));
+        if (larguraSalva > 0) aplicarLarguraBusca(larguraSalva, false);
+
+        let arrastandoBusca = false;
+        let inicioBuscaX = 0;
+        let inicioBuscaLargura = 0;
+
+        alcaBusca.addEventListener('pointerdown', (evento) => {
+            arrastandoBusca = true;
+            inicioBuscaX = evento.clientX;
+            inicioBuscaLargura = larguraBuscaAtual();
+            try { alcaBusca.setPointerCapture(evento.pointerId); } catch (erro) { /* ignore */ }
+            document.body.classList.add('quick-search-resizing');
+            evento.preventDefault();
+        });
+
+        alcaBusca.addEventListener('pointermove', (evento) => {
+            if (!arrastandoBusca) return;
+            // A barra fica alinhada à direita: arrastar para a esquerda aumenta a largura.
+            aplicarLarguraBusca(inicioBuscaLargura + (inicioBuscaX - evento.clientX), false);
+        });
+
+        function encerrarArrastoBusca(evento) {
+            if (!arrastandoBusca) return;
+            arrastandoBusca = false;
+            try { alcaBusca.releasePointerCapture(evento.pointerId); } catch (erro) { /* ignore */ }
+            document.body.classList.remove('quick-search-resizing');
+            aplicarLarguraBusca(larguraBuscaAtual(), true);
+        }
+
+        alcaBusca.addEventListener('pointerup', encerrarArrastoBusca);
+        alcaBusca.addEventListener('pointercancel', encerrarArrastoBusca);
+
+        alcaBusca.addEventListener('keydown', (evento) => {
+            const passo = evento.shiftKey ? 48 : 16;
+            if (evento.key === 'ArrowLeft') {
+                aplicarLarguraBusca(larguraBuscaAtual() + passo, true);
+                evento.preventDefault();
+            } else if (evento.key === 'ArrowRight') {
+                aplicarLarguraBusca(larguraBuscaAtual() - passo, true);
+                evento.preventDefault();
+            } else if (evento.key === 'Home') {
+                aplicarLarguraBusca(buscaLarguraMin, true);
+                evento.preventDefault();
+            } else if (evento.key === 'End') {
+                aplicarLarguraBusca(buscaLarguraMax, true);
+                evento.preventDefault();
+            }
+        });
+    }
+
     const funnelFilterMenu = document.getElementById('funnelFilterMenu');
     if (funnelFilterMenu) {
         document.addEventListener('click', (event) => {

@@ -1081,10 +1081,10 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
 .topbar-actions > * { flex-shrink: 0; }
 
 .topbar-actions .quick-search {
-    flex: 1 1 320px;
+    flex: 1 1 var(--quick-search-width, 360px);
     width: auto;
     min-width: 150px;
-    max-width: 360px;
+    max-width: min(var(--quick-search-width, 360px), 100%);
 }
 
 .topbar-actions .quick-search input { width: 100%; }
@@ -1419,7 +1419,7 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
 .quick-search-icon {
     position: absolute;
     z-index: 1;
-    left: 13px;
+    left: 20px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--muted);
@@ -1428,7 +1428,7 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
 
 .quick-search input {
     min-height: 40px;
-    padding-left: 38px;
+    padding-left: 44px;
     background: #fff;
 }
 
@@ -1474,6 +1474,41 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
 
 .quick-search-empty {
     padding: 12px;
+}
+
+.quick-search-resizer {
+    position: absolute;
+    z-index: 2;
+    top: 4px;
+    bottom: 4px;
+    left: 2px;
+    width: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ew-resize;
+    border-radius: 8px;
+    color: var(--muted);
+    opacity: .55;
+    touch-action: none;
+    transition: opacity .15s ease, background .15s ease, color .15s ease;
+}
+
+.quick-search-resizer:hover,
+.quick-search-resizer:focus-visible {
+    opacity: 1;
+    color: var(--primary);
+    background: var(--primary-soft, rgba(37, 99, 235, .12));
+    outline: none;
+}
+
+.quick-search-resizer:focus-visible {
+    box-shadow: 0 0 0 2px var(--primary);
+}
+
+body.quick-search-resizing {
+    cursor: ew-resize;
+    user-select: none;
 }
 
 .attachments-box {
@@ -1555,7 +1590,7 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
     }
 
     .topbar-actions .quick-search {
-        flex-basis: 220px;
+        flex-basis: var(--quick-search-width, 220px);
     }
 
     .topbar-actions .btn-back span,
@@ -1574,6 +1609,12 @@ html[data-theme="escuro"] .linked-proposal-field { background: #111827; border-c
     }
     .quick-search {
         width: 100%;
+    }
+    .topbar-actions .quick-search {
+        max-width: none;
+    }
+    .quick-search-resizer {
+        display: none;
     }
     .attachment-actions {
         justify-content: flex-start;

@@ -43,7 +43,7 @@
         })();
     </script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20261019-ajuda-2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20261019-busca-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20260826-classic-opaque') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20261015-midnight-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
@@ -96,6 +96,7 @@
                 <div class="quick-search" data-search-url="{{ url_for('api_pesquisa_global') }}">
                     <i class="bi bi-search quick-search-icon" aria-hidden="true"></i>
                     <input id="quickSearchInput" type="search" placeholder="Pesquisar cliente, CPF ou telefone..." autocomplete="off">
+                    <span class="quick-search-resizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Arraste para ajustar a largura da barra de pesquisa" aria-valuemin="200" aria-valuemax="640" aria-valuenow="360"><i class="bi bi-grip-vertical" aria-hidden="true"></i></span>
                     <div id="quickSearchResults" class="quick-search-results" hidden></div>
                 </div>
                 {% block topbar_tools %}{% endblock %}
@@ -171,7 +172,7 @@
 
         {% block content %}{% endblock %}
     </main>
-    <script src="{{ url_for('static', filename='script.js', v='20261019-ajuda-1') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='20261019-busca-1') }}"></script>
     <script src="{{ url_for('static', filename='themes.js', v='20261015-midnight-1') }}"></script>
 </body>
 </html>
