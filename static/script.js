@@ -958,10 +958,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cardsComArrasteRecente.has(card)) return;
             if (card.dataset.busy === 'true' || card.classList.contains('is-processing')) return;
 
-            const alvo = event.target instanceof Element ? event.target : event.target?.parentElement;
-            if (!alvo) return;
-            const interativo = alvo.closest('a, button, input, select, textarea, label, summary, details, form, [contenteditable="true"], [data-card-no-open], [data-tooltip]');
-            if (interativo && card.contains(interativo)) return;
+            // Usa o caminho do evento porque alguns controles, como o botão de
+            // copiar, substituem o próprio conteúdo antes do clique chegar ao card.
+            const caminho = event.composedPath();
+            const indiceCard = caminho.indexOf(card);
+            const alvosDoCard = indiceCard >= 0 ? caminho.slice(0, indiceCard + 1) : caminho;
+            const interativo = alvosDoCard.find((node) => (
+                node instanceof Element
+                && node !== card
+                && node.matches('a, button, input, select, textarea, label, summary, details, form, [contenteditable="true"], [data-card-no-open], [data-tooltip]')
+            ));
+            if (interativo) return;
 
             const selecao = window.getSelection();
             if (selecao && selecao.toString().trim()) return;
