@@ -844,6 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let draggedCard = null;
+    const cardsComArrasteRecente = new WeakSet();
     const funilContextKey = 'crmFunilContext';
 
     function funilUrlSemDestaque() {
@@ -947,6 +948,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.kanban[data-modulo="funil"] .kanban-card a[href]').forEach((link) => {
         link.addEventListener('click', () => {
             salvarContextoFunil(link.closest('.kanban-card'));
+        });
+    });
+
+    document.querySelectorAll('.kanban-card[data-proposta-id]').forEach((card) => {
+        card.addEventListener('click', (event) => {
+            if (event.defaultPrevented || event.button !== 0) return;
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            if (cardsComArrasteRecente.has(card)) return;
+            if (card.dataset.busy === 'true' || card.classList.contains('is-processing')) return;
+
+            const alvo = event.target instanceof Element ? event.target : event.target?.parentElement;
+            if (!alvo) return;
+            const interativo = alvo.closest('a, button, input, select, textarea, label, summary, details, form, [contenteditable="true"], [data-card-no-open], [data-tooltip]');
+            if (interativo && card.contains(interativo)) return;
+
+            const selecao = window.getSelection();
+            if (selecao && selecao.toString().trim()) return;
+
+            const link = card.querySelector('a[data-card-client-name][href]') || card.querySelector('a[href]');
+            if (!link) return;
+
+            salvarContextoFunil(card);
+            window.location.href = link.href;
         });
     });
 
@@ -1512,6 +1536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 return;
             }
+            cardsComArrasteRecente.add(card);
             draggedCard = card;
             card.classList.add('dragging');
             event.dataTransfer.effectAllowed = 'move';
@@ -1524,6 +1549,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pararRolagemAutomaticaDoFunil();
             card.classList.remove('dragging');
             draggedCard = null;
+            setTimeout(() => cardsComArrasteRecente.delete(card), 250);
             document.querySelectorAll('.kanban-cards.drop-target').forEach((column) => {
                 column.classList.remove('drop-target');
             });
