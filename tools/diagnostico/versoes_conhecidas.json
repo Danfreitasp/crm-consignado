@@ -1,0 +1,155 @@
+{
+  "gerado_em": "2026-10-20 11:58:50",
+  "repositorio": "Danfreitasp/crm-consignado",
+  "total_commits_com_app": 21,
+  "total_versoes": 21,
+  "versoes": {
+    "5b195aab8a3e8f2febee0917ecdbcaeb8aaa796186987648a4c7c2895d0b91b3": [
+      {
+        "commit": "1f5e895741a9",
+        "data": "2026-10-19",
+        "assunto": "Separa a Nutrição de clientes em filas independentes por funil"
+      }
+    ],
+    "4ed049b3851215b758ef1e11a0f546fd6952fa1347e08ebd30170903f276a9e5": [
+      {
+        "commit": "f2e9cbac4d35",
+        "data": "2026-10-19",
+        "assunto": "Adiciona funil Margem de Aumento e mantém o cabeçalho em uma linha"
+      }
+    ],
+    "724a80ac5d598dbf046f5f12a8920de72a0beb8b2cd6d1efb012a3374fc5f559": [
+      {
+        "commit": "9bb5b9cea115",
+        "data": "2026-10-19",
+        "assunto": "Marca na Agenda os retornos de proposta que já saíram de Aguardando CIP"
+      }
+    ],
+    "2fac6f8b940baf96425ccd3c267c51fe0a030d5e4ce03f35ca91869675611bac": [
+      {
+        "commit": "701b07510f8e",
+        "data": "2026-10-15",
+        "assunto": "Nova opção no simulador por extrato de complementar dados com extensão"
+      }
+    ],
+    "d6207edce0d39aab7a23e7b3b6e3899a7c4747320c9f88cc042408187bce0f62": [
+      {
+        "commit": "159503576025",
+        "data": "2026-10-07",
+        "assunto": "Ajuste no simulador"
+      }
+    ],
+    "e16f76eb0a121387c7500789bceb1ff41028be34d8d7de9d924e79a7c77c576a": [
+      {
+        "commit": "024f5a31e00a",
+        "data": "2026-09-30",
+        "assunto": "Alteração no sistema de deleção."
+      }
+    ],
+    "65caa79dfad30909aa22dbff85e8ee1ebb5103ae9fa3b5380738a38e7222e4c2": [
+      {
+        "commit": "c5eb8237ab76",
+        "data": "2026-09-21",
+        "assunto": "Reutiliza cadastros de clientes por matrícula nas propostas do simulador INSS"
+      }
+    ],
+    "80ef3cf90ecf2c221bc3f0f307072bb581310088b1bfbdf06022d3d3073d53e4": [
+      {
+        "commit": "13951d17e06d",
+        "data": "2026-09-18",
+        "assunto": "Refactor CRM workflows and remove obsolete code"
+      }
+    ],
+    "e22cb3dc017302461d5b0cbe4097e45ee113aab59d8487cb2daa47b4c30434ae": [
+      {
+        "commit": "f3a483632efc",
+        "data": "2026-09-14",
+        "assunto": "Alterações no simulador"
+      }
+    ],
+    "bb25c364eb8ee052a1eb5ee4b329584bb67ff637bb777e2f9c57617ca2a7d7db": [
+      {
+        "commit": "3c3a6c2b27f1",
+        "data": "2026-09-14",
+        "assunto": "ajustes gerais"
+      }
+    ],
+    "61ed18fc25605dcfc474929f0a989068cfeba5d4ff90d9808ab0eec9cf68be75": [
+      {
+        "commit": "712daae58da8",
+        "data": "2026-09-09",
+        "assunto": "Ajustes no menu de nutrição."
+      }
+    ],
+    "70bad360c2b6aff2f69ed23acc0cd8c5354321a67eb5d4508740937d77bc75e5": [
+      {
+        "commit": "32ed5b314ef0",
+        "data": "2026-09-08",
+        "assunto": "Adição do menu de nutrição."
+      }
+    ],
+    "3b571d0e91f87896027221b59829357db0f55bbb92897063e5b42c91e66bf6b9": [
+      {
+        "commit": "12f5534b89f0",
+        "data": "2026-09-03",
+        "assunto": "Adição do valor/porcentagem da comissão"
+      }
+    ],
+    "724eea67b45c937a0901958de3c885b4409de7732b775d1442c3c5a70f15bea0": [
+      {
+        "commit": "a21f8b9254f3",
+        "data": "2026-09-02",
+        "assunto": "Ajuste no somatório do dashboard e ajustes de layout."
+      }
+    ],
+    "3b0893013fcbfa5f1eda737832da4b21375586511823d2ec22d6fb4ccd5896c1": [
+      {
+        "commit": "6e030f8be242",
+        "data": "2026-09-01",
+        "assunto": "Ajuste de mês"
+      }
+    ],
+    "6d0f405e4c0ba345e92a314e52969d1bc23cdf7859c6e9494e36a5de47787b5b": [
+      {
+        "commit": "79592b3ddc65",
+        "data": "2026-09-01",
+        "assunto": "Ajustes no dashboard e anexo de extratos INSS."
+      }
+    ],
+    "e44e81516f6dadc45204af6f952d36afb40527c626a243c4c33d048c85684a79": [
+      {
+        "commit": "f62ca05e0801",
+        "data": "2026-08-28",
+        "assunto": "Reintegração da anuencia"
+      }
+    ],
+    "764ea5e66cd25bfae36b7bc6ffbfb4ff77510116197e64808d24b67a44b64d2b": [
+      {
+        "commit": "8be50b7ec378",
+        "data": "2026-08-26",
+        "assunto": "Ajustes no dashboard e temas."
+      }
+    ],
+    "a4936d1b7c0d9a44d790cc15fd4c9d427d3bb47affe2c8277da77b36f29ba026": [
+      {
+        "commit": "71e64f3be28e",
+        "data": "2026-08-24",
+        "assunto": "Otimização do sistema."
+      }
+    ],
+    "710373e0cc75f8fa946b91f7d9fa9c4d368df5244a6770d0ca54956143490dab": [
+      {
+        "commit": "31a32b132f8e",
+        "data": "2026-08-20",
+        "assunto": "update local"
+      }
+    ],
+    "a4f2707f7928424f80c7e590b4586f0a021e7a0bf8c69110053b8620831b4c64": [
+      {
+        "commit": "338f39312536",
+        "data": "2026-08-20",
+        "assunto": "Publica código-fonte do CRM Consignado"
+      }
+    ]
+  }
+}
