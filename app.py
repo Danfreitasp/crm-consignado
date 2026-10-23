@@ -248,20 +248,20 @@ CONFIG_INSS_NOVO_COEFICIENTES = "simulador_inss_novo_coeficientes"
 # NewCorban em 30/09/2026. O saldo é atualizado até o refinanciamento; o
 # desconto líquido incide somente quando há troco positivo. Os vencimentos
 # sugeridos são estimativas e podem ser ajustados aos informados pelo banco.
-# As comissões foram conferidas
-# na lista diária da Unicap em 03/09/2026 e valem igualmente para a
-# portabilidade e para o refinanciamento.
+# As comissões foram conferidas na tela de coeficientes do Unica
+# (QUALIBANKING, coluna "Total Repassado") em 23/10/2026 e valem igualmente
+# para a portabilidade e para o refinanciamento.
 INSS_PORT_REFIN_TABELAS = {
     "569": {"nome": "000569 PORT + REFIN 1,83% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.00},
     "568": {"nome": "000568 PORT + REFIN 1,85% 108X MIN 6 MIL BEN INVALIDEZ", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.00},
-    "398": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108X SEM SEGURO MIN 6 mil", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 4.25},
-    "399": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108X SEM SEGURO MIN 6 mil", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 4.13},
-    "400": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,78% 108X SEM SEGURO min 8 mil", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 3.15},
-    "401": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,75% 108x SEM SEGURO min 8 mil", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 2.84},
-    "402": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,72% 108x SEM SEGURO min 8 mil", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 2.45},
-    "406": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,85% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.92},
-    "407": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 3.43},
-    "408": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 2.94},
+    "398": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108X SEM SEGURO MIN 6 mil", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 4.50},
+    "399": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108X SEM SEGURO MIN 6 mil", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 3.80},
+    "400": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,78% 108X SEM SEGURO min 8 mil", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 3.30},
+    "401": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,75% 108x SEM SEGURO min 8 mil", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 2.70},
+    "402": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,72% 108x SEM SEGURO min 8 mil", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 2.25},
+    "406": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,85% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 5.00},
+    "407": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,83% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 4.25},
+    "408": {"nome": "PORTABILIDADE + REFINANCIAMENTO 1,80% 108x Saldo de 2mil a 6 mil - SEM SEGURO", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 3.72},
 }
 
 INSS_PORT_REFIN_FATORES_LIQUIDOS = {
