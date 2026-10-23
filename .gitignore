@@ -7,10 +7,8 @@ env/
 .agents/
 .codex/
 
-# Diagnóstico de instalações antigas (artefatos de build)
-tools/diagnostico/build/
-tools/diagnostico/dist/
-tools/diagnostico/*.spec
+# Ferramentas locais (diagnóstico de instalações antigas)
+tools/
 
 # Banco de dados local
 database.db
