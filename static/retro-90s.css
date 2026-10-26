@@ -251,7 +251,7 @@ html[data-visual-theme="retro-90s"] .topbar::before {
 html[data-visual-theme="retro-90s"] .topbar h1 {
     margin-bottom: 4px;
     color: #000080;
-    font-size: clamp(30px, 4vw, 54px);
+    font-size: clamp(24px, 3.2vw, 43px);
     line-height: .98;
     text-shadow: 2px 2px 0 #fff, 3px 3px 0 #808080;
     animation: retro-rainbow 4s linear infinite;
@@ -809,7 +809,7 @@ html[data-visual-theme="retro-90s"].sidebar-collapsed .sidebar::after {
     }
 
     html[data-visual-theme="retro-90s"] .topbar h1 {
-        font-size: 30px;
+        font-size: 24px;
     }
 
     html[data-visual-theme="retro-90s"] .topbar-actions {

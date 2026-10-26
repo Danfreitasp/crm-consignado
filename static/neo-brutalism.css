@@ -222,7 +222,7 @@ html[data-visual-theme="neo-brutalism"] .topbar h1 {
     max-width: 650px;
     margin-bottom: 8px;
     color: #ff6b6b;
-    font-size: clamp(38px, 5vw, 68px);
+    font-size: clamp(30px, 4vw, 54px);
     font-weight: 700;
     line-height: .86;
     text-transform: uppercase;
@@ -648,7 +648,7 @@ html[data-visual-theme="neo-brutalism"].sidebar-collapsed .brand::after { displa
     html[data-visual-theme="neo-brutalism"].sidebar-collapsed .main { margin-left: 0; padding: 22px 14px 34px; }
     html[data-visual-theme="neo-brutalism"] .topbar,
     html[data-visual-theme="neo-brutalism"][data-theme="escuro"] .topbar { display: block; min-height: 0; padding: 22px 16px; margin: 0 8px 28px 0; box-shadow: 8px 8px 0 #000; }
-    html[data-visual-theme="neo-brutalism"] .topbar h1 { font-size: clamp(35px, 13vw, 52px); }
+    html[data-visual-theme="neo-brutalism"] .topbar h1 { font-size: clamp(28px, 10.5vw, 42px); }
     html[data-visual-theme="neo-brutalism"] .topbar-actions { display: grid; grid-template-columns: 1fr; gap: 11px; margin-top: 18px; }
     html[data-visual-theme="neo-brutalism"] .quick-search,
     html[data-visual-theme="neo-brutalism"] .topbar-actions > .btn,

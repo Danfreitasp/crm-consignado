@@ -20,7 +20,7 @@ html[data-visual-theme="lite"][data-theme] .brand small { color:var(--muted); fo
 html[data-visual-theme="lite"][data-theme] .nav-link { border-radius:8px; color:var(--muted); box-shadow:none; }
 html[data-visual-theme="lite"][data-theme] .nav-link.active { background:var(--primary-soft); color:var(--primary); font-weight:650; border-color:transparent; }
 html[data-visual-theme="lite"][data-theme] .topbar { background:transparent; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; padding:4px 0 16px; gap:16px; }
-html[data-visual-theme="lite"] .topbar h1 { font-size:24px; letter-spacing:-.035em; }
+html[data-visual-theme="lite"] .topbar h1 { font-size:20px; letter-spacing:-.035em; }
 html[data-visual-theme="lite"][data-theme] .btn, html[data-visual-theme="lite"][data-theme] .mini-btn, html[data-visual-theme="lite"][data-theme] .sidebar-toggle { background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:none; color:var(--text); }
 html[data-visual-theme="lite"][data-theme] .btn-primary { background:#2563eb; border-color:#2563eb; color:white; }
 html[data-visual-theme="lite"][data-theme] input, html[data-visual-theme="lite"][data-theme] select, html[data-visual-theme="lite"][data-theme] textarea { background:var(--panel); color:var(--text); border-color:var(--line); border-radius:8px; box-shadow:none; }

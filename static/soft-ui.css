@@ -201,7 +201,7 @@ html[data-visual-theme="soft-ui"][data-theme="escuro"] .topbar {
 html[data-visual-theme="soft-ui"] .topbar h1 {
     margin: 0 0 5px;
     color: #34404b;
-    font: 800 clamp(28px, 3vw, 42px)/1 "Plus Jakarta Sans", sans-serif;
+    font: 800 clamp(22px, 2.4vw, 34px)/1 "Plus Jakarta Sans", sans-serif;
     letter-spacing: -.05em;
 }
 
@@ -998,7 +998,7 @@ html[data-visual-theme="soft-ui"] ::selection {
     }
 
     html[data-visual-theme="soft-ui"] .topbar h1 {
-        font-size: 31px;
+        font-size: 25px;
     }
 
     html[data-visual-theme="soft-ui"] .topbar-actions {

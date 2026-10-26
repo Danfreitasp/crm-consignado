@@ -232,7 +232,7 @@ html[data-visual-theme="dopamine"] .topbar h1 {
     max-width: 620px;
     margin-bottom: 7px;
     color: #fff;
-    font-size: clamp(38px, 5vw, 70px);
+    font-size: clamp(30px, 4vw, 56px);
     line-height: .92;
     text-transform: uppercase;
     text-shadow: 3px 3px 0 #7b2fff, 6px 6px 0 #ff3af2, 9px 9px 0 #00f5d4;
@@ -1011,7 +1011,7 @@ html[data-visual-theme="dopamine"].sidebar-collapsed .brand::after { display: no
     }
 
     html[data-visual-theme="dopamine"] .topbar h1 {
-        font-size: clamp(34px, 13vw, 52px);
+        font-size: clamp(27px, 10.5vw, 42px);
     }
 
     html[data-visual-theme="dopamine"] .topbar-actions {

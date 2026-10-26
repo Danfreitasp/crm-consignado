@@ -228,7 +228,7 @@ html[data-visual-theme="newsprint"] .topbar h1 {
     max-width: 620px;
     margin: 0 0 3px;
     color: #111111;
-    font: 900 clamp(30px, 3vw, 46px)/.95 "Playfair Display", serif;
+    font: 900 clamp(24px, 2.4vw, 37px)/.95 "Playfair Display", serif;
     letter-spacing: -.05em;
 }
 
@@ -783,7 +783,7 @@ html[data-visual-theme="newsprint"] ::selection {
     }
 
     html[data-visual-theme="newsprint"] .topbar h1 {
-        font-size: 34px;
+        font-size: 27px;
     }
 
     html[data-visual-theme="newsprint"] .topbar-actions {

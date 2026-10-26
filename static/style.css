@@ -298,7 +298,7 @@ body {
 }
 .topbar h1 {
     margin: 0;
-    font-size: 26px;
+    font-size: 21px;
     font-weight: 680;
     letter-spacing: -.02em;
     white-space: nowrap;
@@ -1584,7 +1584,7 @@ body.quick-search-resizing {
 
 @media (max-width: 1280px) and (min-width: 981px) {
     .topbar h1 {
-        font-size: 22px;
+        font-size: 19px;
     }
 
     .topbar-actions {
