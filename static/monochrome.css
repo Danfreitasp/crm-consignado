@@ -79,8 +79,9 @@ html[data-visual-theme="monochrome"][data-theme] .theme-toggle { display: none; 
 html[data-visual-theme="monochrome"][data-theme] .topbar {
     position: relative;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
     padding: 12px 0;
     margin-bottom: 16px;
@@ -92,7 +93,7 @@ html[data-visual-theme="monochrome"][data-theme] .topbar {
 html[data-visual-theme="monochrome"][data-theme] .topbar::after { content: ''; position: absolute; top: -8px; right: 0; width: 12px; height: 12px; background: #fff; border: 2px solid #000; pointer-events: none; }
 html[data-visual-theme="monochrome"][data-theme] .topbar h1 { margin: 0 0 4px; color: #000; background: none; font: 500 clamp(22px, 2vw, 29px)/1.15 var(--mono-display); letter-spacing: -.055em; overflow-wrap: anywhere; }
 html[data-visual-theme="monochrome"][data-theme] .topbar p { margin: 0; max-width: none; font: 400 14px/1.4 var(--mono-body); }
-html[data-visual-theme="monochrome"][data-theme] .topbar-actions { display: flex; flex-wrap: wrap; width: 100%; justify-content: flex-start; gap: 10px; }
+html[data-visual-theme="monochrome"][data-theme] .topbar-actions { display: flex; flex-wrap: nowrap; width: auto; flex: 1 1 auto; justify-content: flex-end; gap: 10px; }
 html[data-visual-theme="monochrome"][data-theme] .quick-search { flex: 1 1 250px; max-width: 440px; }
 html[data-visual-theme="monochrome"][data-theme] :is(.btn,button.btn,.mini-btn) { background: #fff; color: #000; border: 1px solid #000; min-height: 44px; font: 500 11px/1.3 var(--mono-label); letter-spacing: .06em; text-transform: uppercase; padding: 12px 16px; transform: none; }
 html[data-visual-theme="monochrome"][data-theme] :is(.btn.btn-primary,button.btn.btn-primary,.btn.btn-success) { background: #000; color: #fff; border: 1px solid #000; }
@@ -150,6 +151,18 @@ html[data-visual-theme="monochrome"][data-theme] .kanban[data-modulo="funil"] .k
 html[data-visual-theme="monochrome"][data-theme] :is(.beneficio-bloqueado-icon,.legend-task,.legend-return,.legend-return-done) { color: #000 !important; background: #fff; }
 html[data-visual-theme="monochrome"][data-theme] .bi { color: inherit; }
 html[data-visual-theme="monochrome"][data-theme] ::selection { background: #000; color: #fff; }
+@media (max-width: 1200px) {
+    html[data-visual-theme="monochrome"][data-theme] .topbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    html[data-visual-theme="monochrome"][data-theme] .topbar-actions {
+        flex: 0 1 auto;
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+}
 @media (max-width: 700px) {
     html[data-visual-theme="monochrome"][data-theme] .main { padding: 16px; }
     html[data-visual-theme="monochrome"][data-theme] .sidebar { border-right: 0; border-bottom: 1px solid #000; }
