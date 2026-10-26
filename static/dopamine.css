@@ -230,12 +230,12 @@ html[data-visual-theme="dopamine"] .topbar::before {
 
 html[data-visual-theme="dopamine"] .topbar h1 {
     max-width: 620px;
-    margin-bottom: 7px;
+    margin-bottom: 4px;
     color: #fff;
-    font-size: clamp(30px, 4vw, 56px);
-    line-height: .92;
+    font-size: 24px;
+    line-height: 1;
     text-transform: uppercase;
-    text-shadow: 3px 3px 0 #7b2fff, 6px 6px 0 #ff3af2, 9px 9px 0 #00f5d4;
+    text-shadow: 2px 2px 0 #7b2fff, 4px 4px 0 #ff3af2;
 }
 
 html[data-visual-theme="dopamine"] .topbar p {
@@ -1011,7 +1011,7 @@ html[data-visual-theme="dopamine"].sidebar-collapsed .brand::after { display: no
     }
 
     html[data-visual-theme="dopamine"] .topbar h1 {
-        font-size: clamp(27px, 10.5vw, 42px);
+        font-size: 22px;
     }
 
     html[data-visual-theme="dopamine"] .topbar-actions {

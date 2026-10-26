@@ -99,7 +99,7 @@ html[data-visual-theme="flat"][data-theme] .topbar-actions { z-index: 5; }
 html[data-visual-theme="flat"][data-theme] .theme-menu { z-index: 70; }
 html[data-visual-theme="flat"][data-theme] .theme-menu-panel { z-index: 80; }
 html[data-visual-theme="flat"][data-theme] .topbar :is(h1,p) { color: #fff; }
-html[data-visual-theme="flat"][data-theme] .topbar h1 { font-size: clamp(24px, 2.75vw, 37px); }
+html[data-visual-theme="flat"][data-theme] .topbar h1 { font-size: 23px; }
 html[data-visual-theme="flat"][data-theme] .topbar p { color: #dbeafe; }
 html[data-visual-theme="flat"][data-theme] .theme-toggle { display: none; }
 
@@ -166,7 +166,7 @@ html[data-visual-theme="flat"][data-theme] ::selection { background: #f59e0b; co
 @media (max-width: 700px) {
     html[data-visual-theme="flat"][data-theme] .main { padding: 16px; }
     html[data-visual-theme="flat"][data-theme] .topbar { padding: 22px; }
-    html[data-visual-theme="flat"][data-theme] .topbar h1 { font-size: 24px; }
+    html[data-visual-theme="flat"][data-theme] .topbar h1 { font-size: 22px; }
     html[data-visual-theme="flat"][data-theme] .topbar-actions > .quick-search { flex-basis: 100%; }
 }
 
