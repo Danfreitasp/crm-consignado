@@ -32,9 +32,8 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 - Gerenciamento de modelos de mensagens da proposta.
 - Conversor de contatos.
 - Tema claro e modo escuro salvos no navegador.
-- Menu `Temas` com 11 estilos visuais (Clássico, Lite, Newsprint, Retro 90s, Dopamine, Clay, Soft UI, Neo Brutal, Monocromático, Flat e Midnight). Cada tema tem paleta própria, preserva a preferência de modo claro/escuro e respeita a redução de movimento do sistema.
+- Menu `Temas` com 10 estilos visuais (Clássico, Lite, Newsprint, Retro 90s, Dopamine, Clay, Soft UI, Neo Brutal, Monocromático e Flat). Cada tema tem paleta própria, preserva a preferência de modo claro/escuro e respeita a redução de movimento do sistema.
 - Tema visual Clay: lavanda, cores vibrantes, superfícies arredondadas e sombras em camadas (Nunito e DM Sans via Google Fonts, com fontes locais como fallback).
-- Tema visual Midnight: painel escuro com acentos neon (violeta e verde-água), faixa de título em gradiente no Dashboard, cartões com ícone e pílulas de status coloridas.
 - Histórico automático de status e alterações relevantes.
 - Cadastro auxiliar de clientes alimentado a partir das propostas.
 - Vínculo manual e criação rápida de refinanciamento vinculado à portabilidade.
@@ -200,7 +199,7 @@ CRM Consignado/
 │  ├─ style.css
 │  ├─ script.js, portal_import.js, nutricao.js
 │  ├─ themes.css, themes.js
-│  ├─ organic-glass.css e os temas (clay, midnight, flat, ...)
+│  ├─ organic-glass.css e os temas (clay, flat, ...)
 │  └─ icons/navigation/
 ├─ integrations/
 │  └─ sistemacorban-importer/

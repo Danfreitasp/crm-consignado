@@ -28,10 +28,14 @@
                     temaVisual = 'retro-90s';
                     localStorage.setItem('crmVisualTheme', temaVisual);
                 }
+                if (temaVisual === 'midnight') {
+                    temaVisual = 'classico';
+                    localStorage.setItem('crmVisualTheme', temaVisual);
+                }
             } catch (error) {
                 // O CRM usa o visual clássico quando o armazenamento local não está disponível.
             }
-            if (!['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism', 'monochrome', 'flat', 'clay', 'midnight'].includes(temaVisual)) temaVisual = 'classico';
+            if (!['classico', 'lite', 'newsprint', 'retro-90s', 'dopamine', 'soft-ui', 'neo-brutalism', 'monochrome', 'flat', 'clay'].includes(temaVisual)) temaVisual = 'classico';
             document.documentElement.setAttribute('data-visual-theme', temaVisual);
             try {
                 if (localStorage.getItem('crmSidebarRecolhida') === 'true') {
@@ -45,7 +49,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20261019-cursor-cards-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='organic-glass.css', v='20261019-classic-hover-1') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20261015-midnight-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css', v='20261026-temas-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='newsprint.css', v='20260825-newsprint-4') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='retro-90s.css', v='20260825-retro-90s-6') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='dopamine.css', v='20260825-dopamine-7') }}">
@@ -55,7 +59,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='monochrome.css', v='20261019-monochrome-hover-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='flat.css', v='20260909-1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='clay.css', v='20261008-clay-1') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='midnight.css', v='20261015-midnight-1') }}">
 </head>
 <body>
     <aside class="sidebar">
@@ -150,7 +153,6 @@
                         <button type="button" class="theme-option" data-visual-theme-option="neo-brutalism" aria-pressed="false"><span class="theme-swatch theme-swatch-neo-brutalism" aria-hidden="true"></span><span><strong>Neo Brutal</strong><small>Punk, pop e tátil</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="monochrome" aria-pressed="false"><span class="theme-swatch theme-swatch-monochrome" aria-hidden="true"></span><span><strong>Monocromático</strong><small>Preto e branco · editorial</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                         <button type="button" class="theme-option" data-visual-theme-option="flat" aria-pressed="false"><span class="theme-swatch theme-swatch-flat" aria-hidden="true"></span><span><strong>Flat</strong><small>Gráfico, claro e vibrante</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
-                        <button type="button" class="theme-option" data-visual-theme-option="midnight" aria-pressed="false"><span class="theme-swatch theme-swatch-midnight" aria-hidden="true"></span><span><strong>Midnight</strong><small>Painel escuro com gradiente</small></span><i class="bi bi-check-lg" aria-hidden="true"></i></button>
                     </div>
                 </details>
                 <a class="btn btn-primary" href="{{ url_for('nova_proposta') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Nova Proposta</span></a>
@@ -173,6 +175,6 @@
         {% block content %}{% endblock %}
     </main>
     <script src="{{ url_for('static', filename='script.js', v='20261019-card-clicavel-2') }}"></script>
-    <script src="{{ url_for('static', filename='themes.js', v='20261015-midnight-1') }}"></script>
+    <script src="{{ url_for('static', filename='themes.js', v='20261026-temas-1') }}"></script>
 </body>
 </html>

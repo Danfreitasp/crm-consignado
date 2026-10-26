@@ -169,12 +169,3 @@
     box-shadow: 3px 3px 6px rgba(124, 58, 237, .3), -2px -2px 5px #fff,
         inset 2px 2px 4px rgba(255, 255, 255, .6), inset -2px -2px 4px rgba(69, 26, 125, .2);
 }
-
-.theme-swatch-midnight {
-    border: 1px solid rgba(124, 108, 255, .55);
-    border-radius: 9px;
-    background:
-        radial-gradient(circle at 78% 24%, rgba(46, 230, 176, .85) 0 18%, transparent 19%),
-        linear-gradient(135deg, #0b1020 0 46%, #7c6cff 46% 74%, #2ee6b0 74%);
-    box-shadow: 0 0 0 1px rgba(124, 108, 255, .3), 0 4px 10px rgba(2, 5, 16, .5);
-}
