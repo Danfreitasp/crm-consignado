@@ -1056,7 +1056,7 @@ class GerenciadorCRM(tk.Tk):
                 )
                 return
             self._enviar_log(f"Python: {python} ({origem})", "info")
-            self._iniciar_sem_ui(python, abrir_navegador=True)
+            self._iniciar_sem_ui(python, abrir_navegador=False)
         finally:
             self._enviar("fim_acao", None)
 
