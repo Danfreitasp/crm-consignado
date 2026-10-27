@@ -1,6 +1,9 @@
 # Mantem os arquivos de codigo consistentes entre Linux e Windows.
 * text=auto eol=lf
 
+# Binários nunca passam por conversão de fim de linha.
+*.exe binary
+
 # Scripts executados diretamente pelo Windows preservam CRLF.
 *.bat text eol=crlf
 *.cmd text eol=crlf

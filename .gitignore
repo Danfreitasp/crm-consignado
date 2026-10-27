@@ -69,7 +69,7 @@ temp/
 build/
 dist/
 *.spec
-/GerenciadorCRM.exe.old
+/GerenciadorCRM.exe.old*
 
 # Sistema operacional
 .DS_Store

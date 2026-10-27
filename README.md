@@ -128,12 +128,21 @@ Cuidados adotados pelo gerenciador:
 - o Git Pull é cancelado quando existem alterações locais não commitadas, para não sobrescrever trabalho;
 - só aceita avanço por fast-forward; se a branch divergir, avisa e não altera nada;
 - ao encerrar um processo que não foi iniciado por ele, confirma antes e só encerra processos identificados como Python;
+- identifica o processo da porta pela tabela TCP do Windows, com `netstat` e PowerShell como alternativas;
 - quando o pull altera `app.py`, `static/`, `templates/`, `data/` ou `requirements.txt`, avisa que é preciso reiniciar;
 - fechar a janela do gerenciador não fecha o CRM.
 
 Configuração e logs ficam em `%APPDATA%\GerenciadorCRM` (`config.json`, `gerenciador.log` e `crm.log`). Nenhuma senha é armazenada: o Git usa as credenciais já configuradas no Windows.
 
 O executável é versionado junto com o código, então o `Fazer Git Pull` também baixa novas versões do gerenciador. Como o Windows não permite sobrescrever um `.exe` em execução, nesse caso o gerenciador libera o próprio arquivo durante a atualização e oferece reiniciá-lo para aplicar a nova versão.
+
+Depois do pull, o gerenciador confere se o `GerenciadorCRM.exe` no disco tem exatamente os bytes do commit. Se estiver corrompido, restaura o arquivo pelo Git; se ainda assim não conferir, volta para a versão anterior em vez de abrir um executável inválido.
+
+Se o executável ficar corrompido a ponto de não abrir (`Failed to execute script` ou `incorrect header check`), feche o gerenciador e rode no terminal, dentro da pasta do projeto:
+
+```cmd
+git checkout HEAD -- GerenciadorCRM.exe
+```
 
 Para gerar o executável novamente:
 

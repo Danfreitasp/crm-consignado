@@ -201,23 +201,36 @@ def caminho_executavel_antigo(exe: Path) -> Path:
     return exe.with_name(exe.name + ".old")
 
 
+def _candidatos_backup(exe: Path) -> list[Path]:
+    return [caminho_executavel_antigo(exe)] + [
+        exe.with_name(f"{exe.name}.old{i}") for i in range(2, 10)
+    ]
+
+
 def liberar_executavel(exe: Path) -> Path | None:
     """Renomeia o executável em uso para .old e devolve o backup.
 
     O Windows bloqueia sobrescrever um .exe em execução, mas permite
     renomeá-lo. O processo atual continua rodando a partir do backup.
+    Se um backup anterior ainda estiver em uso, tenta outro nome.
     """
-    backup = caminho_executavel_antigo(exe)
-    try:
-        backup.unlink(missing_ok=True)
-        exe.rename(backup)
-    except OSError:
-        return None
-    return backup
+    for backup in _candidatos_backup(exe):
+        try:
+            backup.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            continue
+        try:
+            exe.rename(backup)
+        except OSError:
+            return None
+        return backup
+    return None
 
 
 def restaurar_executavel(exe: Path | None, backup: Path | None) -> None:
-    if exe is None or backup is None:
+    if exe is None or backup is None or not backup.is_file():
         return
     try:
         if exe.exists():
@@ -230,10 +243,11 @@ def restaurar_executavel(exe: Path | None, backup: Path | None) -> None:
 def remover_executavel_antigo(exe: Path | None) -> None:
     if exe is None:
         return
-    try:
-        caminho_executavel_antigo(exe).unlink(missing_ok=True)
-    except OSError:
-        pass
+    for backup in _candidatos_backup(exe):
+        try:
+            backup.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def porta_aberta(porta: int, host: str = "127.0.0.1", timeout: float = 0.25) -> bool:
@@ -247,33 +261,151 @@ def porta_aberta(porta: int, host: str = "127.0.0.1", timeout: float = 0.25) -> 
 
 
 def interpretar_netstat(saida: str, porta: int) -> list[int]:
-    """Extrai os PIDs que escutam na porta a partir da saída do netstat."""
-    pids: list[int] = []
+    """Extrai os PIDs que escutam na porta a partir da saída do netstat.
+
+    O texto da coluna de estado varia entre versões e idiomas do Windows
+    (LISTENING, ESCUTANDO, …), então a linha de escuta é reconhecida pelo
+    endereço remoto zerado ou pelo estado, sem exigir um texto específico.
+    """
+    escutando: list[int] = []
+    conexoes: list[int] = []
     for linha in (saida or "").splitlines():
         partes = linha.split()
-        if len(partes) < 5 or partes[0].upper() != "TCP":
+        if len(partes) < 5 or partes[0].upper() not in {"TCP", "TCPV6"}:
             continue
         if partes[1].rsplit(":", 1)[-1] != str(porta):
-            continue
-        estado = partes[3].upper()
-        if not (estado.startswith("LISTEN") or estado.startswith("ESCUT")):
             continue
         if not partes[-1].isdigit():
             continue
         pid = int(partes[-1])
-        if pid not in pids:
-            pids.append(pid)
+        if pid <= 0:
+            continue
+        estado = partes[3].upper()
+        remoto = partes[2].rsplit(":", 1)[-1]
+        if remoto in {"0", "*"} or estado.startswith(("LISTEN", "ESCUT", "OUV")):
+            if pid not in escutando:
+                escutando.append(pid)
+        elif pid not in conexoes and pid not in escutando:
+            conexoes.append(pid)
+    # Em último caso, aceita qualquer conexão cuja porta local seja a procurada.
+    return escutando or conexoes
+
+
+def _pids_na_porta_tabela(porta: int) -> list[int]:
+    """PIDs que escutam na porta, direto da tabela TCP do Windows.
+
+    Usa GetExtendedTcpTable (iphlpapi) para não depender do netstat, que
+    pode falhar, demorar ou ter a saída em formato inesperado.
+    """
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class LinhaIPv4(ctypes.Structure):
+            _fields_ = [
+                ("estado", wintypes.DWORD),
+                ("endereco_local", wintypes.DWORD),
+                ("porta_local", wintypes.DWORD),
+                ("endereco_remoto", wintypes.DWORD),
+                ("porta_remota", wintypes.DWORD),
+                ("pid", wintypes.DWORD),
+            ]
+
+        class LinhaIPv6(ctypes.Structure):
+            _fields_ = [
+                ("endereco_local", ctypes.c_ubyte * 16),
+                ("escopo_local", wintypes.DWORD),
+                ("porta_local", wintypes.DWORD),
+                ("endereco_remoto", ctypes.c_ubyte * 16),
+                ("escopo_remoto", wintypes.DWORD),
+                ("porta_remota", wintypes.DWORD),
+                ("estado", wintypes.DWORD),
+                ("pid", wintypes.DWORD),
+            ]
+
+        iphlpapi = ctypes.WinDLL("iphlpapi")
+        consultar = iphlpapi.GetExtendedTcpTable
+        consultar.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(wintypes.DWORD),
+            wintypes.BOOL,
+            wintypes.ULONG,
+            ctypes.c_int,
+            wintypes.ULONG,
+        ]
+        consultar.restype = wintypes.DWORD
+
+        pids: list[int] = []
+
+        def coletar(familia: int, linha) -> None:
+            # TCP_TABLE_OWNER_PID_LISTENER = 3
+            tamanho = wintypes.DWORD(0)
+            consultar(None, ctypes.byref(tamanho), False, familia, 3, 0)
+            if not tamanho.value:
+                return
+            buffer = ctypes.create_string_buffer(tamanho.value)
+            if consultar(buffer, ctypes.byref(tamanho), False, familia, 3, 0) != 0:
+                return
+            total = ctypes.cast(buffer, ctypes.POINTER(wintypes.DWORD)).contents.value
+            inicio = ctypes.addressof(buffer) + ctypes.sizeof(wintypes.DWORD)
+            itens = ctypes.cast(inicio, ctypes.POINTER(linha * total)).contents
+            for item in itens:
+                # A porta vem em ordem de bytes de rede nos 16 bits baixos.
+                porta_local = ((item.porta_local & 0xFF) << 8) | (
+                    (item.porta_local >> 8) & 0xFF
+                )
+                if porta_local != porta:
+                    continue
+                pid = int(item.pid)
+                if pid > 0 and pid not in pids:
+                    pids.append(pid)
+
+        coletar(2, LinhaIPv4)  # AF_INET
+        coletar(23, LinhaIPv6)  # AF_INET6
+        return pids
+    except Exception:  # pragma: no cover - depende da API do Windows
+        return []
+
+
+def _pids_na_porta_powershell(porta: int) -> list[int]:
+    if os.name != "nt":
+        return []
+    script = (
+        f"Get-NetTCPConnection -LocalPort {int(porta)} -State Listen "
+        "-ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"
+    )
+    try:
+        resultado = _rodar(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    pids: list[int] = []
+    for linha in (resultado.stdout or "").splitlines():
+        texto = linha.strip()
+        if texto.isdigit() and int(texto) > 0 and int(texto) not in pids:
+            pids.append(int(texto))
     return pids
 
 
 def pids_na_porta(porta: int) -> list[int]:
-    if os.name != "nt":
+    if os.name != "nt" or not porta:
         return []
+    pids = _pids_na_porta_tabela(porta)
+    if pids:
+        return pids
     try:
-        resultado = _rodar(["netstat", "-ano", "-p", "tcp"], timeout=15)
+        resultado = _rodar(["netstat", "-ano"], timeout=30)
     except (OSError, subprocess.SubprocessError):
-        return []
-    return interpretar_netstat(resultado.stdout, porta)
+        resultado = None
+    if resultado is not None:
+        pids = interpretar_netstat(resultado.stdout, porta)
+        if pids:
+            return pids
+    return _pids_na_porta_powershell(porta)
 
 
 def nome_processo(pid: int) -> str:
@@ -471,6 +603,7 @@ class GerenciadorCRM(tk.Tk):
         remover_executavel_antigo(caminho_exe_atual())
         self._python_config = str(self._config.get("python") or "")
         self._processo: subprocess.Popen | None = None
+        self._exe_backup: Path | None = None
         self._arquivo_log_crm = None
         self._ocupado = False
         self._crm_aberto = False
@@ -920,6 +1053,31 @@ class GerenciadorCRM(tk.Tk):
                 "Não encontrei o novo GerenciadorCRM.exe; abra-o manualmente.", "erro"
             )
             return
+        alvo = arquivo_do_executavel(self._pasta)
+        if alvo is not None and not self._executavel_integro(alvo[1]):
+            tinha_backup = self._exe_backup is not None
+            restaurar_executavel(exe, self._exe_backup)
+            self._exe_backup = None
+            if tinha_backup:
+                detalhe = (
+                    "A versão anterior foi restaurada. Feche este gerenciador e "
+                    "abra-o novamente para continuar na versão antiga."
+                )
+            else:
+                detalhe = (
+                    "Feche este gerenciador e rode no terminal: git checkout HEAD -- "
+                    f"{alvo[1]}"
+                )
+            self._log(
+                "O novo executável não passou na verificação de integridade. " + detalhe,
+                "erro",
+            )
+            messagebox.showerror(
+                "Gerenciador não atualizado",
+                "O novo GerenciadorCRM.exe chegou corrompido.\n\n" + detalhe,
+                parent=self,
+            )
+            return
         try:
             subprocess.Popen(
                 [str(exe)], cwd=None if self._pasta is None else str(self._pasta)
@@ -929,6 +1087,7 @@ class GerenciadorCRM(tk.Tk):
                 f"Não foi possível abrir a nova versão: {exc}. Abra manualmente.", "erro"
             )
             return
+        self._exe_backup = None
         self._fechar_log_crm()
         self.destroy()
 
@@ -950,7 +1109,8 @@ class GerenciadorCRM(tk.Tk):
             if porta_aberta(self._porta):
                 self._log(
                     f"A porta {self._porta} está em uso, mas não consegui identificar o processo. "
-                    "Nada foi encerrado.",
+                    "Nada foi encerrado. Feche o CRM pelo terminal em que ele foi iniciado "
+                    "(ou pelo gerenciador que o abriu) e tente de novo.",
                     "erro",
                 )
             else:
@@ -1091,6 +1251,16 @@ class GerenciadorCRM(tk.Tk):
             env=ambiente_git(),
         )
 
+    def _executavel_integro(self, relativo: str) -> bool:
+        """Confere se o .exe do disco tem exatamente os bytes do commit atual."""
+        esperado = self._git(["rev-parse", f"HEAD:{relativo}"])
+        if esperado.returncode != 0 or not esperado.stdout.strip():
+            return False
+        atual = self._git(["hash-object", "--no-filters", "--", relativo])
+        if atual.returncode != 0:
+            return False
+        return atual.stdout.strip() == esperado.stdout.strip()
+
     def _registrar_saida_git(self, resultado: subprocess.CompletedProcess) -> None:
         nivel = "info" if resultado.returncode == 0 else "erro"
         texto = ((resultado.stdout or "") + (resultado.stderr or "")).strip()
@@ -1105,6 +1275,7 @@ class GerenciadorCRM(tk.Tk):
         gerenciador_atualizado = False
         exe_atual: Path | None = None
         backup_exe: Path | None = None
+        relativo = ""
         try:
             self._enviar_log(f"Verificando o repositório em {self._pasta}…", "destaque")
             resultado = self._git(["status", "--porcelain"])
@@ -1225,12 +1396,33 @@ class GerenciadorCRM(tk.Tk):
             self._enviar_log(f"Atualizado: {antes[:7]} → {depois[:7]}", "ok")
 
             gerenciador_atualizado = backup_exe is not None
-            if gerenciador_atualizado:
-                self._enviar_log(
-                    "O GerenciadorCRM.exe também foi atualizado; reabra o gerenciador "
-                    "para usar a nova versão.",
-                    "aviso",
-                )
+            if gerenciador_atualizado and exe_atual is not None:
+                if not self._executavel_integro(relativo):
+                    self._enviar_log(
+                        "O GerenciadorCRM.exe baixado não confere com o repositório. "
+                        "Tentando restaurar o arquivo do Git…",
+                        "aviso",
+                    )
+                    self._git(["checkout", "HEAD", "--", relativo])
+                    if self._executavel_integro(relativo):
+                        self._enviar_log(
+                            "Executável restaurado pelo Git e verificado.", "ok"
+                        )
+                    else:
+                        gerenciador_atualizado = False
+                        self._enviar_log(
+                            "Não foi possível obter um executável íntegro do Git. "
+                            "A versão anterior do gerenciador foi restaurada; se o problema "
+                            "continuar, rode no terminal: git checkout HEAD -- "
+                            f"{relativo}",
+                            "erro",
+                        )
+                if gerenciador_atualizado:
+                    self._enviar_log(
+                        "O GerenciadorCRM.exe também foi atualizado e verificado; "
+                        "reabra o gerenciador para usar a nova versão.",
+                        "aviso",
+                    )
 
             arquivos: list[str] = []
             if antes and depois and antes != depois:
@@ -1258,8 +1450,13 @@ class GerenciadorCRM(tk.Tk):
         except Exception as exc:  # pragma: no cover - defensivo
             self._enviar_log(f"Erro inesperado no git pull: {exc}", "erro")
         finally:
-            if backup_exe is not None and not gerenciador_atualizado:
-                restaurar_executavel(exe_atual, backup_exe)
+            if backup_exe is not None:
+                if gerenciador_atualizado:
+                    # Mantém o backup até o gerenciador ser relançado com sucesso.
+                    self._exe_backup = backup_exe
+                else:
+                    restaurar_executavel(exe_atual, backup_exe)
+                    self._exe_backup = None
             self._enviar("fim_git", (relevantes, gerenciador_atualizado))
 
     # -- configurações --------------------------------------------------------
