@@ -132,12 +132,16 @@ Cuidados adotados pelo gerenciador:
 
 Configuração e logs ficam em `%APPDATA%\GerenciadorCRM` (`config.json`, `gerenciador.log` e `crm.log`). Nenhuma senha é armazenada: o Git usa as credenciais já configuradas no Windows.
 
-O executável não é versionado no Git. Para gerá-lo novamente:
+O executável é versionado junto com o código, então o `Fazer Git Pull` também baixa novas versões do gerenciador. Como o Windows não permite sobrescrever um `.exe` em execução, nesse caso o gerenciador libera o próprio arquivo durante a atualização e oferece reiniciá-lo para aplicar a nova versão.
+
+Para gerar o executável novamente:
 
 ```cmd
 pip install pyinstaller
 pyinstaller --onefile --windowed --name GerenciadorCRM gerenciador_crm.py
 ```
+
+Depois de gerar, faça commit do `GerenciadorCRM.exe` para que as outras máquinas recebam a versão nova.
 
 Também é possível usar sem gerar o executável:
 

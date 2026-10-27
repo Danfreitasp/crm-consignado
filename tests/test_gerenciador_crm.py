@@ -14,6 +14,53 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import gerenciador_crm as gerenciador
 
 
+class TestExecutavel(unittest.TestCase):
+    def test_arquivo_do_executavel_quando_empacotado(self) -> None:
+        with tempfile.TemporaryDirectory() as pasta:
+            raiz = Path(pasta)
+            exe = raiz / "GerenciadorCRM.exe"
+            exe.write_text("", encoding="utf-8")
+            with mock.patch.object(gerenciador.sys, "frozen", True, create=True), \
+                    mock.patch.object(gerenciador.sys, "executable", str(exe)):
+                alvo = gerenciador.arquivo_do_executavel(raiz)
+            self.assertEqual(alvo, (exe.resolve(), "GerenciadorCRM.exe"))
+
+    def test_arquivo_do_executavel_fora_do_projeto(self) -> None:
+        with tempfile.TemporaryDirectory() as pasta, tempfile.TemporaryDirectory() as outra:
+            exe = Path(outra) / "GerenciadorCRM.exe"
+            exe.write_text("", encoding="utf-8")
+            with mock.patch.object(gerenciador.sys, "frozen", True, create=True), \
+                    mock.patch.object(gerenciador.sys, "executable", str(exe)):
+                self.assertIsNone(gerenciador.arquivo_do_executavel(Path(pasta)))
+
+    def test_sem_empacotamento_nao_ha_executavel(self) -> None:
+        with mock.patch.object(gerenciador.sys, "frozen", False, create=True):
+            self.assertIsNone(gerenciador.caminho_exe_atual())
+
+    def test_liberar_e_restaurar_executavel(self) -> None:
+        with tempfile.TemporaryDirectory() as pasta:
+            exe = Path(pasta) / "GerenciadorCRM.exe"
+            exe.write_text("versao antiga", encoding="utf-8")
+            backup = gerenciador.liberar_executavel(exe)
+            self.assertIsNotNone(backup)
+            self.assertFalse(exe.exists())
+            self.assertEqual(backup.read_text(encoding="utf-8"), "versao antiga")
+            # simula o checkout do git devolvendo a versão antiga ao caminho original
+            exe.write_text("versao restaurada pelo git", encoding="utf-8")
+            gerenciador.restaurar_executavel(exe, backup)
+            self.assertEqual(exe.read_text(encoding="utf-8"), "versao antiga")
+            self.assertFalse(backup.exists())
+
+    def test_remover_executavel_antigo(self) -> None:
+        with tempfile.TemporaryDirectory() as pasta:
+            exe = Path(pasta) / "GerenciadorCRM.exe"
+            antigo = gerenciador.caminho_executavel_antigo(exe)
+            antigo.write_text("x", encoding="utf-8")
+            gerenciador.remover_executavel_antigo(exe)
+            self.assertFalse(antigo.exists())
+        gerenciador.remover_executavel_antigo(None)
+
+
 class TestDescobertaDoProjeto(unittest.TestCase):
     def test_ler_porta_encontra_valor_do_app_run(self) -> None:
         with tempfile.TemporaryDirectory() as pasta:

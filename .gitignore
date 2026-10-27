@@ -65,11 +65,11 @@ crm.bat
 tmp/
 temp/
 
-# Executável do gerenciador (gerado com PyInstaller)
+# Executável do gerenciador (build gerado com PyInstaller)
 build/
 dist/
 *.spec
-/GerenciadorCRM.exe
+/GerenciadorCRM.exe.old
 
 # Sistema operacional
 .DS_Store

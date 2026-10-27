@@ -178,6 +178,64 @@ def localizar_python(pasta: Path | None, configurado: str | None = None) -> tupl
     return None, "não encontrado"
 
 
+def caminho_exe_atual() -> Path | None:
+    """Caminho do executável em execução, quando rodando empacotado."""
+    if not getattr(sys, "frozen", False):
+        return None
+    return Path(sys.executable).resolve()
+
+
+def arquivo_do_executavel(pasta: Path | None) -> tuple[Path, str] | None:
+    """Executável atual e o caminho dele relativo à pasta do projeto."""
+    exe = caminho_exe_atual()
+    if exe is None or not pasta:
+        return None
+    try:
+        relativo = exe.relative_to(pasta.resolve()).as_posix()
+    except (ValueError, OSError):
+        return None
+    return exe, relativo
+
+
+def caminho_executavel_antigo(exe: Path) -> Path:
+    return exe.with_name(exe.name + ".old")
+
+
+def liberar_executavel(exe: Path) -> Path | None:
+    """Renomeia o executável em uso para .old e devolve o backup.
+
+    O Windows bloqueia sobrescrever um .exe em execução, mas permite
+    renomeá-lo. O processo atual continua rodando a partir do backup.
+    """
+    backup = caminho_executavel_antigo(exe)
+    try:
+        backup.unlink(missing_ok=True)
+        exe.rename(backup)
+    except OSError:
+        return None
+    return backup
+
+
+def restaurar_executavel(exe: Path | None, backup: Path | None) -> None:
+    if exe is None or backup is None:
+        return
+    try:
+        if exe.exists():
+            exe.unlink()
+        backup.rename(exe)
+    except OSError:
+        pass
+
+
+def remover_executavel_antigo(exe: Path | None) -> None:
+    if exe is None:
+        return
+    try:
+        caminho_executavel_antigo(exe).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def porta_aberta(porta: int, host: str = "127.0.0.1", timeout: float = 0.25) -> bool:
     if not porta:
         return False
@@ -410,6 +468,7 @@ class GerenciadorCRM(tk.Tk):
         self._config = carregar_config()
         self._pasta = detectar_pasta_projeto(self._config.get("pasta"))
         self._porta = porta_configurada(self._config) or ler_porta(self._pasta)
+        remover_executavel_antigo(caminho_exe_atual())
         self._python_config = str(self._config.get("python") or "")
         self._processo: subprocess.Popen | None = None
         self._arquivo_log_crm = None
@@ -561,10 +620,28 @@ class GerenciadorCRM(tk.Tk):
                     self._atualizar_status()
                     self._atualizar_info_git()
                 elif tipo == "fim_git":
+                    relevantes, atualizou_gerenciador = dados
                     self._definir_ocupado(False)
                     self._atualizar_status()
                     self._atualizar_info_git()
-                    if dados and self._crm_aberto:
+                    if atualizou_gerenciador:
+                        if self._crm_aberto:
+                            self._log(
+                                "Reinicie o CRM depois de reabrir o gerenciador, se necessário.",
+                                "aviso",
+                            )
+                        if messagebox.askyesno(
+                            "Gerenciador atualizado",
+                            "A nova versão do gerenciador foi baixada.\n\n"
+                            "Reiniciar o gerenciador agora para usá-la?",
+                            parent=self,
+                        ):
+                            self._reiniciar_gerenciador()
+                        else:
+                            self._log(
+                                "Feche e abra o gerenciador para usar a nova versão.", "aviso"
+                            )
+                    elif relevantes and self._crm_aberto:
                         if messagebox.askyesno(
                             "Atualização aplicada",
                             "As mudanças afetam o CRM em execução.\n"
@@ -830,6 +907,25 @@ class GerenciadorCRM(tk.Tk):
                 pass
 
     # -- fechar / reiniciar ---------------------------------------------------
+    def _reiniciar_gerenciador(self) -> None:
+        exe = caminho_exe_atual()
+        if exe is None or not exe.is_file():
+            self._log(
+                "Não encontrei o novo GerenciadorCRM.exe; abra-o manualmente.", "erro"
+            )
+            return
+        try:
+            subprocess.Popen(
+                [str(exe)], cwd=None if self._pasta is None else str(self._pasta)
+            )
+        except OSError as exc:
+            self._log(
+                f"Não foi possível abrir a nova versão: {exc}. Abra manualmente.", "erro"
+            )
+            return
+        self._fechar_log_crm()
+        self.destroy()
+
     def _alvos_para_parar(self) -> tuple[list[int], bool]:
         if self._processo is not None:
             if self._processo.poll() is None:
@@ -1000,6 +1096,9 @@ class GerenciadorCRM(tk.Tk):
 
     def _tarefa_git_pull(self) -> None:
         relevantes = False
+        gerenciador_atualizado = False
+        exe_atual: Path | None = None
+        backup_exe: Path | None = None
         try:
             self._enviar_log(f"Verificando o repositório em {self._pasta}…", "destaque")
             resultado = self._git(["status", "--porcelain"])
@@ -1080,6 +1179,30 @@ class GerenciadorCRM(tk.Tk):
                 )
                 return
 
+            alvo_exe = arquivo_do_executavel(self._pasta)
+            arquivos_novos: list[str] = []
+            if alvo_exe:
+                resultado = self._git(["diff", "--name-only", f"HEAD..{remoto}"])
+                if resultado.returncode == 0:
+                    arquivos_novos = [
+                        linha for linha in resultado.stdout.splitlines() if linha.strip()
+                    ]
+            if alvo_exe and alvo_exe[1] in arquivos_novos:
+                exe_atual, relativo = alvo_exe
+                backup_exe = liberar_executavel(exe_atual)
+                if backup_exe is None:
+                    exe_atual = None
+                    self._enviar_log(
+                        "Esta atualização inclui o GerenciadorCRM.exe, mas não foi possível "
+                        "liberá-lo (arquivo em uso). Feche o gerenciador e faça o pull por "
+                        "outro programa (terminal ou GitHub Desktop); depois abra-o novamente.",
+                        "erro",
+                    )
+                    return
+                self._enviar_log("Executável do gerenciador liberado para atualização.", "info")
+                if self._git(["ls-files", "--error-unmatch", relativo]).returncode == 0:
+                    self._git(["checkout", "--", relativo])
+
             self._enviar_log(
                 f"{atras} commit(s) novo(s) em {remoto}. Aplicando git pull --ff-only…",
                 "destaque",
@@ -1094,6 +1217,14 @@ class GerenciadorCRM(tk.Tk):
                 return
             depois = self._git(["rev-parse", "HEAD"]).stdout.strip()
             self._enviar_log(f"Atualizado: {antes[:7]} → {depois[:7]}", "ok")
+
+            gerenciador_atualizado = backup_exe is not None
+            if gerenciador_atualizado:
+                self._enviar_log(
+                    "O GerenciadorCRM.exe também foi atualizado; reabra o gerenciador "
+                    "para usar a nova versão.",
+                    "aviso",
+                )
 
             arquivos: list[str] = []
             if antes and depois and antes != depois:
@@ -1121,7 +1252,9 @@ class GerenciadorCRM(tk.Tk):
         except Exception as exc:  # pragma: no cover - defensivo
             self._enviar_log(f"Erro inesperado no git pull: {exc}", "erro")
         finally:
-            self._enviar("fim_git", relevantes)
+            if backup_exe is not None and not gerenciador_atualizado:
+                restaurar_executavel(exe_atual, backup_exe)
+            self._enviar("fim_git", (relevantes, gerenciador_atualizado))
 
     # -- configurações --------------------------------------------------------
     def abrir_configuracoes(self) -> None:
