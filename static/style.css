@@ -302,7 +302,10 @@ body {
     font-weight: 680;
     letter-spacing: -.02em;
     white-space: nowrap;
-    overflow: hidden;
+    /* O clip com margem preserva as reticências de títulos longos sem cortar
+       a sombra/contorno dos temas (o "O" final aparecia fatiado). */
+    overflow: clip;
+    overflow-clip-margin: .25em;
     text-overflow: ellipsis;
 }
 .topbar > div:first-child { min-width: 0; }
