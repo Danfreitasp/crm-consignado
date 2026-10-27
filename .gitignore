@@ -65,6 +65,12 @@ crm.bat
 tmp/
 temp/
 
+# Executável do gerenciador (gerado com PyInstaller)
+build/
+dist/
+*.spec
+/GerenciadorCRM.exe
+
 # Sistema operacional
 .DS_Store
 Thumbs.db

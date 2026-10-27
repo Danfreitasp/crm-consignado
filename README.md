@@ -110,6 +110,41 @@ http://IP-DA-MAQUINA:5000
 
 O acesso em rede deve ficar restrito a uma rede confiável. Não exponha o servidor diretamente à internet sem autenticação e proteção adequadas.
 
+## Gerenciador do CRM (executável)
+
+O `GerenciadorCRM.exe` reúne as tarefas do dia a dia em uma janela única, sem terminal:
+
+- **Abrir CRM**: inicia o servidor quando necessário e abre `http://127.0.0.1:5000` no navegador.
+- **Reiniciar CRM**: encerra o processo atual e inicia de novo.
+- **Fechar CRM**: encerra o CRM.
+- **Fazer Git Pull**: baixa atualizações com `git fetch` + `git pull --ff-only`.
+- **Abrir no navegador**, **Abrir pasta**, **Ver log do CRM**, **Limpar histórico** e **Configurações**.
+
+O executável fica na raiz do projeto, ao lado do `app.py`. Para usar, dê dois cliques em `GerenciadorCRM.exe`. Se mover o arquivo para outra pasta, use **Configurações** para indicar onde está o projeto.
+
+Cuidados adotados pelo gerenciador:
+
+- o Git Pull é cancelado quando existem alterações locais não commitadas, para não sobrescrever trabalho;
+- só aceita avanço por fast-forward; se a branch divergir, avisa e não altera nada;
+- ao encerrar um processo que não foi iniciado por ele, confirma antes e só encerra processos identificados como Python;
+- quando o pull altera `app.py`, `static/`, `templates/`, `data/` ou `requirements.txt`, avisa que é preciso reiniciar;
+- fechar a janela do gerenciador não fecha o CRM.
+
+Configuração e logs ficam em `%APPDATA%\GerenciadorCRM` (`config.json`, `gerenciador.log` e `crm.log`). Nenhuma senha é armazenada: o Git usa as credenciais já configuradas no Windows.
+
+O executável não é versionado no Git. Para gerá-lo novamente:
+
+```cmd
+pip install pyinstaller
+pyinstaller --onefile --windowed --name GerenciadorCRM gerenciador_crm.py
+```
+
+Também é possível usar sem gerar o executável:
+
+```cmd
+python gerenciador_crm.py
+```
+
 ## Configuração por variáveis de ambiente
 
 Todas são opcionais:
@@ -164,7 +199,9 @@ CRM_ANEXOS_DIR
 
 ## Como atualizar mantendo seus dados
 
-Ao atualizar o sistema, substitua apenas os arquivos de código e interface:
+A forma mais simples é usar **Fazer Git Pull** no `GerenciadorCRM.exe`: ele cancela a atualização quando há alterações locais não commitadas e avisa quando é preciso reiniciar o CRM.
+
+Para atualizar manualmente, substitua apenas os arquivos de código e interface:
 
 ```text
 app.py
@@ -191,6 +228,7 @@ Os modelos editados pelo CRM ficam salvos no banco. O arquivo `data/modelos_mens
 ```text
 CRM Consignado/
 ├─ app.py
+├─ gerenciador_crm.py
 ├─ requirements.txt
 ├─ README.md
 ├─ data/
