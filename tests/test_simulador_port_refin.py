@@ -1,17 +1,21 @@
 """Regressões financeiras sem abrir o banco operacional."""
 import ast
 import calendar
+import re
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 source = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8"))
-namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timedelta,
+namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timedelta, "re": re,
              "limpar_texto": lambda value: str(value or "").strip(),
+             "normalizar_matricula": lambda value: str(value or "").strip(),
+             "codigo_especie_beneficio_inss": lambda _: "",
              "montar_mensagem_simulador_port_refin": lambda *_: ""}
 constants = {"INSS_PORT_REFIN_TABELAS", "INSS_PORT_REFIN_FATORES_LIQUIDOS", "INSS_PORT_REFIN_FATORES_MESMO_DIA"}
-functions = {"datas_simulador_quali", "dias_fluxo_quali", "coeficiente_fluxo_quali", "taxa_fluxo_quali", "calcular_simulador_port_refin"}
+functions = {"datas_simulador_quali", "dias_fluxo_quali", "coeficiente_fluxo_quali", "taxa_fluxo_quali",
+             "calcular_simulador_port_refin", "celula_extrato", "dados_beneficiario_extrato"}
 nodes = [node for node in source.body
          if (isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in constants for t in node.targets))
          or (isinstance(node, ast.FunctionDef) and node.name in functions)]
@@ -44,6 +48,35 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(datas["data_refinanciamento"], "2026-10-07")
         self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-29")
+        # O dia do benefício prevalece sobre o dia da referência.
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 27), 25)["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-07")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_refin"], "2028-02-29")
+
+    def test_dia_do_beneficio_reproduz_banco_2512(self):
+        """Banco Quali em 27/10/2026: vencimento em 25/12 gera contrato de 24.714,31."""
+        result = calcular(dict(tabela_port_refin="633", parcela_atual=545.26, saldo_quitacao=21249.31,
+                               prazo_contrato=84, parcelas_pagas=59, dia_pagamento_beneficio=25,
+                               data_simulacao="2026-10-27", data_refinanciamento="2026-10-27"))
+        self.assertEqual(result["coeficiente"], 0.02206252)
+        self.assertEqual(result["valor_contrato"], 24714.31)
+        self.assertAlmostEqual(result["troco"], 3348.49, delta=.10)
+
+    def test_extrato_informa_dia_do_pagamento_do_beneficio(self):
+        texto = "\n".join([
+            "HISTÓRICO DE EMPRÉSTIMO CONSIGNADO",
+            "MARIA DA SILVA",
+            "Benefício 32 - APOSENTADORIA POR IDADE",
+            "N.º Benefício: 123.456.789-0",
+            "Pago em: 25/09/2026",
+            "Não é pensão alimentícia",
+            "Meio: Conta Corrente",
+            "Agência: 0001",
+            "Conta Corrente: 12345-6",
+        ])
+        dados = namespace["dados_beneficiario_extrato"](texto)
+        self.assertEqual(dados["dia_pagamento_beneficio"], "25")
+        self.assertNotIn("Banco:", dados["dados_bancarios"])
 
     def dados(self, **changes):
         dados = dict(tabela_port_refin="649", parcela_atual=786.73, saldo_quitacao=36977.65,

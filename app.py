@@ -3639,6 +3639,7 @@ def dados_simulador_inss() -> dict[str, Any]:
         )},
         "prazo_contrato": max(0, int(parse_moeda(request.form.get("prazo_contrato")))),
         "parcelas_pagas": max(0, int(parse_moeda(request.form.get("parcelas_pagas")))),
+        "dia_pagamento_beneficio": max(0, min(31, int(parse_moeda(request.form.get("dia_pagamento_beneficio"))))),
         "taxa_contrato_atual": parse_percentual(request.form.get("taxa_contrato_atual")),
         "banco_destino": "QUALI" if modo_simulacao == "port_refin" else limpar_texto(request.form.get("banco_destino")),
         "tabela_port_refin": limpar_texto(request.form.get("tabela_port_refin")),
@@ -3701,11 +3702,18 @@ def montar_mensagem_simulador_inss(dados: dict[str, Any], produto: str, descrica
     )
 
 
-def datas_simulador_quali(referencia: date | None = None) -> dict[str, str]:
+def datas_simulador_quali(referencia: date | None = None, dia_vencimento: int | None = None) -> dict[str, str]:
+    """Sugere as datas do simulador.
+
+    O dia do vencimento segue o dia de pagamento do benefício quando informado,
+    pois é esse o dia usado pelo banco na simulação. Sem essa informação, usa o
+    dia da data de referência (comportamento anterior).
+    """
     referencia = referencia or date.today()
+    dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else referencia.day
     mes = referencia.year * 12 + referencia.month - 1 + 2
     ano, mes_zero = divmod(mes, 12)
-    vencimento = date(ano, mes_zero + 1, min(referencia.day, calendar.monthrange(ano, mes_zero + 1)[1]))
+    vencimento = date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
     return {
         "data_simulacao": referencia.isoformat(),
         "data_refinanciamento": referencia.isoformat(),
@@ -3778,13 +3786,17 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         erros.append("Os descontos do banco não podem ser negativos.")
 
     parcelas_abertas = max(0, int(dados.get("prazo_contrato") or 0) - int(dados.get("parcelas_pagas") or 0))
+    try:
+        dia_beneficio = int(dados.get("dia_pagamento_beneficio") or 0)
+    except (TypeError, ValueError):
+        dia_beneficio = 0
     taxa_portabilidade = 0.0
     datas = {}
     try:
         referencia = date.fromisoformat(dados.get("data_simulacao") or date.today().isoformat())
     except ValueError:
         referencia = date.today()
-    defaults = datas_simulador_quali(referencia)
+    defaults = datas_simulador_quali(referencia, dia_beneficio)
     for campo, padrao in defaults.items():
         dados[campo] = dados.get(campo) or padrao
         try:
@@ -3994,6 +4006,7 @@ def dados_beneficiario_extrato(texto: str) -> dict[str, str]:
         "especie": "",
         "especie_descricao": "",
         "dados_bancarios": "",
+        "dia_pagamento_beneficio": "",
     }
     cabecalho = re.search(
         r"HIST[ÓO]RICO\s+DE\s+EMPR[ÉE]STIMO\s+CONSIGNADO\s+(.+?)\s+Benef[íÍI]cio\s+(.+?)\s+N[.º°]?\s*Benef[íÍI]cio\s*:\s*([\d.\-]+)",
@@ -4012,7 +4025,14 @@ def dados_beneficiario_extrato(texto: str) -> dict[str, str]:
     conta = re.search(r"Conta\s+Corrente\s*:\s*([^\s]+)", texto, flags=re.IGNORECASE)
     dados_conta = []
     if banco:
-        dados_conta.append(f"Banco: {celula_extrato(banco.group(1))}")
+        valor_pago_em = celula_extrato(banco.group(1))
+        data_pagamento = re.fullmatch(r"(\d{2})/(\d{2})/(\d{4})", valor_pago_em)
+        if data_pagamento:
+            # "Pago em" é a data do pagamento do benefício. O dia se repete todo
+            # mês e é o mesmo que o banco usa como vencimento das parcelas.
+            dados["dia_pagamento_beneficio"] = str(int(data_pagamento.group(1)))
+        else:
+            dados_conta.append(f"Banco: {valor_pago_em}")
     if meio:
         dados_conta.append(f"Meio: {celula_extrato(meio.group(1))}")
     if agencia:
@@ -4209,7 +4229,7 @@ def simulador_inss():
         "modo_simulacao": "novo", "fonte_simulacao": "extrato", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
-        "parcelas_pagas": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
+        "parcelas_pagas": 0, "dia_pagamento_beneficio": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
         "taxa_nova": 0, "coeficiente_port_refin": 0, "descontos_banco": None, "observacoes": "", "data_averbacao": "",
         "margem_disponivel_importada": 0, "deduzir_negativo": "nao",
         "mensagem_modelo": INSS_PORT_REFIN_MENSAGEM_MODELO,

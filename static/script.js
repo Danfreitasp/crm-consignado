@@ -2273,6 +2273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dataRefinanciamento: document.getElementById('portDataRefinanciamento'),
         vencimentoPort: document.getElementById('portVencimentoPort'),
         vencimentoRefin: document.getElementById('portVencimentoRefin'),
+        diaBeneficio: document.getElementById('portDiaBeneficio'),
         prazoContrato: document.getElementById('portPrazoContrato'),
         parcelasPagas: document.getElementById('portParcelasPagas'),
         taxaContratoAtual: document.getElementById('portTaxaContratoAtual'),
@@ -2362,6 +2363,9 @@ document.addEventListener('DOMContentLoaded', () => {
         [...camposBeneficiarioDaFonte, ...camposContratoDaFonte].forEach((nome) => {
             preencherCampoExtrato(form.elements.namedItem(nome), '');
         });
+        if (portFields.diaBeneficio) portFields.diaBeneficio.value = '';
+        // Sem dia de benefício, os vencimentos voltam à regra padrão (dia da portabilidade).
+        sugerirVencimentos(diaDaData(portFields.dataSimulacao?.value) || new Date().getDate());
         atualizarMargemNegativa('reset');
         contratosDoExtrato = [];
         if (extratoContractSelect) {
@@ -2461,6 +2465,37 @@ document.addEventListener('DOMContentLoaded', () => {
             else superior = taxa;
         }
         return (inferior + superior) / 2;
+    }
+
+    // O banco usa o dia do pagamento do benefício como dia dos vencimentos.
+    function diaBeneficioInformado() {
+        const dia = Number(portFields.diaBeneficio?.value || 0);
+        return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : 0;
+    }
+
+    function diaDaData(dataISO) {
+        const dia = Number(String(dataISO || '').slice(8, 10));
+        return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : 0;
+    }
+
+    function dataVencimentoSugerida(dataBase, dia, meses = 2) {
+        const base = dataFluxoQuali(dataBase || '');
+        if (!Number.isFinite(base) || !dia) return '';
+        const data = new Date(base);
+        const mesAlvo = new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth() + meses, 1));
+        const ano = mesAlvo.getUTCFullYear();
+        const mes = mesAlvo.getUTCMonth();
+        const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+        return new Date(Date.UTC(ano, mes, Math.min(dia, ultimoDia))).toISOString().slice(0, 10);
+    }
+
+    function sugerirVencimentos(dia) {
+        if (!dia) return false;
+        const vencimentoPort = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia);
+        const vencimentoRefin = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia);
+        if (portFields.vencimentoPort && vencimentoPort) portFields.vencimentoPort.value = vencimentoPort;
+        if (portFields.vencimentoRefin && vencimentoRefin) portFields.vencimentoRefin.value = vencimentoRefin;
+        return Boolean(vencimentoPort && vencimentoRefin);
     }
 
     function calcularPortRefin() {
@@ -2774,6 +2809,10 @@ document.addEventListener('DOMContentLoaded', () => {
         preencherCampoExtrato(form.elements.namedItem('nb_matricula'), normalizarMatricula(payload.nb_matricula));
         preencherCampoExtrato(form.elements.namedItem('especie'), payload.especie || '');
         preencherCampoExtrato(form.elements.namedItem('dados_bancarios'), payload.dados_bancarios || '');
+        const diaBeneficio = String(payload.dia_pagamento_beneficio || '').trim();
+        if (diaBeneficio && portFields.diaBeneficio) {
+            preencherCampoExtrato(portFields.diaBeneficio, diaBeneficio);
+        }
         preencherCampoExtrato(portFields.margemImportada, brl(Number(payload.margem_disponivel) || 0));
     }
 
@@ -2886,6 +2925,13 @@ document.addEventListener('DOMContentLoaded', () => {
         field.addEventListener('input', calcularPortRefin);
         field.addEventListener('change', calcularPortRefin);
     });
+    if (portFields.diaBeneficio) {
+        ['input', 'change'].forEach((evento) => {
+            portFields.diaBeneficio.addEventListener(evento, () => {
+                if (sugerirVencimentos(diaBeneficioInformado())) calcularPortRefin();
+            });
+        });
+    }
     deduzirNegativoInputs.forEach((input) => input.addEventListener('change', () => {
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         calcularPortRefin();
