@@ -114,11 +114,12 @@ O acesso em rede deve ficar restrito a uma rede confiável. Não exponha o servi
 
 O `GerenciadorCRM.exe` reúne as tarefas do dia a dia em uma janela única, sem terminal:
 
-- **Abrir CRM**: inicia o servidor quando necessário e abre `http://127.0.0.1:5000` no navegador.
+- **Abrir CRM**: abre `http://127.0.0.1:5000` no navegador; se o CRM estiver parado, oferece iniciá-lo.
+- **Iniciar CRM**: inicia o servidor quando ele está parado (sem abrir o navegador).
 - **Reiniciar CRM**: encerra o processo atual e inicia de novo.
 - **Fechar CRM**: encerra o CRM.
 - **Fazer Git Pull**: baixa atualizações com `git fetch` + `git pull --ff-only`.
-- **Abrir no navegador**, **Abrir pasta**, **Ver log do CRM**, **Limpar histórico** e **Configurações**.
+- **Ver log do CRM**, **Abrir pasta**, **Limpar histórico** e **Configurações**.
 
 O executável fica na raiz do projeto, ao lado do `app.py`. Para usar, dê dois cliques em `GerenciadorCRM.exe`. Se mover o arquivo para outra pasta, use **Configurações** para indicar onde está o projeto.
 

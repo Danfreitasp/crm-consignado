@@ -542,11 +542,11 @@ class GerenciadorCRM(tk.Tk):
             acoes.columnconfigure(coluna, weight=1, uniform="acao")
 
         botoes = [
-            ("Abrir CRM", self.abrir_crm, "Inicia o CRM (se necessário) e abre no navegador."),
+            ("Abrir CRM", self.abrir_crm, "Abre o CRM no navegador, inclusive se já estiver aberto."),
+            ("Iniciar CRM", self.iniciar_crm, "Inicia o servidor do CRM quando estiver parado."),
             ("Reiniciar CRM", self.reiniciar_crm, "Encerra e inicia o CRM novamente."),
             ("Fechar CRM", self.fechar_crm, "Encerra o processo do CRM."),
             ("Fazer Git Pull", self.git_pull, "Baixa atualizações sem descartar alterações locais."),
-            ("Abrir no navegador", self.abrir_navegador, "Abre a página do CRM."),
             ("Ver log do CRM", self.ver_log_crm, "Abre o log gerado ao iniciar o CRM."),
             ("Abrir pasta", self.abrir_pasta, "Abre a pasta do projeto no Explorador."),
             ("Configurações", self.abrir_configuracoes, "Pasta do projeto, Python e porta."),
@@ -686,13 +686,12 @@ class GerenciadorCRM(tk.Tk):
             for nome in ("Configurações", "Limpar histórico"):
                 self._botoes_por_nome[nome].configure(state="normal")
             return
-        self._botoes_por_nome["Abrir CRM"].configure(
+        self._botoes_por_nome["Iniciar CRM"].configure(
             state="disabled" if self._crm_aberto else "normal"
         )
-        for nome in ("Fechar CRM", "Abrir no navegador"):
-            self._botoes_por_nome[nome].configure(
-                state="normal" if self._crm_aberto else "disabled"
-            )
+        self._botoes_por_nome["Fechar CRM"].configure(
+            state="normal" if self._crm_aberto else "disabled"
+        )
 
     def _atualizar_rotulos(self) -> None:
         python, origem = localizar_python(self._pasta, self._python_config)
@@ -758,15 +757,31 @@ class GerenciadorCRM(tk.Tk):
         self._atualizar_info_git()
 
     # -- abrir / iniciar ------------------------------------------------------
-    def abrir_navegador(self) -> None:
+    def abrir_crm(self) -> None:
         if not self._pasta_valida:
             self._log("Configure a pasta do projeto antes de abrir o CRM.", "erro")
             return
+        self._atualizar_status()
         if not self._crm_aberto:
-            self._log("O CRM não está em execução. Use Abrir CRM.", "aviso")
+            if messagebox.askyesno(
+                "Abrir CRM",
+                "O CRM não está em execução.\n\nIniciar agora?",
+                parent=self,
+            ):
+                self._iniciar(abrir_navegador=True)
+            else:
+                self._log("O CRM não está em execução. Use Iniciar CRM.", "aviso")
             return
         webbrowser.open(self._url)
         self._log(f"Abrindo {self._url}", "info")
+
+    def iniciar_crm(self) -> None:
+        if self._ocupado:
+            return
+        if self._crm_aberto:
+            self._log("O CRM já está em execução.", "ok")
+            return
+        self._iniciar(abrir_navegador=False)
 
     def abrir_pasta(self) -> None:
         if not self._pasta:
@@ -786,15 +801,6 @@ class GerenciadorCRM(tk.Tk):
             os.startfile(str(caminho))  # type: ignore[attr-defined]
         except OSError as exc:
             self._log(f"Não foi possível abrir o log: {exc}", "erro")
-
-    def abrir_crm(self) -> None:
-        if self._ocupado:
-            return
-        if self._crm_aberto:
-            self._log("O CRM já está em execução.", "ok")
-            self.abrir_navegador()
-            return
-        self._iniciar(abrir_navegador=True)
 
     def _iniciar(self, abrir_navegador: bool) -> None:
         if not self._pasta_valida:
