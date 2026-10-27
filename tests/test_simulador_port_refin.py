@@ -21,8 +21,8 @@ calcular = namespace["calcular_simulador_port_refin"]
 
 class PortRefinTest(unittest.TestCase):
     def test_newcorban_0710_fluxo_padrao_e_todas_taxas(self):
-        for codigo, esperado in [("402", 5337.15), ("401", 4992.18), ("400", 4653.48),
-                                 ("399", 4431.08), ("398", 4102.50), ("406", 3886.73)]:
+        for codigo, esperado in [("649", 5337.15), ("648", 4992.18), ("636", 4653.48),
+                                 ("635", 4431.08), ("634", 4102.50), ("633", 3886.73)]:
             with self.subTest(tabela=codigo):
                 result = calcular(dict(tabela_port_refin=codigo, parcela_atual=638.48,
                                       saldo_quitacao=24882.19, prazo_contrato=84, parcelas_pagas=25,
@@ -33,7 +33,7 @@ class PortRefinTest(unittest.TestCase):
 
     def test_newcorban_variacao_da_parcela(self):
         for parcela, esperado in [(900, 17372.51), (1000, 21974.58)]:
-            result = calcular(dict(tabela_port_refin="402", parcela_atual=638.48,
+            result = calcular(dict(tabela_port_refin="649", parcela_atual=638.48,
                                   nova_parcela=parcela, saldo_quitacao=24882.19,
                                   prazo_contrato=84, parcelas_pagas=25, data_simulacao="2026-10-07"))
             # A estimativa líquida pode variar poucos centavos do arredondamento do banco.
@@ -46,7 +46,7 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-29")
 
     def dados(self, **changes):
-        dados = dict(tabela_port_refin="402", parcela_atual=786.73, saldo_quitacao=36977.65,
+        dados = dict(tabela_port_refin="649", parcela_atual=786.73, saldo_quitacao=36977.65,
                      prazo_contrato=96, parcelas_pagas=14, descontos_banco=None,
                      data_simulacao="2026-09-30", data_refinanciamento="2026-10-03",
                      primeiro_vencimento_port="2026-11-25", primeiro_vencimento_refin="2026-12-25")
@@ -66,13 +66,13 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(result["valor_contrato"], 22786.45)
         self.assertEqual(result["troco"], 402.38)
         self.assertTrue(result["operacao_viavel"])
-        self.assertEqual(result["comissao_refinanciamento"], 9.86)
+        self.assertEqual(result["comissao_refinanciamento"], 1.01)
 
     def test_parcelas_e_taxas_conferidas_no_newcorban(self):
         for parcela, esperado in [(800, 572.50), (900, 5116.80), (1000, 9661.10)]:
             with self.subTest(parcela=parcela):
                 self.assertEqual(calcular(self.dados(nova_parcela=parcela))["troco"], esperado)
-        for codigo, esperado in [("401", 4627.96), ("400", 4148.03), ("399", 3832.94), ("398", 3367.44), ("406", 3061.77)]:
+        for codigo, esperado in [("648", 4627.96), ("636", 4148.03), ("635", 3832.94), ("634", 3367.44), ("633", 3061.77)]:
             with self.subTest(tabela=codigo):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo, nova_parcela=900))["troco"], esperado)
 
@@ -85,6 +85,15 @@ class PortRefinTest(unittest.TestCase):
         for codigo in namespace["INSS_PORT_REFIN_TABELAS"]:
             with self.subTest(tabela=codigo):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo))["saldo_considerado"], 37030.65)
+
+    def test_comissoes_conferidas_na_lista_quali_2710(self):
+        esperado = {"633": 3.30, "634": 2.30, "635": 1.30, "636": 0.70, "648": 0.50, "649": 0.25}
+        tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
+        self.assertEqual({codigo: tabela["comissao_percentual"] for codigo, tabela in tabelas.items()}, esperado)
+        for codigo, tabela in tabelas.items():
+            with self.subTest(tabela=codigo):
+                self.assertEqual(tabela["prazo"], 108)
+                self.assertIn(tabela["taxa"], namespace["INSS_PORT_REFIN_FATORES_LIQUIDOS"])
 
     def test_calculo_livre_e_margem_negativa(self):
         result = calcular(self.dados(tabela_port_refin="", coeficiente_port_refin=.02, novo_prazo=108,
