@@ -275,6 +275,13 @@ INSS_PORT_REFIN_FATORES_MESMO_DIA = {
     1.80: 0.966374862058, 1.83: 0.966365077533, 1.85: 0.966357868147,
 }
 
+# Dia de vencimento usado pela Quali nas simulações de portabilidade com
+# refinanciamento. É o dia que define o coeficiente e o valor liberado; sem
+# essa informação, o CRM assume este dia para já sair igual ao banco. O dia do
+# benefício de cada cliente pode ser ajustado nos ajustes avançados ou é lido
+# automaticamente do extrato INSS ("Pago em").
+INSS_DIA_BENEFICIO_PADRAO = 25
+
 INSS_PORT_REFIN_MENSAGEM_MODELO = (
     "{saudacao}! Meu nome é Poliana e falo da Facilita Brasil.\n\n"
     "Conseguimos fazer a portabilidade dos seus contratos: {banco_atual}\n\n"
@@ -3705,12 +3712,12 @@ def montar_mensagem_simulador_inss(dados: dict[str, Any], produto: str, descrica
 def datas_simulador_quali(referencia: date | None = None, dia_vencimento: int | None = None) -> dict[str, str]:
     """Sugere as datas do simulador.
 
-    O dia do vencimento segue o dia de pagamento do benefício quando informado,
-    pois é esse o dia usado pelo banco na simulação. Sem essa informação, usa o
-    dia da data de referência (comportamento anterior).
+    O vencimento usa o dia do pagamento do benefício quando informado e, sem
+    essa informação, o dia padrão do banco (25). É o dia que o banco usa na
+    simulação e que define o coeficiente e o valor liberado.
     """
     referencia = referencia or date.today()
-    dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else referencia.day
+    dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else INSS_DIA_BENEFICIO_PADRAO
     mes = referencia.year * 12 + referencia.month - 1 + 2
     ano, mes_zero = divmod(mes, 12)
     vencimento = date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
@@ -4229,7 +4236,7 @@ def simulador_inss():
         "modo_simulacao": "novo", "fonte_simulacao": "extrato", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
-        "parcelas_pagas": 0, "dia_pagamento_beneficio": 0, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
+        "parcelas_pagas": 0, "dia_pagamento_beneficio": INSS_DIA_BENEFICIO_PADRAO, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
         "taxa_nova": 0, "coeficiente_port_refin": 0, "descontos_banco": None, "observacoes": "", "data_averbacao": "",
         "margem_disponivel_importada": 0, "deduzir_negativo": "nao",
         "mensagem_modelo": INSS_PORT_REFIN_MENSAGEM_MODELO,

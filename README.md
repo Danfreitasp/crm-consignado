@@ -59,7 +59,7 @@ O sistema foi pensado para uso operacional em rede local: rápido, simples de ab
 
 Na portabilidade com refinanciamento, o contrato atual pode ser preenchido pelo Extrato INSS em PDF, pela integração do Sistemacorban ou manualmente. O simulador calcula saldo, nova parcela, contrato estimado, troco e comissões.
 
-O banco usa o dia de pagamento do benefício como dia dos vencimentos, e esse dia altera o coeficiente e o valor liberado. Em `Ajustes avançados`, o campo `Dia do benefício` preenche os dois primeiros vencimentos com esse dia; ao ler o Extrato INSS, o CRM preenche o dia automaticamente a partir do `Pago em` do cabeçalho. Sem essa informação, o simulador mantém a regra anterior (dia da data da portabilidade, dois meses à frente).
+O banco usa o dia de pagamento do benefício como dia dos vencimentos, e esse dia altera o coeficiente e o valor liberado. O simulador assume o dia **25** (dia usado pela Quali) e já preenche os dois primeiros vencimentos com ele, sem precisar de ajuste manual. Ao ler o Extrato INSS, o CRM troca esse dia pelo `Pago em` do cabeçalho, que é o dia real do benefício do cliente; em `Ajustes avançados`, o campo `Dia do benefício` permite corrigir manualmente quando o benefício cair em outro dia.
 
 Ao preparar uma proposta pelo Extrato ou pelo Resumo de Ofertas, a matrícula/NB é normalizada e usada para localizar o cadastro existente. Assim, CPF, telefone e demais dados cadastrais podem ser reaproveitados mesmo quando o Extrato não informa CPF, evitando a criação de um segundo cadastro para a mesma matrícula.
 

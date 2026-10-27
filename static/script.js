@@ -2363,9 +2363,9 @@ document.addEventListener('DOMContentLoaded', () => {
         [...camposBeneficiarioDaFonte, ...camposContratoDaFonte].forEach((nome) => {
             preencherCampoExtrato(form.elements.namedItem(nome), '');
         });
-        if (portFields.diaBeneficio) portFields.diaBeneficio.value = '';
-        // Sem dia de benefício, os vencimentos voltam à regra padrão (dia da portabilidade).
-        sugerirVencimentos(diaDaData(portFields.dataSimulacao?.value) || new Date().getDate());
+        if (portFields.diaBeneficio) portFields.diaBeneficio.value = DIA_BENEFICIO_PADRAO;
+        // Sem dia de benefício, os vencimentos usam o dia padrão do banco.
+        sugerirVencimentos(DIA_BENEFICIO_PADRAO);
         atualizarMargemNegativa('reset');
         contratosDoExtrato = [];
         if (extratoContractSelect) {
@@ -2468,14 +2468,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // O banco usa o dia do pagamento do benefício como dia dos vencimentos.
-    function diaBeneficioInformado() {
-        const dia = Number(portFields.diaBeneficio?.value || 0);
-        return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : 0;
-    }
+    // Sem informação, assume o dia padrão da Quali (25), igual à simulação do banco.
+    const DIA_BENEFICIO_PADRAO = 25;
 
-    function diaDaData(dataISO) {
-        const dia = Number(String(dataISO || '').slice(8, 10));
-        return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : 0;
+    function diaBeneficioInformado() {
+        const dia = Number(portFields.diaBeneficio?.value || DIA_BENEFICIO_PADRAO);
+        return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : DIA_BENEFICIO_PADRAO;
     }
 
     function dataVencimentoSugerida(dataBase, dia, meses = 2) {

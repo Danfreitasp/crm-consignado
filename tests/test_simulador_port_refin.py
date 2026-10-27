@@ -13,7 +13,8 @@ namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timede
              "normalizar_matricula": lambda value: str(value or "").strip(),
              "codigo_especie_beneficio_inss": lambda _: "",
              "montar_mensagem_simulador_port_refin": lambda *_: ""}
-constants = {"INSS_PORT_REFIN_TABELAS", "INSS_PORT_REFIN_FATORES_LIQUIDOS", "INSS_PORT_REFIN_FATORES_MESMO_DIA"}
+constants = {"INSS_PORT_REFIN_TABELAS", "INSS_PORT_REFIN_FATORES_LIQUIDOS", "INSS_PORT_REFIN_FATORES_MESMO_DIA",
+             "INSS_DIA_BENEFICIO_PADRAO"}
 functions = {"datas_simulador_quali", "dias_fluxo_quali", "coeficiente_fluxo_quali", "taxa_fluxo_quali",
              "calcular_simulador_port_refin", "celula_extrato", "dados_beneficiario_extrato"}
 nodes = [node for node in source.body
@@ -30,7 +31,7 @@ class PortRefinTest(unittest.TestCase):
             with self.subTest(tabela=codigo):
                 result = calcular(dict(tabela_port_refin=codigo, parcela_atual=638.48,
                                       saldo_quitacao=24882.19, prazo_contrato=84, parcelas_pagas=25,
-                                      data_simulacao="2026-10-07"))
+                                      data_simulacao="2026-10-07", dia_pagamento_beneficio=7))
                 self.assertEqual(result["troco"], esperado)
                 self.assertEqual(result["saldo_considerado"], 24882.19)
                 self.assertTrue(result["operacao_viavel"])
@@ -39,28 +40,36 @@ class PortRefinTest(unittest.TestCase):
         for parcela, esperado in [(900, 17372.51), (1000, 21974.58)]:
             result = calcular(dict(tabela_port_refin="649", parcela_atual=638.48,
                                   nova_parcela=parcela, saldo_quitacao=24882.19,
-                                  prazo_contrato=84, parcelas_pagas=25, data_simulacao="2026-10-07"))
+                                  prazo_contrato=84, parcelas_pagas=25, data_simulacao="2026-10-07",
+                                  dia_pagamento_beneficio=7))
             # A estimativa líquida pode variar poucos centavos do arredondamento do banco.
             self.assertAlmostEqual(result["troco"], esperado, delta=.05)
 
     def test_datas_sugeridas_calendario_e_referencia(self):
         datas = namespace["datas_simulador_quali"](date(2026, 10, 7))
         self.assertEqual(datas["data_refinanciamento"], "2026-10-07")
-        self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-07")
-        self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-29")
+        # Sem dia informado, vale o dia padrão do banco (25).
+        self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-25")
         # O dia do benefício prevalece sobre o dia da referência.
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 27), 25)["primeiro_vencimento_refin"], "2026-12-25")
-        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-07")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_refin"], "2026-12-07")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_refin"], "2028-02-29")
 
     def test_dia_do_beneficio_reproduz_banco_2512(self):
         """Banco Quali em 27/10/2026: vencimento em 25/12 gera contrato de 24.714,31."""
-        result = calcular(dict(tabela_port_refin="633", parcela_atual=545.26, saldo_quitacao=21249.31,
-                               prazo_contrato=84, parcelas_pagas=59, dia_pagamento_beneficio=25,
-                               data_simulacao="2026-10-27", data_refinanciamento="2026-10-27"))
-        self.assertEqual(result["coeficiente"], 0.02206252)
-        self.assertEqual(result["valor_contrato"], 24714.31)
-        self.assertAlmostEqual(result["troco"], 3348.49, delta=.10)
+        esperado = dict(tabela_port_refin="633", parcela_atual=545.26, saldo_quitacao=21249.31,
+                        prazo_contrato=84, parcelas_pagas=59,
+                        data_simulacao="2026-10-27", data_refinanciamento="2026-10-27")
+        # Sem informar o dia, o padrão do banco já produz o mesmo resultado.
+        padrao = calcular(esperado)
+        self.assertEqual(padrao["coeficiente"], 0.02206252)
+        self.assertEqual(padrao["valor_contrato"], 24714.31)
+        self.assertAlmostEqual(padrao["troco"], 3348.49, delta=.10)
+        informado = calcular(dict(esperado, dia_pagamento_beneficio=25))
+        self.assertEqual(informado["valor_contrato"], padrao["valor_contrato"])
+        self.assertEqual(informado["troco"], padrao["troco"])
 
     def test_extrato_informa_dia_do_pagamento_do_beneficio(self):
         texto = "\n".join([
