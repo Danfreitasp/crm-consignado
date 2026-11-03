@@ -221,10 +221,13 @@
   function diaDoMes(valor) {
     const texto = String(valor || '').trim();
     if (!texto) return '';
+    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const data = texto.match(/(?:^|\D)(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D|$)/);
-    const dia = data
-      ? Number(data[1])
-      : Number((texto.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (texto.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
+    const dia = iso
+      ? Number(iso[3])
+      : data
+        ? Number(data[1])
+        : Number((texto.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (texto.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
     return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? String(dia) : '';
   }
 
@@ -244,8 +247,29 @@
       const encontrado = new RegExp(escapado, 'i').exec(fonte);
       if (!encontrado) continue;
       const janela = fonte.slice(encontrado.index, encontrado.index + limite);
+      // Datas de <input type="date"> chegam no formato ISO (aaaa-mm-dd).
+      const iso = janela.match(/(?:^|\D)(\d{4})-(\d{2})-(\d{2})(?:\D|$)/);
+      if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
       const data = janela.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
       if (data) return data[0];
+    }
+    return '';
+  }
+
+  // Alguns campos do portal são inputs de data; o innerText não mostra o valor.
+  function dataDeCampo(escopo, termos) {
+    if (!escopo?.querySelectorAll) return '';
+    for (const campo of escopo.querySelectorAll('input, textarea, select')) {
+      const valor = String(campo.value || '').trim();
+      if (!diaDoMes(valor)) continue;
+      const descricao = normalizar([
+        campo.getAttribute('name'),
+        campo.getAttribute('id'),
+        campo.getAttribute('aria-label'),
+        campo.getAttribute('placeholder'),
+        campo.closest('label')?.innerText,
+      ].filter(Boolean).join(' '));
+      if (termos.some((termo) => descricao.includes(termo))) return valor;
     }
     return '';
   }
@@ -268,7 +292,8 @@
 
   function diaDoPagamentoDoBeneficio() {
     const texto = String(document.body?.innerText || document.body?.textContent || '');
-    return diaDoMes(dataProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80));
+    return diaDoMes(dataProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80))
+      || diaDoMes(dataDeCampo(document, ['pagamento', 'pagto', 'credito']));
   }
 
   function extrairContratosBancarios() {
@@ -283,7 +308,7 @@
       if (!numero || encontrados.has(numero)) return;
       const prazoTexto = valorDoTexto(texto, 'Prazo');
       const prazo = prazoTexto.match(/(\d+)\s*\/\s*(\d+)(?:\s*\|\s*(\d+)\s*pagas?)?/i);
-      const vencimento = dataProximaDoRotulo(texto, ROTULOS_VENCIMENTO);
+      const vencimento = dataProximaDoRotulo(texto, ROTULOS_VENCIMENTO) || dataDeCampo(elemento, ['venc']);
       encontrados.set(numero, {
         numero,
         banco: valorDoTexto(texto, 'Banco'),

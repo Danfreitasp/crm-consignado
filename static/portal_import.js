@@ -75,10 +75,13 @@
     function diaDoMes(value) {
         const text = String(value || '').trim();
         if (!text) return '';
+        const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         const date = text.match(/(?:^|\D)(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D|$)/);
-        const day = date
-            ? Number(date[1])
-            : Number((text.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (text.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
+        const day = iso
+            ? Number(iso[3])
+            : date
+                ? Number(date[1])
+                : Number((text.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (text.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
         return Number.isInteger(day) && day >= 1 && day <= 31 ? String(day) : '';
     }
 
