@@ -136,7 +136,6 @@
         // O dia do vencimento do contrato atual é o mesmo dia do pagamento do
         // benefício usado pelo banco na nova operação. O campo dispara a
         // sugestão dos vencimentos no simulador.
-        const diaField = document.querySelector('[name="dia_pagamento_beneficio"]');
         const diaBeneficio = String(
             contract.dia_vencimento
             || diaDoMes(contract.vencimento)
@@ -144,14 +143,10 @@
             || diaDoMes(importedData.pagamento)
             || ''
         ).trim();
+        // O dia é guardado num campo oculto e usado no cálculo quando vier do
+        // Corban. Sem aviso e sem campo visível: nada é pedido ao usuário.
         if (diaBeneficio) {
             setField('dia_pagamento_beneficio', diaBeneficio, highlighted);
-        } else if (diaField) {
-            // Não deixa o dia padrão (25) passar despercebido: sem esse dado o
-            // coeficiente e o valor liberado não batem com o banco.
-            diaField.classList.add('portal-import-warning');
-            highlighted.push(diaField);
-            window.setTimeout(() => diaField.classList.remove('portal-import-warning'), 12000);
         }
         setField('banco_destino', 'QUALI', highlighted);
         const margin = parseMoney(importedData.margem_disponivel);
@@ -165,12 +160,7 @@
         const marginMessage = margin < 0
             ? ` Margem negativa de ${formatMoneyInput(Math.abs(margin))} importada; escolha Sim para deduzi-la ou Não para ignorá-la.`
             : ' Margem positiva ou zerada: não há negativo para deduzir.';
-        const diaMessage = !diaField
-            ? ''
-            : diaBeneficio
-                ? ` Dia do benefício ${diaBeneficio} importado.`
-                : ' Atenção: o dia do benefício não veio do Corban e o cálculo está usando 25. Recarregue a página do Corban (F5) com a extensão atualizada e envie novamente, ou informe o dia manualmente.';
-        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${diaMessage}${marginMessage} Escolha a tabela Quali: o saldo será recalculado pela tabela automaticamente, igual ao banco.`);
+        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${marginMessage} Escolha a tabela Quali: o saldo será recalculado pela tabela automaticamente, igual ao banco.`);
         window.setTimeout(() => highlighted.forEach((field) => field.classList.remove('portal-import-highlight')), 3500);
     }
 

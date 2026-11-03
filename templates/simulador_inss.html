@@ -133,7 +133,7 @@
                     </div>
                 </div>
                 <div class="simulator-contract-footer">
-                    <label class="simulator-day-field"><span class="simulator-label-with-help">Dia do benefício <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o dia do benefício"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Dia de vencimento do benefício. O banco usa esse dia nos vencimentos, e ele altera o coeficiente e o valor liberado. O Extrato INSS e a importação do Corban preenchem automaticamente; ajuste quando o benefício cair em outro dia.</span></span></span><input name="dia_pagamento_beneficio" id="portDiaBeneficio" value="{{ dados.dia_pagamento_beneficio or '' }}" type="number" min="1" max="31" step="1" placeholder="25"></label>
+                    <input type="hidden" name="dia_pagamento_beneficio" id="portDiaBeneficio" value="{{ dados.dia_pagamento_beneficio or '' }}">
                     <small class="muted" id="portSaldoRecalculadoStatus" role="status"></small>
                 </div>
             </section>
@@ -239,5 +239,5 @@
 
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
 <script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
-<script src="{{ url_for('static', filename='portal_import.js', v='20261103-saldo-banco-1') }}"></script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20261103-sem-dia-1') }}"></script>
 {% endblock %}
