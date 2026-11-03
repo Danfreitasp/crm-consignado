@@ -686,6 +686,7 @@ tbody tr:hover {
 .portal-contract-picker[hidden] { display: none; }
 .portal-contract-picker select { width: 100%; }
 .portal-import-highlight { outline: 3px solid #60a5fa; outline-offset: 2px; transition: outline-color .25s ease; }
+.portal-import-warning { outline: 3px solid #f59e0b; outline-offset: 2px; background: #fffbeb; }
 html[data-theme="escuro"] .proposal-form-column { background: #111827; border-color: #263445; }
 html[data-theme="escuro"] .proposal-form-free-section { background: #111827; border-color: #263445; }
 html[data-theme="escuro"] .proposal-operation-group { background: #0b1220; border-color: #263445; }
@@ -4031,6 +4032,25 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
 .simulator-recalculate-action > .btn {
     min-width: 0;
     flex: 1 1 auto;
+}
+.simulator-contract-footer {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.simulator-contract-footer .simulator-day-field {
+    flex: 0 1 210px;
+    min-width: 150px;
+}
+.simulator-contract-footer #portSaldoRecalculadoStatus {
+    flex: 1 1 280px;
+    padding-bottom: 9px;
+    line-height: 1.45;
+}
+@media (max-width: 620px) {
+    .simulator-contract-footer .simulator-day-field { flex-basis: 100%; }
+    .simulator-contract-footer #portSaldoRecalculadoStatus { padding-bottom: 0; }
 }
 .simulator-source-switch {
     display: grid;

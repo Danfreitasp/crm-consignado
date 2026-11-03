@@ -72,6 +72,16 @@
         return text ? `${text}% a.m.` : '';
     }
 
+    function diaDoMes(value) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        const date = text.match(/(?:^|\D)(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D|$)/);
+        const day = date
+            ? Number(date[1])
+            : Number((text.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (text.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
+        return Number.isInteger(day) && day >= 1 && day <= 31 ? String(day) : '';
+    }
+
     function firstBankName(value) {
         const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
         if (!parts.length) return '';
@@ -111,7 +121,23 @@
         // O dia do vencimento do contrato atual é o mesmo dia do pagamento do
         // benefício usado pelo banco na nova operação. O campo dispara a
         // sugestão dos vencimentos no simulador.
-        setField('dia_pagamento_beneficio', contract.dia_vencimento || importedData.dia_pagamento_beneficio, highlighted);
+        const diaField = document.querySelector('[name="dia_pagamento_beneficio"]');
+        const diaBeneficio = String(
+            contract.dia_vencimento
+            || diaDoMes(contract.vencimento)
+            || importedData.dia_pagamento_beneficio
+            || diaDoMes(importedData.pagamento)
+            || ''
+        ).trim();
+        if (diaBeneficio) {
+            setField('dia_pagamento_beneficio', diaBeneficio, highlighted);
+        } else if (diaField) {
+            // Não deixa o dia padrão (25) passar despercebido: sem esse dado o
+            // coeficiente e o valor liberado não batem com o banco.
+            diaField.classList.add('portal-import-warning');
+            highlighted.push(diaField);
+            window.setTimeout(() => diaField.classList.remove('portal-import-warning'), 12000);
+        }
         setField('banco_destino', 'QUALI', highlighted);
         const margin = parseMoney(importedData.margem_disponivel);
         setField('margem_disponivel_importada', formatMoneyInput(margin), highlighted);
@@ -124,7 +150,12 @@
         const marginMessage = margin < 0
             ? ` Margem negativa de ${formatMoneyInput(Math.abs(margin))} importada; escolha Sim para deduzi-la ou Não para ignorá-la.`
             : ' Margem positiva ou zerada: não há negativo para deduzir.';
-        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${marginMessage} Escolha a tabela Quali e revise os valores.`);
+        const diaMessage = !diaField
+            ? ''
+            : diaBeneficio
+                ? ` Dia do benefício ${diaBeneficio} importado.`
+                : ' Atenção: o dia do benefício não veio do Corban e o cálculo está usando 25. Recarregue a página do Corban (F5) com a extensão atualizada e envie novamente, ou informe o dia manualmente.';
+        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${diaMessage}${marginMessage} Escolha a tabela Quali e revise os valores.`);
         window.setTimeout(() => highlighted.forEach((field) => field.classList.remove('portal-import-highlight')), 3500);
     }
 
@@ -274,6 +305,7 @@
                 const parcelasPagas = String(contract.parcelas_pagas ?? '').trim();
                 const prazoTotal = String(contract.prazo_total ?? '').trim();
                 const detalhes = [banco, `Contrato ${String(contract.numero || '').trim()}`];
+                if (contract.vencimento) detalhes.push(`Venc. ${contract.vencimento}`);
                 if (parcelasPagas && prazoTotal) detalhes.push(`${parcelasPagas}/${prazoTotal} pagas`);
                 const parcela = formatMoneyLabel(contract.parcela);
                 if (parcela) detalhes.push(`Parcela ${parcela}`);

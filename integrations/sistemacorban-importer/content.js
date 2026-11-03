@@ -55,6 +55,7 @@
       'Dia do Pagamento',
       'Data de pagamento do benefício',
       'Data de crédito do benefício',
+      'Pago em',
     ],
   };
 
@@ -233,6 +234,43 @@
     return correspondencia?.[1]?.trim() || '';
   }
 
+  // O portal às vezes coloca o rótulo e a data em linhas/células diferentes.
+  // Nesse caso o valor não está na mesma linha do rótulo, então procuramos a
+  // primeira data logo depois dele.
+  function dataProximaDoRotulo(texto, rotulos, limite = 100) {
+    const fonte = String(texto || '');
+    for (const rotulo of rotulos) {
+      const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const encontrado = new RegExp(escapado, 'i').exec(fonte);
+      if (!encontrado) continue;
+      const janela = fonte.slice(encontrado.index, encontrado.index + limite);
+      const data = janela.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (data) return data[0];
+    }
+    return '';
+  }
+
+  const ROTULOS_VENCIMENTO = [
+    'Data de Vencimento', 'Data do Vencimento', 'Data Vencimento',
+    'Data de vencimento', 'Data do vencimento',
+    'Dt. Vencimento', 'Dt Vencimento', 'Vencimento', 'Venc.',
+  ];
+
+  const ROTULOS_PAGAMENTO = [
+    'Data de Pagamento do Benefício', 'Data de pagamento do benefício',
+    'Data de Pagamento', 'Data do Pagamento', 'Data Pagamento',
+    'Data de Pagto', 'Data do Pagto', 'Data Pagto',
+    'Dia de Pagamento', 'Dia do Pagamento',
+    'Data de Crédito do Benefício', 'Data de crédito do benefício',
+    'Data de Crédito', 'Data do Crédito',
+    'Pagamento do Benefício', 'Pago em',
+  ];
+
+  function diaDoPagamentoDoBeneficio() {
+    const texto = String(document.body?.innerText || document.body?.textContent || '');
+    return diaDoMes(dataProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80));
+  }
+
   function extrairContratosBancarios() {
     const encontrados = new Map();
     const candidatos = document.querySelectorAll(
@@ -245,10 +283,7 @@
       if (!numero || encontrados.has(numero)) return;
       const prazoTexto = valorDoTexto(texto, 'Prazo');
       const prazo = prazoTexto.match(/(\d+)\s*\/\s*(\d+)(?:\s*\|\s*(\d+)\s*pagas?)?/i);
-      const vencimento = valorDoTexto(texto, 'Data de Vencimento')
-        || valorDoTexto(texto, 'Data do Vencimento')
-        || valorDoTexto(texto, 'Vencimento')
-        || valorDoTexto(texto, 'Data Vencimento');
+      const vencimento = dataProximaDoRotulo(texto, ROTULOS_VENCIMENTO);
       encontrados.set(numero, {
         numero,
         banco: valorDoTexto(texto, 'Banco'),
@@ -299,7 +334,10 @@
         // O dia do pagamento do benefício é a data que o banco usa nos
         // vencimentos. Sem ele, o CRM assume o dia padrão e o cálculo pode
         // divergir da simulação do banco.
-        dia_pagamento_beneficio: diaDoMes(bruto.pagamento),
+        dia_pagamento_beneficio: diaDoPagamentoDoBeneficio() || diaDoMes(bruto.pagamento),
+        // Ajuda o CRM a avisar quando a página do Corban ainda está rodando
+        // uma versão antiga da extensão, sem os campos de dia/vencimento.
+        versao_extensao: chrome.runtime.getManifest().version,
         contratos: extrairContratosBancarios(),
       },
       encontrados: Object.keys(bruto).filter((chave) => Boolean(bruto[chave])),
