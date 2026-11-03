@@ -240,18 +240,46 @@
   // O portal às vezes coloca o rótulo e a data em linhas/células diferentes.
   // Nesse caso o valor não está na mesma linha do rótulo, então procuramos a
   // primeira data logo depois dele.
-  function dataProximaDoRotulo(texto, rotulos, limite = 100) {
-    const fonte = String(texto || '');
+  function ocorrenciasDoRotulo(fonte, rotulos) {
+    const achados = [];
     for (const rotulo of rotulos) {
       const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const encontrado = new RegExp(escapado, 'i').exec(fonte);
-      if (!encontrado) continue;
-      const janela = fonte.slice(encontrado.index, encontrado.index + limite);
+      const re = new RegExp(escapado, 'gi');
+      let encontrado;
+      while ((encontrado = re.exec(fonte))) {
+        achados.push({ fim: encontrado.index + encontrado[0].length });
+        if (encontrado.index === re.lastIndex) re.lastIndex += 1;
+      }
+    }
+    return achados;
+  }
+
+  function dataProximaDoRotulo(texto, rotulos, limite = 100) {
+    const fonte = String(texto || '');
+    for (const { fim } of ocorrenciasDoRotulo(fonte, rotulos)) {
+      const janela = fonte.slice(fim, fim + limite);
       // Datas de <input type="date"> chegam no formato ISO (aaaa-mm-dd).
       const iso = janela.match(/(?:^|\D)(\d{4})-(\d{2})-(\d{2})(?:\D|$)/);
       if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
       const data = janela.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
       if (data) return data[0];
+    }
+    return '';
+  }
+
+  // Alguns benefícios mostram apenas o dia ("Dia de Pagamento: 3"), sem a data
+  // completa. Aceita tanto uma data quanto um número solto logo após o rótulo.
+  function diaProximaDoRotulo(texto, rotulos, limite = 60) {
+    const fonte = String(texto || '');
+    for (const { fim } of ocorrenciasDoRotulo(fonte, rotulos)) {
+      const janela = fonte.slice(fim, fim + limite);
+      const dia = diaDoMes(janela);
+      if (dia) return dia;
+      const numero = janela.match(/^\s*:?\s*(\d{1,2})(?:\D|$)/);
+      if (numero) {
+        const valor = Number(numero[1]);
+        if (Number.isInteger(valor) && valor >= 1 && valor <= 31) return String(valor);
+      }
     }
     return '';
   }
@@ -292,8 +320,12 @@
 
   function diaDoPagamentoDoBeneficio() {
     const texto = String(document.body?.innerText || document.body?.textContent || '');
-    return diaDoMes(dataProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80))
-      || diaDoMes(dataDeCampo(document, ['pagamento', 'pagto', 'credito']));
+    return diaProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80)
+      // O vencimento de qualquer contrato do benefício usa o mesmo dia do
+      // pagamento; serve de reserva quando o portal não mostra o pagamento.
+      || diaProximaDoRotulo(texto, ROTULOS_VENCIMENTO, 50)
+      || diaDoMes(dataDeCampo(document, ['pagamento', 'pagto', 'credito']))
+      || diaDoMes(dataDeCampo(document, ['venc']));
   }
 
   function extrairContratosBancarios() {
@@ -308,7 +340,11 @@
       if (!numero || encontrados.has(numero)) return;
       const prazoTexto = valorDoTexto(texto, 'Prazo');
       const prazo = prazoTexto.match(/(\d+)\s*\/\s*(\d+)(?:\s*\|\s*(\d+)\s*pagas?)?/i);
-      const vencimento = dataProximaDoRotulo(texto, ROTULOS_VENCIMENTO) || dataDeCampo(elemento, ['venc']);
+      // O vencimento pode estar em outra célula do mesmo portlet do contrato.
+      const escopo = elemento.closest('.portlet-banco, [data-contrato-bancario]') || elemento;
+      const textoCartao = String(escopo.innerText || texto);
+      const vencimento = dataProximaDoRotulo(textoCartao, ROTULOS_VENCIMENTO)
+        || dataDeCampo(escopo, ['venc']);
       encontrados.set(numero, {
         numero,
         banco: valorDoTexto(texto, 'Banco'),
