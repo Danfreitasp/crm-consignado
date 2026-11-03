@@ -4028,6 +4028,7 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
 .simulator-recalculate-field > label { flex: 0 1 220px; min-width: 170px; }
 .simulator-recalculate-field .simulator-auto-saldo {
     flex: 0 1 auto;
+    min-width: 0;
     flex-direction: row;
     align-items: center;
     gap: 8px;
