@@ -248,18 +248,23 @@ CONFIG_INSS_NOVO_COEFICIENTES = "simulador_inss_novo_coeficientes"
 # NewCorban em 30/09/2026. O saldo é atualizado até o refinanciamento; o
 # desconto líquido incide somente quando há troco positivo. Os vencimentos
 # sugeridos são estimativas e podem ser ajustados aos informados pelo banco.
-# As comissões foram conferidas na lista de coeficientes do Unica
-# (QUALIBANKING, coluna "Total Repassado", "Flat Repassada") em 27/10/2026 e
-# valem igualmente para a portabilidade e para o refinanciamento.
+# As comissões vêm da lista QUALIBANKING do NewCorban, coluna "Total", em
+# 30/10/2026 e valem igualmente para a portabilidade e para o refinanciamento.
 # A lista atual possui somente as tabelas "REFIN DA PORT" abaixo; os
 # coeficientes por taxa foram mantidos da conferência anterior no NewCorban.
 INSS_PORT_REFIN_TABELAS = {
-    "633": {"nome": "REFIN DA PORT - INSS - 000633 PORT + REFIN 1,85% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.30},
-    "634": {"nome": "REFIN DA PORT - INSS - 000634 PORT + REFIN 1,83% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.30},
-    "635": {"nome": "REFIN DA PORT - INSS - 000635 PORT + REFIN 1,80% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 1.30},
-    "636": {"nome": "REFIN DA PORT - INSS - 000636 PORT + REFIN 1,78% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 0.70},
-    "648": {"nome": "REFIN DA PORT - INSS - 000648 PORT + REFIN 1,75% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 0.50},
-    "649": {"nome": "REFIN DA PORT - INSS - 000649 PORT + REFIN 1,72% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 0.25},
+    "633": {"nome": "REFIN DA PORT - INSS - 000633 PORT + REFIN 1,85% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.72},
+    "634": {"nome": "REFIN DA PORT - INSS - 000634 PORT + REFIN 1,83% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.74},
+    "635": {"nome": "REFIN DA PORT - INSS - 000635 PORT + REFIN 1,80% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 1.76},
+    "636": {"nome": "REFIN DA PORT - INSS - 000636 PORT + REFIN 1,78% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 1.18},
+    "648": {"nome": "REFIN DA PORT - INSS - 000648 PORT + REFIN 1,75% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 0.98},
+    "649": {"nome": "REFIN DA PORT - INSS - 000649 PORT + REFIN 1,72% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 0.49},
+    # Tabelas de saldo mínimo de R$ 2 mil sem carência de 90 dias. Os
+    # coeficientes acompanham a taxa equivalente; com fluxo válido, o simulador
+    # recalcula cada um pelas datas da operação. Comissões da lista NewCorban.
+    "655": {"nome": "REFIN DA PORT - INSS - 000655 PORT + REFIN 1,85% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 2.69},
+    "656": {"nome": "REFIN DA PORT - INSS - 000656 PORT + REFIN 1,83% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 1.72},
+    "657": {"nome": "REFIN DA PORT - INSS - 000657 PORT + REFIN 1,80% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 0.49},
 }
 
 INSS_PORT_REFIN_FATORES_LIQUIDOS = {
@@ -276,11 +281,16 @@ INSS_PORT_REFIN_FATORES_MESMO_DIA = {
     1.80: 0.966374862058, 1.83: 0.966365077533, 1.85: 0.966357868147,
 }
 
-# Dia de vencimento usado pela Quali nas simulações de portabilidade com
-# refinanciamento. É o dia que define o coeficiente e o valor liberado; sem
-# essa informação, o CRM assume este dia para já sair igual ao banco. O dia do
-# benefício de cada cliente pode ser ajustado nos ajustes avançados ou é lido
-# automaticamente do extrato INSS ("Pago em").
+# Fatores líquidos conferidos nas seis tabelas Quali para a simulação PAN de
+# 03/11/2026, com liberação dois dias depois. Os valores reproduzem os trocos
+# confirmados na comparação do banco para cada taxa.
+INSS_PORT_REFIN_FATORES_DOIS_DIAS = {
+    1.72: 0.966423209576, 1.75: 0.966410899265, 1.78: 0.966405093005,
+    1.80: 0.966391596888, 1.83: 0.966380932140, 1.85: 0.966372730248,
+}
+
+# Último dia do ciclo mensal usado quando a simulação não traz um vencimento
+# específico; antes de assumir uma data posterior, limitamos o padrão ao dia 25.
 INSS_DIA_BENEFICIO_PADRAO = 25
 
 INSS_PORT_REFIN_MENSAGEM_MODELO = (
@@ -3714,41 +3724,37 @@ def montar_mensagem_simulador_inss(dados: dict[str, Any], produto: str, descrica
 def datas_simulador_quali(referencia: date | None = None, dia_vencimento: int | None = None) -> dict[str, str]:
     """Sugere as datas do simulador.
 
-    O vencimento usa o dia do pagamento do benefício quando informado e, sem
-    essa informação, o dia padrão do banco (25). É o dia que o banco usa na
-    simulação e que define o coeficiente e o valor liberado.
+    O vencimento usa o dia do contrato quando disponível. Sem essa informação,
+    acompanha o dia da simulação, limitado ao dia 25 do ciclo mensal.
 
     O primeiro vencimento da portabilidade é o próximo vencimento do contrato
     atual (um mês depois da simulação); o refinanciamento começa no mês
     seguinte. A Quali usa essas duas datas separadas: a primeira define a taxa
     da portabilidade e a segunda o coeficiente do novo contrato.
 
-    A liberação do refinanciamento acompanha o pagamento do benefício: o banco
-    libera dois dias úteis depois do pagamento. Como o dia do benefício é fixo,
-    esse valor só muda quando vira o mês, exatamente como a simulação do banco.
+    A liberação do refinanciamento é sugerida dois dias úteis depois do início
+    do ciclo calculado.
     """
     referencia = referencia or date.today()
     dia_informado = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else 0
+    dia_ciclo = dia_informado or min(referencia.day, INSS_DIA_BENEFICIO_PADRAO)
 
     def vencimento_em(meses: int) -> date:
         mes = referencia.year * 12 + referencia.month - 1 + meses
         ano, mes_zero = divmod(mes, 12)
-        dia = dia_informado or INSS_DIA_BENEFICIO_PADRAO
-        return date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
+        return date(ano, mes_zero + 1, min(dia_ciclo, calendar.monthrange(ano, mes_zero + 1)[1]))
 
-    liberacao = referencia
-    if dia_informado:
-        pagamento = date(referencia.year, referencia.month,
-                         min(dia_informado, calendar.monthrange(referencia.year, referencia.month)[1]))
-        liberacao = pagamento
-        uteis = 2
-        while uteis:
-            liberacao += timedelta(days=1)
-            if liberacao.weekday() < 5:
-                uteis -= 1
-        # Nunca sugere uma liberação no passado: se o ciclo já passou, usa a
-        # data da simulação.
-        liberacao = max(liberacao, referencia)
+    pagamento = date(referencia.year, referencia.month,
+                     min(dia_ciclo, calendar.monthrange(referencia.year, referencia.month)[1]))
+    liberacao = pagamento
+    uteis = 2
+    while uteis:
+        liberacao += timedelta(days=1)
+        if liberacao.weekday() < 5:
+            uteis -= 1
+    # Nunca sugere uma liberação no passado: se o ciclo já passou, usa a
+    # data da simulação.
+    liberacao = max(liberacao, referencia)
 
     return {
         "data_simulacao": referencia.isoformat(),
@@ -3802,6 +3808,7 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     coeficiente_informado = float(dados.get("coeficiente_port_refin") or 0)
     tabela_codigo = limpar_texto(dados.get("tabela_port_refin"))
     tabela = INSS_PORT_REFIN_TABELAS.get(tabela_codigo)
+    taxa_contrato_atual = float(dados.get("taxa_contrato_atual") or 0)
     fator_saldo = 1.0
     if tabela:
         novo_prazo = int(tabela["prazo"])
@@ -3815,12 +3822,12 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     saldo_corban = round(saldo_quitacao, 2)
     saldo_automatico = str(dados.get("saldo_automatico") or "").strip().lower() in {"1", "true", "sim", "on"}
     saldo_calculado_tabela = 0.0
-    if tabela and saldo_automatico and parcela_atual > 0 and parcelas_abertas > 0 and taxa_nova > 0:
+    taxa_para_saldo = taxa_contrato_atual or taxa_nova
+    if tabela and saldo_automatico and parcela_atual > 0 and parcelas_abertas > 0 and taxa_para_saldo > 0:
         # O banco recalcula o saldo para quitação pela parcela atual, pelas
-        # parcelas restantes e pela taxa da tabela escolhida. Assim o valor
-        # acompanha o contrato e não depende do saldo do Corban (que usa a
-        # taxa antiga e costuma ficar abaixo do saldo da portabilidade).
-        taxa_decimal = taxa_nova / 100
+        # parcelas restantes e pela taxa informada para o contrato. Essa taxa
+        # não muda quando se alterna entre tabelas de refinanciamento.
+        taxa_decimal = taxa_para_saldo / 100
         saldo_calculado_tabela = round(
             parcela_atual * (1 - (1 + taxa_decimal) ** (-parcelas_abertas)) / taxa_decimal, 2)
         saldo_quitacao = saldo_calculado_tabela
@@ -3889,6 +3896,8 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     fator_liquido = INSS_PORT_REFIN_FATORES_LIQUIDOS.get(taxa_nova, 1.0) if tabela else 1.0
     if tabela and fluxo_valido and datas["data_refinanciamento"] == datas["data_simulacao"]:
         fator_liquido = INSS_PORT_REFIN_FATORES_MESMO_DIA.get(taxa_nova, fator_liquido)
+    elif tabela and fluxo_valido and (datas["data_refinanciamento"] - datas["data_simulacao"]).days == 2:
+        fator_liquido = INSS_PORT_REFIN_FATORES_DOIS_DIAS.get(taxa_nova, fator_liquido)
     troco = round(troco_bruto * fator_liquido, 2) if troco_bruto > 0 else troco_bruto
     descontos_estimados = round(saldo_considerado - saldo_quitacao + troco_bruto - troco, 2)
     if descontos_informados:
@@ -4282,7 +4291,7 @@ def simulador_inss():
         "modo_simulacao": "novo", "fonte_simulacao": "extrato", "tipo_operacao": "novo_valor", "prazo": INSS_PRAZO_PADRAO,
         "faixa_cartao": "ate_74", "valor_base": 0, "margem": 0, "banco_atual": "",
         "numero_contrato": "", "parcela_atual": 0, "saldo_quitacao": 0, "prazo_contrato": 0,
-        "parcelas_pagas": 0, "dia_pagamento_beneficio": INSS_DIA_BENEFICIO_PADRAO, "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
+        "parcelas_pagas": 0, "dia_pagamento_beneficio": "", "taxa_contrato_atual": 0, "banco_destino": "QUALI", "tabela_port_refin": "", "novo_prazo": 84, "nova_parcela": 0,
         "taxa_nova": 0, "coeficiente_port_refin": 0, "descontos_banco": None, "observacoes": "", "data_averbacao": "",
         "margem_disponivel_importada": 0, "deduzir_negativo": "nao",
         "mensagem_modelo": INSS_PORT_REFIN_MENSAGEM_MODELO,
@@ -4301,6 +4310,7 @@ def simulador_inss():
         tabelas_port_refin=INSS_PORT_REFIN_TABELAS,
         fatores_quali=INSS_PORT_REFIN_FATORES_LIQUIDOS,
         fatores_quali_mesmo_dia=INSS_PORT_REFIN_FATORES_MESMO_DIA,
+        fatores_quali_dois_dias=INSS_PORT_REFIN_FATORES_DOIS_DIAS,
         mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
     )
 
@@ -4412,6 +4422,7 @@ def simulador_inss_criar_proposta():
                 tabelas_port_refin=INSS_PORT_REFIN_TABELAS,
                 fatores_quali=INSS_PORT_REFIN_FATORES_LIQUIDOS,
                 fatores_quali_mesmo_dia=INSS_PORT_REFIN_FATORES_MESMO_DIA,
+                fatores_quali_dois_dias=INSS_PORT_REFIN_FATORES_DOIS_DIAS,
                 mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
             )
 

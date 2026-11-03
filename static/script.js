@@ -2091,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function parseCoeficiente(value) {
-        return Number(String(value || '').trim().replace(',', '.')) || 0;
+        return Number(String(value || '').replace('%', '').replace(/\s+/g, '').trim().replace(',', '.')) || 0;
     }
 
     function atualizarOpcoesPrazo(valorSelecionado = null) {
@@ -2364,9 +2364,9 @@ document.addEventListener('DOMContentLoaded', () => {
         [...camposBeneficiarioDaFonte, ...camposContratoDaFonte].forEach((nome) => {
             preencherCampoExtrato(form.elements.namedItem(nome), '');
         });
-        if (portFields.diaBeneficio) portFields.diaBeneficio.value = DIA_BENEFICIO_PADRAO;
-        // Sem dia de benefício, os vencimentos usam o dia padrão do banco.
-        sugerirVencimentos(DIA_BENEFICIO_PADRAO);
+        if (portFields.diaBeneficio) portFields.diaBeneficio.value = '';
+        // Sem vencimento importado, acompanha o dia da data da simulação.
+        sugerirVencimentos(diaBeneficioInformado());
         atualizarMargemNegativa('reset');
         contratosDoExtrato = [];
         if (extratoContractSelect) {
@@ -2468,12 +2468,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return (inferior + superior) / 2;
     }
 
-    // O banco usa o dia do pagamento do benefício como dia dos vencimentos.
-    // Sem informação, assume o dia padrão da Quali (25), igual à simulação do banco.
+    // Sem vencimento importado, usa o dia da simulação, limitado ao dia 25.
+    // Não presume que todos os contratos vencem no dia 25.
     const DIA_BENEFICIO_PADRAO = 25;
 
     function diaBeneficioInformado() {
-        const dia = Number(portFields.diaBeneficio?.value || DIA_BENEFICIO_PADRAO);
+        const diaReferencia = diaDaData(portFields.dataSimulacao?.value);
+        const diaPadrao = diaReferencia ? Math.min(diaReferencia, DIA_BENEFICIO_PADRAO) : DIA_BENEFICIO_PADRAO;
+        const dia = Number(portFields.diaBeneficio?.value || diaPadrao);
         return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : DIA_BENEFICIO_PADRAO;
     }
 
@@ -2515,8 +2517,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Date(Math.max(liberacao, base)).toISOString().slice(0, 10);
     }
 
-    // Saldo para quitação do jeito que o banco simula: a parcela atual
-    // descontada pelas parcelas restantes na taxa da tabela escolhida.
+    // Saldo para quitação: parcela atual descontada pelas parcelas restantes
+    // à taxa informada para o contrato, estável ao alternar a tabela de refin.
     function saldoPelaTabela(parcela, parcelas, taxaPercentual) {
         if (parcela <= 0 || parcelas <= 0 || taxaPercentual <= 0) return 0;
         const taxa = taxaPercentual / 100;
@@ -2530,7 +2532,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const parcela = parseBR(portFields.parcelaAtual?.value);
         const restantes = Math.max(0, Number(portFields.prazoContrato?.value || 0)
             - Number(portFields.parcelasPagas?.value || 0));
-        const taxa = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
+        const taxaInformada = parseCoeficiente(portFields.taxaContratoAtual?.value);
+        const taxa = taxaInformada || Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
         const saldo = saldoPelaTabela(parcela, restantes, taxa);
         if (!(saldo > 0)) return false;
         portFields.saldo.value = brl(saldo);
@@ -2579,9 +2582,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const usaQuali = Boolean(portFields.tabela?.value);
         const dataSimulacao = dataFluxoQuali(portFields.dataSimulacao?.value || '');
         const dataRefinanciamento = dataFluxoQuali(portFields.dataRefinanciamento?.value || '');
-        const fatorLiquido = Number((dataRefinanciamento === dataSimulacao
+        const diasAteLiberacao = (dataRefinanciamento - dataSimulacao) / 86400000;
+        const fatorLiquido = Number((diasAteLiberacao === 0
             ? tabelaSelecionada?.dataset.fatorLiquidoMesmoDia
-            : tabelaSelecionada?.dataset.fatorLiquido) || 1);
+            : diasAteLiberacao === 2
+                ? (tabelaSelecionada?.dataset.fatorLiquidoDoisDias || tabelaSelecionada?.dataset.fatorLiquido)
+                : tabelaSelecionada?.dataset.fatorLiquido) || 1);
         const vencimentoPort = dataFluxoQuali(portFields.vencimentoPort?.value || '');
         const vencimentoRefin = dataFluxoQuali(portFields.vencimentoRefin?.value || '');
         const fluxoValido = [dataSimulacao, dataRefinanciamento, vencimentoPort, vencimentoRefin].every(Number.isFinite)
@@ -2743,10 +2749,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const parcelasPagas = Math.max(0, Math.trunc(Number(portFields.parcelasPagas?.value || 0)));
         const parcelasRestantes = Math.max(0, prazoOriginal - parcelasPagas);
         const taxaTabela = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
-        const usaTabela = Boolean(portFields.tabela?.value) && taxaTabela > 0;
-        const taxaPercentual = usaTabela
-            ? taxaTabela
-            : parseCoeficiente(portFields.taxaContratoAtual?.value);
+        const taxaInformada = parseCoeficiente(portFields.taxaContratoAtual?.value);
+        const taxaPercentual = taxaInformada || taxaTabela;
 
         if (!parcela || !prazoOriginal || !parcelasRestantes || taxaPercentual <= 0) {
             if (saldoRecalculadoStatus) {
@@ -2761,7 +2765,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (portFields.saldo) portFields.saldo.value = brl(saldoAtualizado);
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         if (saldoRecalculadoStatus) {
-            const origemTaxa = usaTabela ? `tabela ${portFields.tabela.value}` : 'taxa atual do contrato';
+            const origemTaxa = taxaInformada ? 'taxa informada para o contrato' : `tabela ${portFields.tabela.value}`;
             saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes pela ${origemTaxa}.`;
         }
         calcularPortRefin();

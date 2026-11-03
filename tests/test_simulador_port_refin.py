@@ -14,6 +14,7 @@ namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timede
              "codigo_especie_beneficio_inss": lambda _: "",
              "montar_mensagem_simulador_port_refin": lambda *_: ""}
 constants = {"INSS_PORT_REFIN_TABELAS", "INSS_PORT_REFIN_FATORES_LIQUIDOS", "INSS_PORT_REFIN_FATORES_MESMO_DIA",
+             "INSS_PORT_REFIN_FATORES_DOIS_DIAS",
              "INSS_DIA_BENEFICIO_PADRAO"}
 functions = {"datas_simulador_quali", "dias_fluxo_quali", "coeficiente_fluxo_quali", "taxa_fluxo_quali",
              "calcular_simulador_port_refin", "celula_extrato", "dados_beneficiario_extrato"}
@@ -48,11 +49,11 @@ class PortRefinTest(unittest.TestCase):
 
     def test_datas_sugeridas_calendario_e_referencia(self):
         datas = namespace["datas_simulador_quali"](date(2026, 10, 7))
-        self.assertEqual(datas["data_refinanciamento"], "2026-10-07")
-        # Sem dia informado, vale o dia padrão do banco (25). A portabilidade
-        # vence no mês seguinte e o refinanciamento no mês posterior.
-        self.assertEqual(datas["primeiro_vencimento_port"], "2026-11-25")
-        self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(datas["data_refinanciamento"], "2026-10-09")
+        # Sem vencimento importado, a simulação usa o dia da própria referência
+        # (limitado ao dia 25) e sugere a liberação dois dias úteis depois.
+        self.assertEqual(datas["primeiro_vencimento_port"], "2026-11-07")
+        self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_port"], "2028-01-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_port"], "2028-01-31")
@@ -60,7 +61,7 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 27), 25)["primeiro_vencimento_refin"], "2026-12-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_port"], "2026-11-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_refin"], "2026-12-07")
-        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_refin"], "2028-02-29")
         # A liberação do refinanciamento acompanha o ciclo do benefício: dois
         # dias úteis depois do pagamento. O valor fica estável dentro do mês.
@@ -75,7 +76,7 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(resultado["saldo_corban"], 16111)
         self.assertTrue(resultado["saldo_automatico"])
         self.assertEqual(resultado["valor_contrato"], 18136.54)
-        self.assertAlmostEqual(resultado["troco"], 1092.61, delta=.20)
+        self.assertEqual(resultado["troco"], 1092.61)
 
     def test_banco_pan_0311_com_dia_3(self):
         """Banco em 03/11/2026: portabilidade em 03/12 e refin em 03/01."""
@@ -86,14 +87,46 @@ class PortRefinTest(unittest.TestCase):
                                   primeiro_vencimento_refin="2027-01-03"))
         self.assertEqual(resultado["valor_contrato"], 18136.54)
         self.assertAlmostEqual(resultado["taxa_portabilidade"], 1.824, delta=.001)
-        self.assertAlmostEqual(resultado["troco"], 1092.61, delta=.20)
-        # Sem informar a liberação, o CRM usa o ciclo do benefício: pagamento
-        # em 03/11 mais dois dias úteis = 05/11, a mesma data do banco.
+        self.assertEqual(resultado["troco"], 1092.61)
+        # Sem informar dia nem liberação, o CRM deriva o ciclo da própria
+        # simulação: 03/11 + dois dias úteis = 05/11; vencimentos no dia 3.
         padrao = calcular(dict(tabela_port_refin="633", parcela_atual=400, saldo_quitacao=16985.43,
                                prazo_contrato=96, parcelas_pagas=12, data_simulacao="2026-11-03",
-                               dia_pagamento_beneficio=3))
+                               ))
         self.assertEqual(padrao["valor_contrato"], 18136.54)
         self.assertAlmostEqual(padrao["taxa_portabilidade"], 1.824, delta=.001)
+        self.assertEqual(padrao["troco"], 1092.61)
+
+    def test_trocos_pan_todas_as_tabelas_com_liberacao_em_dois_dias(self):
+        esperados = {
+            "633": (0.02205492, 1092.61),
+            "634": (0.02188624, 1227.70),
+            "635": (0.02163428, 1433.41),
+            "636": (0.02146702, 1572.66),
+            "648": (0.02121719, 1784.70),
+            "649": (0.02096866, 2000.67),
+        }
+        for codigo, (coeficiente, troco) in esperados.items():
+            with self.subTest(tabela=codigo):
+                resultado = calcular(dict(tabela_port_refin=codigo, parcela_atual=400,
+                                          saldo_quitacao=16111, saldo_automatico="on",
+                                          taxa_contrato_atual=1.85, prazo_contrato=96,
+                                          parcelas_pagas=12, data_simulacao="2026-11-03"))
+                self.assertEqual(resultado["saldo_quitacao"], 16985.43)
+                self.assertEqual(resultado["coeficiente"], coeficiente)
+                self.assertEqual(resultado["troco"], troco)
+
+    def test_saldo_bmg_permanece_fixo_ao_alternar_tabelas(self):
+        esperados = {"634": 1853.19, "635": 2126.43, "636": 2311.37,
+                     "648": 2593.03, "649": 2879.90}
+        for codigo, troco in esperados.items():
+            with self.subTest(tabela=codigo):
+                resultado = calcular(dict(tabela_port_refin=codigo, parcela_atual=531.30,
+                                          saldo_quitacao=22330.94, saldo_automatico="on",
+                                          taxa_contrato_atual=1.85, prazo_contrato=96,
+                                          parcelas_pagas=14, data_simulacao="2026-11-03"))
+                self.assertEqual(resultado["saldo_quitacao"], 22330.94)
+                self.assertAlmostEqual(resultado["troco"], troco, delta=.03)
 
     def test_dia_do_beneficio_reproduz_banco_2512(self):
         """Banco Quali em 27/10/2026: vencimento em 25/12 gera contrato de 24.714,31."""
@@ -146,7 +179,7 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(result["valor_contrato"], 22786.45)
         self.assertEqual(result["troco"], 402.38)
         self.assertTrue(result["operacao_viavel"])
-        self.assertEqual(result["comissao_refinanciamento"], 1.01)
+        self.assertEqual(result["comissao_refinanciamento"], 1.97)
 
     def test_parcelas_e_taxas_conferidas_no_newcorban(self):
         for parcela, esperado in [(800, 572.50), (900, 5116.80), (1000, 9661.10)]:
@@ -166,14 +199,28 @@ class PortRefinTest(unittest.TestCase):
             with self.subTest(tabela=codigo):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo))["saldo_considerado"], 37030.65)
 
-    def test_comissoes_conferidas_na_lista_quali_2710(self):
-        esperado = {"633": 3.30, "634": 2.30, "635": 1.30, "636": 0.70, "648": 0.50, "649": 0.25}
+    def test_comissoes_conferidas_na_lista_newcorban_3010(self):
+        esperado = {"633": 3.72, "634": 2.74, "635": 1.76, "636": 1.18, "648": 0.98, "649": 0.49,
+                    "655": 2.69, "656": 1.72, "657": 0.49}
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
         self.assertEqual({codigo: tabela["comissao_percentual"] for codigo, tabela in tabelas.items()}, esperado)
         for codigo, tabela in tabelas.items():
             with self.subTest(tabela=codigo):
                 self.assertEqual(tabela["prazo"], 108)
                 self.assertIn(tabela["taxa"], namespace["INSS_PORT_REFIN_FATORES_LIQUIDOS"])
+
+    def test_tabelas_saldo_2mil_sem_carencia(self):
+        tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
+        esperado = {"655": (1.85, 0.022851712332),
+                    "656": (1.83, 0.022676602023),
+                    "657": (1.80, 0.022415097141)}
+        for codigo, (taxa, coeficiente) in esperado.items():
+            with self.subTest(tabela=codigo):
+                self.assertEqual(tabelas[codigo]["taxa"], taxa)
+                self.assertEqual(tabelas[codigo]["prazo"], 108)
+                self.assertEqual(tabelas[codigo]["coeficiente"], coeficiente)
+                self.assertIn("SALDO DE 2 MIL", tabelas[codigo]["nome"])
+                self.assertNotIn("90D", tabelas[codigo]["nome"])
 
     def test_calculo_livre_e_margem_negativa(self):
         result = calcular(self.dados(tabela_port_refin="", coeficiente_port_refin=.02, novo_prazo=108,

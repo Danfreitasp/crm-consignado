@@ -131,11 +131,11 @@
             String(agora.getMonth() + 1).padStart(2, '0'),
             String(agora.getDate()).padStart(2, '0'),
         ].join('-');
+        const diaField = document.querySelector('[name="dia_pagamento_beneficio"]');
+        if (diaField) diaField.value = '';
         setField('data_simulacao', hoje, highlighted);
-        setField('data_refinanciamento', hoje, highlighted);
-        // O dia do vencimento do contrato atual é o mesmo dia do pagamento do
-        // benefício usado pelo banco na nova operação. O campo dispara a
-        // sugestão dos vencimentos no simulador.
+        // Usa vencimento/pagamento se o Corban realmente fornecer esse dado;
+        // se não, o simulador deriva o ciclo da data da própria simulação.
         const diaBeneficio = String(
             contract.dia_vencimento
             || diaDoMes(contract.vencimento)
