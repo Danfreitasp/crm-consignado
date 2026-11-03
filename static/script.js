@@ -2268,6 +2268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabela: document.getElementById('portTabela'),
         parcelaAtual: document.getElementById('portParcelaAtual'),
         saldo: document.getElementById('portSaldoQuitacao'),
+        saldoAutomatico: document.getElementById('portSaldoAutomatico'),
         descontosBanco: document.getElementById('portDescontosBanco'),
         dataSimulacao: document.getElementById('portDataSimulacao'),
         dataRefinanciamento: document.getElementById('portDataRefinanciamento'),
@@ -2476,6 +2477,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : DIA_BENEFICIO_PADRAO;
     }
 
+    function diaDaData(valor) {
+        const texto = String(valor || '').trim();
+        const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return Number(iso[3]);
+        const data = texto.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+        return data ? Number(data[1]) : 0;
+    }
+
     function dataVencimentoSugerida(dataBase, dia, meses = 2) {
         const base = dataFluxoQuali(dataBase || '');
         if (!Number.isFinite(base) || !dia) return '';
@@ -2487,14 +2496,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Date(Date.UTC(ano, mes, Math.min(dia, ultimoDia))).toISOString().slice(0, 10);
     }
 
+    // O banco libera o refinanciamento dois dias úteis depois do pagamento do
+    // benefício. Como o dia do pagamento é fixo, a data (e o valor) só muda
+    // quando vira o mês, igual à simulação do banco.
+    function dataLiberacaoQuali(referenciaISO, dia) {
+        const base = dataFluxoQuali(referenciaISO || '');
+        if (!Number.isFinite(base) || !dia) return '';
+        const data = new Date(base);
+        const ano = data.getUTCFullYear();
+        const mes = data.getUTCMonth();
+        const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+        let liberacao = Date.UTC(ano, mes, Math.min(dia, ultimoDia));
+        for (let uteis = 2; uteis > 0;) {
+            liberacao += 86400000;
+            const diaSemana = new Date(liberacao).getUTCDay();
+            if (diaSemana !== 0 && diaSemana !== 6) uteis -= 1;
+        }
+        return new Date(Math.max(liberacao, base)).toISOString().slice(0, 10);
+    }
+
+    // Saldo para quitação do jeito que o banco simula: a parcela atual
+    // descontada pelas parcelas restantes na taxa da tabela escolhida.
+    function saldoPelaTabela(parcela, parcelas, taxaPercentual) {
+        if (parcela <= 0 || parcelas <= 0 || taxaPercentual <= 0) return 0;
+        const taxa = taxaPercentual / 100;
+        return parcela * (1 - Math.pow(1 + taxa, -parcelas)) / taxa;
+    }
+
+    function atualizarSaldoAutomatico() {
+        const ativo = Boolean(portFields.saldoAutomatico?.checked) && Boolean(portFields.tabela?.value);
+        if (portFields.saldo) portFields.saldo.readOnly = ativo;
+        if (!ativo || !portFields.saldo) return false;
+        const parcela = parseBR(portFields.parcelaAtual?.value);
+        const restantes = Math.max(0, Number(portFields.prazoContrato?.value || 0)
+            - Number(portFields.parcelasPagas?.value || 0));
+        const taxa = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
+        const saldo = saldoPelaTabela(parcela, restantes, taxa);
+        if (!(saldo > 0)) return false;
+        portFields.saldo.value = brl(saldo);
+        return true;
+    }
+
     function sugerirVencimentos(dia) {
         if (!dia) return false;
         // A portabilidade assume o próximo vencimento do contrato atual (um
         // mês depois); o refinanciamento começa no mês seguinte, como na Quali.
         const vencimentoPort = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 1);
         const vencimentoRefin = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 2);
+        const liberacao = dataLiberacaoQuali(portFields.dataSimulacao?.value, dia);
         if (portFields.vencimentoPort && vencimentoPort) portFields.vencimentoPort.value = vencimentoPort;
         if (portFields.vencimentoRefin && vencimentoRefin) portFields.vencimentoRefin.value = vencimentoRefin;
+        if (portFields.dataRefinanciamento && liberacao) portFields.dataRefinanciamento.value = liberacao;
         return Boolean(vencimentoPort && vencimentoRefin);
     }
 
@@ -2508,6 +2560,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (portFields.taxa) portFields.taxa.value = String(tabelaAtiva.dataset.taxa).replace('.', ',');
             if (portFields.novoPrazo) portFields.novoPrazo.value = tabelaAtiva.dataset.prazo;
         }
+        atualizarSaldoAutomatico();
         const parcelaAtual = parseBR(portFields.parcelaAtual?.value);
         const saldo = parseBR(portFields.saldo?.value);
         const prazoNovo = Math.max(0, Number(portFields.novoPrazo?.value || 0));
@@ -2689,7 +2742,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const prazoOriginal = Math.max(0, Math.trunc(Number(portFields.prazoContrato?.value || 0)));
         const parcelasPagas = Math.max(0, Math.trunc(Number(portFields.parcelasPagas?.value || 0)));
         const parcelasRestantes = Math.max(0, prazoOriginal - parcelasPagas);
-        const taxaPercentual = parseCoeficiente(portFields.taxaContratoAtual?.value);
+        const taxaTabela = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
+        const usaTabela = Boolean(portFields.tabela?.value) && taxaTabela > 0;
+        const taxaPercentual = usaTabela
+            ? taxaTabela
+            : parseCoeficiente(portFields.taxaContratoAtual?.value);
 
         if (!parcela || !prazoOriginal || !parcelasRestantes || taxaPercentual <= 0) {
             if (saldoRecalculadoStatus) {
@@ -2700,10 +2757,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const taxaDecimal = taxaPercentual / 100;
         const saldoAtualizado = parcela * (1 - Math.pow(1 + taxaDecimal, -parcelasRestantes)) / taxaDecimal;
+        if (usaTabela && portFields.saldoAutomatico) portFields.saldoAutomatico.checked = true;
         if (portFields.saldo) portFields.saldo.value = brl(saldoAtualizado);
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         if (saldoRecalculadoStatus) {
-            saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes à taxa de ${taxaPercentual.toLocaleString('pt-BR')}% a.m. Confira com o extrato.`;
+            const origemTaxa = usaTabela ? `tabela ${portFields.tabela.value}` : 'taxa atual do contrato';
+            saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes pela ${origemTaxa}.`;
         }
         calcularPortRefin();
     }
@@ -2901,6 +2960,10 @@ document.addEventListener('DOMContentLoaded', () => {
         atualizarFonteSimulacao();
     }));
     if (portFields.tabela) portFields.tabela.addEventListener('change', aplicarTabelaPortRefin);
+    if (portFields.saldoAutomatico) portFields.saldoAutomatico.addEventListener('change', () => {
+        atualizarSaldoAutomatico();
+        calcularPortRefin();
+    });
     if (recalcularSaldo) recalcularSaldo.addEventListener('click', recalcularSaldoContrato);
     if (lerExtrato) lerExtrato.addEventListener('click', carregarExtrato);
     if (extratoContractSelect) extratoContractSelect.addEventListener('change', aplicarContratoDoExtrato);
@@ -2937,6 +3000,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sugerirVencimentos(diaBeneficioInformado())) calcularPortRefin();
         });
     }
+    // Permite copiar o vencimento mostrado pelo banco (ex.: 03/01/2027) e
+    // deduzir o dia do benefício e o outro vencimento automaticamente.
+    function sincronizarVencimento(campo, outroCampo, meses) {
+        if (!campo) return;
+        campo.addEventListener('change', () => {
+            const dia = diaDaData(campo.value);
+            if (!dia) return;
+            if (portFields.diaBeneficio) portFields.diaBeneficio.value = String(dia);
+            const liberacao = dataLiberacaoQuali(portFields.dataSimulacao?.value, dia);
+            if (liberacao && portFields.dataRefinanciamento) portFields.dataRefinanciamento.value = liberacao;
+            const outro = dataVencimentoSugerida(campo.value, dia, meses);
+            if (outro && outroCampo) outroCampo.value = outro;
+            calcularPortRefin();
+        });
+    }
+    sincronizarVencimento(portFields.vencimentoPort, portFields.vencimentoRefin, 1);
+    sincronizarVencimento(portFields.vencimentoRefin, portFields.vencimentoPort, -1);
     deduzirNegativoInputs.forEach((input) => input.addEventListener('change', () => {
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         calcularPortRefin();

@@ -117,7 +117,7 @@
                 <div class="form-grid form-grid-four">
                     <label>Banco atual<input name="banco_atual" id="portBancoAtual" value="{{ dados.banco_atual }}" placeholder="Ex.: BANRISUL"></label>
                     <label><span class="simulator-label-with-help">Telefone do cliente (opcional) <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o telefone do cliente"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Se preferir, informe depois ao complementar a proposta. Quando preenchido, será reaproveitado em todas as ofertas inseridas.</span></span></span><input name="telefone" id="portTelefone" value="{{ dados.telefone }}" inputmode="tel" placeholder="Ex.: (11) 99999-9999"></label>
-                    <label>Nº do contrato<input name="numero_contrato" id="portNumeroContrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
+                    <label class="simulator-contract-number">Nº do contrato<input name="numero_contrato" id="portNumeroContrato" value="{{ dados.numero_contrato }}" inputmode="numeric"></label>
                     <input type="hidden" name="data_averbacao" id="portDataAverbacao" value="{{ dados.data_averbacao }}">
                     <label>Parcela atual<input name="parcela_atual" id="portParcelaAtual" class="money-mask" value="{{ br_moeda(dados.parcela_atual) }}" placeholder="R$ 0,00"></label>
                     <label>Saldo para quitação<input name="saldo_quitacao" id="portSaldoQuitacao" class="money-mask" value="{{ br_moeda(dados.saldo_quitacao) }}" placeholder="R$ 0,00"></label>
@@ -125,9 +125,10 @@
                     <label>Parcelas pagas<input name="parcelas_pagas" id="portParcelasPagas" value="{{ dados.parcelas_pagas or '' }}" type="number" min="0" step="1" placeholder="Ex.: 25"></label>
                     <div class="simulator-recalculate-field">
                         <label>Taxa atual do contrato (%)<input name="taxa_contrato_atual" id="portTaxaContratoAtual" value="{{ br_percentual(dados.taxa_contrato_atual)|replace('%', '') if dados.taxa_contrato_atual else '' }}" inputmode="decimal" placeholder="Ex.: 1,80"></label>
+                        <label class="simulator-auto-saldo"><input type="checkbox" name="saldo_automatico" id="portSaldoAutomatico" {% if dados.saldo_automatico != '' %}checked{% endif %}><span>Saldo pela tabela (igual ao banco)</span></label>
                         <div class="simulator-recalculate-action">
                             <button class="btn" id="portRecalcularSaldo" type="button"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>Recalcular saldo</span></button>
-                            <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o recálculo do saldo"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">O recálculo considera a parcela atual e as parcelas restantes. Confira o resultado com o extrato.</span></span>
+                            <span class="simulator-help simulator-help--end"><button type="button" class="simulator-help-button" aria-label="Ajuda sobre o recálculo do saldo"><i class="bi bi-question-circle" aria-hidden="true"></i></button><span class="simulator-help-tooltip" role="tooltip">Com a opção marcada, o saldo é calculado pela parcela atual, pelas parcelas restantes e pela taxa da tabela Quali, que é como o banco simula. Desmarque para digitar um saldo informado pelo banco.</span></span>
                         </div>
                     </div>
                 </div>
@@ -238,5 +239,5 @@
 
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
 <script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
-<script src="{{ url_for('static', filename='portal_import.js', v='20261103-dia-corban-2') }}"></script>
+<script src="{{ url_for('static', filename='portal_import.js', v='20261103-saldo-banco-1') }}"></script>
 {% endblock %}

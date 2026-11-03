@@ -3641,6 +3641,7 @@ def dados_simulador_inss() -> dict[str, Any]:
         "numero_contrato": limpar_texto(request.form.get("numero_contrato")),
         "parcela_atual": parse_moeda(request.form.get("parcela_atual")),
         "saldo_quitacao": parse_moeda(request.form.get("saldo_quitacao")),
+        "saldo_automatico": limpar_texto(request.form.get("saldo_automatico")),
         "descontos_banco": parse_moeda(request.form.get("descontos_banco")) if limpar_texto(request.form.get("descontos_banco")) else None,
         **{campo: limpar_texto(request.form.get(campo)) for campo in (
             "data_simulacao", "data_refinanciamento", "primeiro_vencimento_port", "primeiro_vencimento_refin",
@@ -3721,18 +3722,37 @@ def datas_simulador_quali(referencia: date | None = None, dia_vencimento: int | 
     atual (um mês depois da simulação); o refinanciamento começa no mês
     seguinte. A Quali usa essas duas datas separadas: a primeira define a taxa
     da portabilidade e a segunda o coeficiente do novo contrato.
+
+    A liberação do refinanciamento acompanha o pagamento do benefício: o banco
+    libera dois dias úteis depois do pagamento. Como o dia do benefício é fixo,
+    esse valor só muda quando vira o mês, exatamente como a simulação do banco.
     """
     referencia = referencia or date.today()
+    dia_informado = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else 0
 
     def vencimento_em(meses: int) -> date:
         mes = referencia.year * 12 + referencia.month - 1 + meses
         ano, mes_zero = divmod(mes, 12)
-        dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else INSS_DIA_BENEFICIO_PADRAO
+        dia = dia_informado or INSS_DIA_BENEFICIO_PADRAO
         return date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
+
+    liberacao = referencia
+    if dia_informado:
+        pagamento = date(referencia.year, referencia.month,
+                         min(dia_informado, calendar.monthrange(referencia.year, referencia.month)[1]))
+        liberacao = pagamento
+        uteis = 2
+        while uteis:
+            liberacao += timedelta(days=1)
+            if liberacao.weekday() < 5:
+                uteis -= 1
+        # Nunca sugere uma liberação no passado: se o ciclo já passou, usa a
+        # data da simulação.
+        liberacao = max(liberacao, referencia)
 
     return {
         "data_simulacao": referencia.isoformat(),
-        "data_refinanciamento": referencia.isoformat(),
+        "data_refinanciamento": liberacao.isoformat(),
         "primeiro_vencimento_port": vencimento_em(1).isoformat(),
         "primeiro_vencimento_refin": vencimento_em(2).isoformat(),
     }
@@ -3791,6 +3811,21 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         dados["taxa_nova"] = taxa_nova
         dados["coeficiente_port_refin"] = coeficiente_informado
 
+    parcelas_abertas = max(0, int(dados.get("prazo_contrato") or 0) - int(dados.get("parcelas_pagas") or 0))
+    saldo_corban = round(saldo_quitacao, 2)
+    saldo_automatico = str(dados.get("saldo_automatico") or "").strip().lower() in {"1", "true", "sim", "on"}
+    saldo_calculado_tabela = 0.0
+    if tabela and saldo_automatico and parcela_atual > 0 and parcelas_abertas > 0 and taxa_nova > 0:
+        # O banco recalcula o saldo para quitação pela parcela atual, pelas
+        # parcelas restantes e pela taxa da tabela escolhida. Assim o valor
+        # acompanha o contrato e não depende do saldo do Corban (que usa a
+        # taxa antiga e costuma ficar abaixo do saldo da portabilidade).
+        taxa_decimal = taxa_nova / 100
+        saldo_calculado_tabela = round(
+            parcela_atual * (1 - (1 + taxa_decimal) ** (-parcelas_abertas)) / taxa_decimal, 2)
+        saldo_quitacao = saldo_calculado_tabela
+        dados["saldo_quitacao"] = saldo_quitacao
+
     erros = []
     if parcela_atual <= 0:
         erros.append("Informe a parcela atual do contrato.")
@@ -3801,7 +3836,6 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     if descontos_banco < 0:
         erros.append("Os descontos do banco não podem ser negativos.")
 
-    parcelas_abertas = max(0, int(dados.get("prazo_contrato") or 0) - int(dados.get("parcelas_pagas") or 0))
     try:
         dia_beneficio = int(dados.get("dia_pagamento_beneficio") or 0)
     except (TypeError, ValueError):
@@ -3876,6 +3910,9 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         "origem_coeficiente": origem_coeficiente,
         "valor_contrato": round(valor_contrato, 2),
         "saldo_quitacao": round(saldo_quitacao, 2),
+        "saldo_corban": saldo_corban,
+        "saldo_automatico": bool(tabela) and saldo_automatico,
+        "saldo_calculado_tabela": round(saldo_calculado_tabela, 2),
         "saldo_considerado": round(saldo_considerado, 2),
         "fator_saldo": fator_saldo,
         "descontos_banco": round(descontos_banco, 2),

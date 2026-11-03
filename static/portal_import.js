@@ -117,10 +117,22 @@
         setField('numero_contrato', contract.numero, highlighted);
         setField('data_averbacao', contract.data_averbacao, highlighted);
         setField('parcela_atual', contract.parcela, highlighted);
+        const autoSaldo = document.querySelector('[name="saldo_automatico"]');
+        if (autoSaldo) autoSaldo.checked = true;
         setField('saldo_quitacao', contract.saldo_devedor, highlighted);
         setField('prazo_contrato', contract.prazo_total, highlighted);
         setField('parcelas_pagas', contract.parcelas_pagas, highlighted);
         setField('taxa_contrato_atual', contract.taxa, highlighted);
+        // O banco simula com a data de hoje: o saldo é atualizado até a data da
+        // simulação e os vencimentos partem do mês atual.
+        const agora = new Date();
+        const hoje = [
+            agora.getFullYear(),
+            String(agora.getMonth() + 1).padStart(2, '0'),
+            String(agora.getDate()).padStart(2, '0'),
+        ].join('-');
+        setField('data_simulacao', hoje, highlighted);
+        setField('data_refinanciamento', hoje, highlighted);
         // O dia do vencimento do contrato atual é o mesmo dia do pagamento do
         // benefício usado pelo banco na nova operação. O campo dispara a
         // sugestão dos vencimentos no simulador.
@@ -158,7 +170,7 @@
             : diaBeneficio
                 ? ` Dia do benefício ${diaBeneficio} importado.`
                 : ' Atenção: o dia do benefício não veio do Corban e o cálculo está usando 25. Recarregue a página do Corban (F5) com a extensão atualizada e envie novamente, ou informe o dia manualmente.';
-        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${diaMessage}${marginMessage} Escolha a tabela Quali e revise os valores.`);
+        atualizarEstado(true, `Contrato ${contract.numero} selecionado.${diaMessage}${marginMessage} Escolha a tabela Quali: o saldo será recalculado pela tabela automaticamente, igual ao banco.`);
         window.setTimeout(() => highlighted.forEach((field) => field.classList.remove('portal-import-highlight')), 3500);
     }
 

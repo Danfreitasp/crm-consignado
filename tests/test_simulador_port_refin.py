@@ -31,7 +31,8 @@ class PortRefinTest(unittest.TestCase):
             with self.subTest(tabela=codigo):
                 result = calcular(dict(tabela_port_refin=codigo, parcela_atual=638.48,
                                       saldo_quitacao=24882.19, prazo_contrato=84, parcelas_pagas=25,
-                                      data_simulacao="2026-10-07", dia_pagamento_beneficio=7))
+                                      data_simulacao="2026-10-07", data_refinanciamento="2026-10-07",
+                                      dia_pagamento_beneficio=7))
                 self.assertEqual(result["troco"], esperado)
                 self.assertEqual(result["saldo_considerado"], 24882.19)
                 self.assertTrue(result["operacao_viavel"])
@@ -41,7 +42,7 @@ class PortRefinTest(unittest.TestCase):
             result = calcular(dict(tabela_port_refin="649", parcela_atual=638.48,
                                   nova_parcela=parcela, saldo_quitacao=24882.19,
                                   prazo_contrato=84, parcelas_pagas=25, data_simulacao="2026-10-07",
-                                  dia_pagamento_beneficio=7))
+                                  data_refinanciamento="2026-10-07", dia_pagamento_beneficio=7))
             # A estimativa líquida pode variar poucos centavos do arredondamento do banco.
             self.assertAlmostEqual(result["troco"], esperado, delta=.05)
 
@@ -61,6 +62,20 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_refin"], "2026-12-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_refin"], "2028-02-29")
+        # A liberação do refinanciamento acompanha o ciclo do benefício: dois
+        # dias úteis depois do pagamento. O valor fica estável dentro do mês.
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 11, 3), 3)["data_refinanciamento"], "2026-11-05")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 27), 25)["data_refinanciamento"], "2026-10-27")
+
+    def test_saldo_automatico_pela_tabela_reproduz_banco(self):
+        resultado = calcular(dict(tabela_port_refin="633", parcela_atual=400, saldo_quitacao=16111,
+                                  saldo_automatico="on", prazo_contrato=96, parcelas_pagas=12,
+                                  data_simulacao="2026-11-03", dia_pagamento_beneficio=3))
+        self.assertEqual(resultado["saldo_quitacao"], 16985.43)
+        self.assertEqual(resultado["saldo_corban"], 16111)
+        self.assertTrue(resultado["saldo_automatico"])
+        self.assertEqual(resultado["valor_contrato"], 18136.54)
+        self.assertAlmostEqual(resultado["troco"], 1092.61, delta=.20)
 
     def test_banco_pan_0311_com_dia_3(self):
         """Banco em 03/11/2026: portabilidade em 03/12 e refin em 03/01."""
@@ -72,12 +87,12 @@ class PortRefinTest(unittest.TestCase):
         self.assertEqual(resultado["valor_contrato"], 18136.54)
         self.assertAlmostEqual(resultado["taxa_portabilidade"], 1.824, delta=.001)
         self.assertAlmostEqual(resultado["troco"], 1092.61, delta=.20)
-        # Com as datas sugeridas (mesmo dia), a taxa da portabilidade já é a
-        # mesma do banco; só o refinanciamento fica na data da simulação.
+        # Sem informar a liberação, o CRM usa o ciclo do benefício: pagamento
+        # em 03/11 mais dois dias úteis = 05/11, a mesma data do banco.
         padrao = calcular(dict(tabela_port_refin="633", parcela_atual=400, saldo_quitacao=16985.43,
                                prazo_contrato=96, parcelas_pagas=12, data_simulacao="2026-11-03",
                                dia_pagamento_beneficio=3))
-        self.assertEqual(padrao["valor_contrato"], 18114.39)
+        self.assertEqual(padrao["valor_contrato"], 18136.54)
         self.assertAlmostEqual(padrao["taxa_portabilidade"], 1.824, delta=.001)
 
     def test_dia_do_beneficio_reproduz_banco_2512(self):
