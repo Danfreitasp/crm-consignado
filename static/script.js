@@ -2489,8 +2489,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function sugerirVencimentos(dia) {
         if (!dia) return false;
-        const vencimentoPort = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia);
-        const vencimentoRefin = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia);
+        // A portabilidade assume o próximo vencimento do contrato atual (um
+        // mês depois); o refinanciamento começa no mês seguinte, como na Quali.
+        const vencimentoPort = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 1);
+        const vencimentoRefin = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 2);
         if (portFields.vencimentoPort && vencimentoPort) portFields.vencimentoPort.value = vencimentoPort;
         if (portFields.vencimentoRefin && vencimentoRefin) portFields.vencimentoRefin.value = vencimentoRefin;
         return Boolean(vencimentoPort && vencimentoRefin);
@@ -2928,6 +2930,11 @@ document.addEventListener('DOMContentLoaded', () => {
             portFields.diaBeneficio.addEventListener(evento, () => {
                 if (sugerirVencimentos(diaBeneficioInformado())) calcularPortRefin();
             });
+        });
+    }
+    if (portFields.dataSimulacao) {
+        portFields.dataSimulacao.addEventListener('change', () => {
+            if (sugerirVencimentos(diaBeneficioInformado())) calcularPortRefin();
         });
     }
     deduzirNegativoInputs.forEach((input) => input.addEventListener('change', () => {

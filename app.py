@@ -268,8 +268,9 @@ INSS_PORT_REFIN_FATORES_LIQUIDOS = {
 }
 
 # Fluxo padrão conferido no NewCorban em 07/10/2026, com as duas
-# operações na mesma referência e primeiro vencimento dois meses depois.
-# Preserva a referência anterior quando as liberações têm datas diferentes.
+# operações na mesma referência. A portabilidade vence um mês depois da
+# simulação e o refinanciamento no mês seguinte, como na Quali.
+# Preserva as datas informadas quando as liberações são diferentes.
 INSS_PORT_REFIN_FATORES_MESMO_DIA = {
     1.72: 0.966400553352, 1.75: 0.966390491308, 1.78: 0.966380568887,
     1.80: 0.966374862058, 1.83: 0.966365077533, 1.85: 0.966357868147,
@@ -3715,17 +3716,25 @@ def datas_simulador_quali(referencia: date | None = None, dia_vencimento: int | 
     O vencimento usa o dia do pagamento do benefício quando informado e, sem
     essa informação, o dia padrão do banco (25). É o dia que o banco usa na
     simulação e que define o coeficiente e o valor liberado.
+
+    O primeiro vencimento da portabilidade é o próximo vencimento do contrato
+    atual (um mês depois da simulação); o refinanciamento começa no mês
+    seguinte. A Quali usa essas duas datas separadas: a primeira define a taxa
+    da portabilidade e a segunda o coeficiente do novo contrato.
     """
     referencia = referencia or date.today()
-    dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else INSS_DIA_BENEFICIO_PADRAO
-    mes = referencia.year * 12 + referencia.month - 1 + 2
-    ano, mes_zero = divmod(mes, 12)
-    vencimento = date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
+
+    def vencimento_em(meses: int) -> date:
+        mes = referencia.year * 12 + referencia.month - 1 + meses
+        ano, mes_zero = divmod(mes, 12)
+        dia = dia_vencimento if dia_vencimento and 1 <= dia_vencimento <= 31 else INSS_DIA_BENEFICIO_PADRAO
+        return date(ano, mes_zero + 1, min(dia, calendar.monthrange(ano, mes_zero + 1)[1]))
+
     return {
         "data_simulacao": referencia.isoformat(),
         "data_refinanciamento": referencia.isoformat(),
-        "primeiro_vencimento_port": vencimento.isoformat(),
-        "primeiro_vencimento_refin": vencimento.isoformat(),
+        "primeiro_vencimento_port": vencimento_em(1).isoformat(),
+        "primeiro_vencimento_refin": vencimento_em(2).isoformat(),
     }
 
 

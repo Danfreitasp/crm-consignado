@@ -108,6 +108,10 @@
         setField('prazo_contrato', contract.prazo_total, highlighted);
         setField('parcelas_pagas', contract.parcelas_pagas, highlighted);
         setField('taxa_contrato_atual', contract.taxa, highlighted);
+        // O dia do vencimento do contrato atual é o mesmo dia do pagamento do
+        // benefício usado pelo banco na nova operação. O campo dispara a
+        // sugestão dos vencimentos no simulador.
+        setField('dia_pagamento_beneficio', contract.dia_vencimento || importedData.dia_pagamento_beneficio, highlighted);
         setField('banco_destino', 'QUALI', highlighted);
         const margin = parseMoney(importedData.margem_disponivel);
         setField('margem_disponivel_importada', formatMoneyInput(margin), highlighted);
@@ -282,6 +286,7 @@
                 if (contract.banco) extras.push(`Banco no Corban: ${contract.banco}`);
                 if (contract.prazo_restante) extras.push(`${contract.prazo_restante} parcelas restantes`);
                 if (contract.data_averbacao) extras.push(`Averbação: ${contract.data_averbacao}`);
+                if (contract.vencimento) extras.push(`Vencimento: ${contract.vencimento}`);
                 option.title = extras.join(' · ');
                 contractSelect.appendChild(option);
             });

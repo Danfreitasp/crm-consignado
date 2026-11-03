@@ -48,14 +48,37 @@ class PortRefinTest(unittest.TestCase):
     def test_datas_sugeridas_calendario_e_referencia(self):
         datas = namespace["datas_simulador_quali"](date(2026, 10, 7))
         self.assertEqual(datas["data_refinanciamento"], "2026-10-07")
-        # Sem dia informado, vale o dia padrão do banco (25).
+        # Sem dia informado, vale o dia padrão do banco (25). A portabilidade
+        # vence no mês seguinte e o refinanciamento no mês posterior.
+        self.assertEqual(datas["primeiro_vencimento_port"], "2026-11-25")
         self.assertEqual(datas["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_port"], "2028-01-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31))["primeiro_vencimento_refin"], "2028-02-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_port"], "2028-01-31")
         # O dia do benefício prevalece sobre o dia da referência.
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 27), 25)["primeiro_vencimento_refin"], "2026-12-25")
+        self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_port"], "2026-11-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 7)["primeiro_vencimento_refin"], "2026-12-07")
         self.assertEqual(namespace["datas_simulador_quali"](date(2026, 10, 7), 0)["primeiro_vencimento_refin"], "2026-12-25")
         self.assertEqual(namespace["datas_simulador_quali"](date(2027, 12, 31), 31)["primeiro_vencimento_refin"], "2028-02-29")
+
+    def test_banco_pan_0311_com_dia_3(self):
+        """Banco em 03/11/2026: portabilidade em 03/12 e refin em 03/01."""
+        resultado = calcular(dict(tabela_port_refin="633", parcela_atual=400, saldo_quitacao=16985.43,
+                                  prazo_contrato=96, parcelas_pagas=12, data_simulacao="2026-11-03",
+                                  data_refinanciamento="2026-11-05", dia_pagamento_beneficio=3,
+                                  primeiro_vencimento_port="2026-12-03",
+                                  primeiro_vencimento_refin="2027-01-03"))
+        self.assertEqual(resultado["valor_contrato"], 18136.54)
+        self.assertAlmostEqual(resultado["taxa_portabilidade"], 1.824, delta=.001)
+        self.assertAlmostEqual(resultado["troco"], 1092.61, delta=.20)
+        # Com as datas sugeridas (mesmo dia), a taxa da portabilidade já é a
+        # mesma do banco; só o refinanciamento fica na data da simulação.
+        padrao = calcular(dict(tabela_port_refin="633", parcela_atual=400, saldo_quitacao=16985.43,
+                               prazo_contrato=96, parcelas_pagas=12, data_simulacao="2026-11-03",
+                               dia_pagamento_beneficio=3))
+        self.assertEqual(padrao["valor_contrato"], 18114.39)
+        self.assertAlmostEqual(padrao["taxa_portabilidade"], 1.824, delta=.001)
 
     def test_dia_do_beneficio_reproduz_banco_2512(self):
         """Banco Quali em 27/10/2026: vencimento em 25/12 gera contrato de 24.714,31."""

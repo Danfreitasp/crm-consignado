@@ -46,6 +46,16 @@
     cep: ['CEP'],
     bairro: ['Bairro'],
     cidadeUf: ['Cidade - UF', 'Cidade/UF'],
+    // Dia em que o benefício é pago. É o mesmo dia usado pelo banco nos
+    // vencimentos da portabilidade e do refinanciamento.
+    pagamento: [
+      'Data de Pagamento',
+      'Data do Pagamento',
+      'Dia de Pagamento',
+      'Dia do Pagamento',
+      'Data de pagamento do benefício',
+      'Data de crédito do benefício',
+    ],
   };
 
   const seletorRotulos = 'label, dt, th, td, span, strong, p, div';
@@ -207,6 +217,16 @@
     return String(valor || '').replace(/\s*[-–]\s*[A-Z]{2}\s*$/i, '').trim();
   }
 
+  function diaDoMes(valor) {
+    const texto = String(valor || '').trim();
+    if (!texto) return '';
+    const data = texto.match(/(?:^|\D)(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D|$)/);
+    const dia = data
+      ? Number(data[1])
+      : Number((texto.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (texto.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
+    return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? String(dia) : '';
+  }
+
   function valorDoTexto(texto, rotulo) {
     const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const correspondencia = String(texto || '').match(new RegExp(`${escapado}\\s*:\\s*([^\\n]+)`, 'i'));
@@ -225,6 +245,10 @@
       if (!numero || encontrados.has(numero)) return;
       const prazoTexto = valorDoTexto(texto, 'Prazo');
       const prazo = prazoTexto.match(/(\d+)\s*\/\s*(\d+)(?:\s*\|\s*(\d+)\s*pagas?)?/i);
+      const vencimento = valorDoTexto(texto, 'Data de Vencimento')
+        || valorDoTexto(texto, 'Data do Vencimento')
+        || valorDoTexto(texto, 'Vencimento')
+        || valorDoTexto(texto, 'Data Vencimento');
       encontrados.set(numero, {
         numero,
         banco: valorDoTexto(texto, 'Banco'),
@@ -235,6 +259,8 @@
         parcelas_pagas: prazo?.[3] || (prazo ? String(Math.max(0, Number(prazo[2]) - Number(prazo[1]))) : ''),
         taxa: valorDoTexto(texto, 'Taxa'),
         data_averbacao: valorDoTexto(texto, 'Data Averbação'),
+        vencimento,
+        dia_vencimento: diaDoMes(vencimento),
       });
     });
     return Array.from(encontrados.values());
@@ -270,6 +296,10 @@
         endereco: montarEndereco(bruto),
         dados_bancarios: montarDadosBancarios(bruto),
         margem_disponivel: extrairMargemDisponivel40(),
+        // O dia do pagamento do benefício é a data que o banco usa nos
+        // vencimentos. Sem ele, o CRM assume o dia padrão e o cálculo pode
+        // divergir da simulação do banco.
+        dia_pagamento_beneficio: diaDoMes(bruto.pagamento),
         contratos: extrairContratosBancarios(),
       },
       encontrados: Object.keys(bruto).filter((chave) => Boolean(bruto[chave])),
