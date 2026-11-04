@@ -19,6 +19,7 @@ from flask import (
     abort,
     flash,
     g,
+    has_request_context,
     jsonify,
     redirect,
     render_template,
@@ -92,6 +93,7 @@ DEFAULT_STATUS_ETAPAS = [
 STATUS_LIST = [s["nome"] for s in DEFAULT_STATUS_ETAPAS]
 STATUS_VENDEDOR = STATUS_LIST
 STATUS_ADMINISTRATIVO = STATUS_LIST
+VENDEDORAS_INICIAIS = ("Oliana", "Tatiana")
 STATUS_ENCERRADOS = ["Pago", "Perdido / Cancelado"]
 
 # Funis independentes. O produto da proposta define a qual funil ela pertence.
@@ -1014,6 +1016,62 @@ def init_db() -> None:
                     proposta["observacoes"],
                 ),
             )
+    # Vendedoras compartilham o mesmo banco e o mesmo funil, mas cada proposta
+    # pertence a uma responsável. O histórico existente pertence à Oliana.
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS vendedoras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            criado_em TEXT NOT NULL
+        )
+        """
+    )
+    seed_vendedoras = db.execute(
+        "SELECT 1 FROM configuracoes WHERE chave = 'vendedoras_seed_v1'"
+    ).fetchone()
+    total_vendedoras = db.execute("SELECT COUNT(*) FROM vendedoras").fetchone()[0]
+    if not seed_vendedoras or total_vendedoras == 0:
+        for ordem, nome in enumerate(VENDEDORAS_INICIAIS, start=1):
+            db.execute(
+                "INSERT OR IGNORE INTO vendedoras (nome, ativo, ordem, criado_em) VALUES (?, 1, ?, ?)",
+                (nome, ordem, agora_iso()),
+            )
+        db.execute(
+            "INSERT OR IGNORE INTO configuracoes (chave, valor, atualizado_em) VALUES ('vendedoras_seed_v1', '1', ?)",
+            (agora_iso(),),
+        )
+    # O histórico anterior não tinha vendedora (ou usava o nome de quem digitou).
+    # A primeira carga fica com a vendedora padrão; depois disso nomes válidos
+    # são mantidos, inclusive após renomear o cadastro.
+    nomes_cadastrados = [linha["nome"] for linha in db.execute("SELECT nome FROM vendedoras").fetchall()]
+    if nomes_cadastrados:
+        padrao = next(
+            (nome for nome in nomes_cadastrados if nome.casefold() == "oliana"),
+            nomes_cadastrados[0],
+        )
+        marcadores = ",".join("?" for _ in nomes_cadastrados)
+        db.execute(
+            f"""
+            UPDATE propostas
+            SET responsavel = ?
+            WHERE COALESCE(TRIM(responsavel), '') = ''
+               OR responsavel NOT IN ({marcadores})
+            """,
+            (padrao, *nomes_cadastrados),
+        )
+        db.execute("CREATE INDEX IF NOT EXISTS idx_propostas_responsavel ON propostas(responsavel)")
+        # O saldo manual existente passa a pertencer à vendedora padrão. A chave
+        # antiga fica como o consolidado da visão "Todas".
+        db.execute(
+            """INSERT OR IGNORE INTO configuracoes (chave, valor, atualizado_em)
+               SELECT ?, valor, ? FROM configuracoes
+               WHERE chave = 'saldo_em_conta'""",
+            (f"saldo_em_conta:{padrao}", agora_iso()),
+        )
+
     sincronizar_modelos_banco(db)
     migrar_clientes_a_partir_de_propostas()
     db.commit()
@@ -1296,6 +1354,98 @@ def limpar_texto(valor: Any) -> str:
     if valor is None:
         return ""
     return str(valor).strip()
+
+
+def listar_vendedoras(apenas_ativas: bool = False) -> list[sqlite3.Row]:
+    where = "WHERE ativo = 1" if apenas_ativas else ""
+    return get_db().execute(
+        f"SELECT * FROM vendedoras {where} ORDER BY ordem, nome COLLATE NOCASE, id"
+    ).fetchall()
+
+
+def vendedora_padrao() -> str:
+    ativas = listar_vendedoras(apenas_ativas=True)
+    if ativas:
+        oliana = next((item["nome"] for item in ativas if item["nome"].casefold() == "oliana"), "")
+        return oliana or ativas[0]["nome"]
+    return VENDEDORAS_INICIAIS[0]
+
+
+def vendedora_atual_nome() -> str | None:
+    """Nome da vendedora filtrada neste navegador; None significa Todas."""
+    if not has_request_context():
+        return None
+    selecionada = limpar_texto(session.get("vendedora_atual"))
+    if selecionada.casefold() == "todas":
+        return None
+    nomes_ativos = {item["nome"].casefold(): item["nome"] for item in listar_vendedoras(apenas_ativas=True)}
+    if selecionada.casefold() in nomes_ativos:
+        return nomes_ativos[selecionada.casefold()]
+    padrao = vendedora_padrao()
+    session["vendedora_atual"] = padrao
+    return padrao
+
+
+def vendedora_para_nova_proposta() -> str:
+    return vendedora_atual_nome() or vendedora_padrao()
+
+
+def normalizar_vendedora(valor: Any, padrao: str | None = None) -> str:
+    """Converte o nome informado para o cadastro oficial, sem criar duplicatas."""
+    texto = limpar_texto(valor)
+    nomes = {item["nome"].casefold(): item["nome"] for item in listar_vendedoras()}
+    if texto.casefold() in nomes:
+        return nomes[texto.casefold()]
+    return padrao or vendedora_para_nova_proposta()
+
+
+def responsavel_do_formulario(atual: sqlite3.Row | dict[str, Any] | None = None) -> str:
+    dados_atuais = dict(atual) if atual else {}
+    candidato = (
+        request.form.get("responsavel")
+        or dados_atuais.get("responsavel")
+        or vendedora_para_nova_proposta()
+    )
+    return normalizar_vendedora(candidato)
+
+
+def filtro_sql_vendedora(alias: str = "") -> tuple[str, list[Any]]:
+    nome = vendedora_atual_nome()
+    if nome is None:
+        return "1 = 1", []
+    prefixo = f"{alias}." if alias else ""
+    return f"COALESCE({prefixo}responsavel, '') = ?", [nome]
+
+
+def filtro_sql_tarefa_vendedora(alias_tarefa: str = "t", alias_proposta: str = "p") -> tuple[str, list[Any]]:
+    """Tarefas sem proposta são compartilhadas; as vinculadas seguem a vendedora."""
+    filtro, params = filtro_sql_vendedora(alias_proposta)
+    if not params:
+        return "1 = 1", []
+    return f"({alias_tarefa}.proposta_id IS NULL OR {filtro})", params
+
+
+def buscar_todas_propostas_da_vendedora() -> list[sqlite3.Row]:
+    filtro, params = filtro_sql_vendedora()
+    return get_db().execute(f"SELECT * FROM propostas WHERE {filtro}", params).fetchall()
+
+
+@app.route("/vendedora/selecionar", methods=["POST"])
+def selecionar_vendedora():
+    selecionada = limpar_texto(request.form.get("vendedora"))
+    if selecionada.casefold() == "todas":
+        session["vendedora_atual"] = "todas"
+    else:
+        nomes = {item["nome"].casefold(): item["nome"] for item in listar_vendedoras(apenas_ativas=True)}
+        if selecionada.casefold() not in nomes:
+            flash("Escolha uma vendedora válida.", "erro")
+            return redirect(url_for("funil"))
+        session["vendedora_atual"] = nomes[selecionada.casefold()]
+    destino = limpar_texto(request.form.get("next")) or url_for("funil")
+    partes = urlsplit(destino)
+    if partes.scheme or partes.netloc:
+        destino = url_for("funil")
+    return redirect(destino)
 
 
 def normalizar_matricula(valor: Any) -> str:
@@ -1795,16 +1945,17 @@ def status_ativos(funil: str = FUNIL_PADRAO) -> list[str]:
 
 def buscar_propostas_funil(mes: str = "", funil: str = FUNIL_PADRAO) -> list[sqlite3.Row]:
     filtro_funil, parametros_funil = filtro_sql_funil(funil)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     if mes:
         return get_db().execute(
             f"""SELECT * FROM propostas
-               WHERE substr(data_criacao, 1, 7) = ? AND {filtro_funil}
+               WHERE substr(data_criacao, 1, 7) = ? AND {filtro_funil} AND {filtro_vendedora}
                ORDER BY data_retorno ASC, id DESC""",
-            (mes, *parametros_funil),
+            (mes, *parametros_funil, *parametros_vendedora),
         ).fetchall()
     return get_db().execute(
-        f"SELECT * FROM propostas WHERE {filtro_funil} ORDER BY data_retorno ASC, id DESC",
-        parametros_funil,
+        f"SELECT * FROM propostas WHERE {filtro_funil} AND {filtro_vendedora} ORDER BY data_retorno ASC, id DESC",
+        (*parametros_funil, *parametros_vendedora),
     ).fetchall()
 
 
@@ -2274,7 +2425,8 @@ def dados_formulario(proposta_atual: sqlite3.Row | dict[str, Any] | None = None)
         "valor_sacado": normalizar_sim_nao(request.form.get("valor_sacado")), "parcela_atual": parse_moeda(request.form.get("parcela_atual")),
         "nova_parcela": parse_moeda(request.form.get("nova_parcela")), "troco": parse_moeda(request.form.get("troco")),
         "comissao_percentual": parse_percentual(request.form.get("comissao_percentual")), "comissao": parse_moeda(request.form.get("comissao")),
-        "margem_apos": limpar_texto(request.form.get("margem_apos")), "status": status, "responsavel": "",
+        "margem_apos": limpar_texto(request.form.get("margem_apos")), "status": status,
+        "responsavel": responsavel_do_formulario(proposta_atual),
         "telefone": limpar_texto(request.form.get("telefone")), "endereco": limpar_texto(request.form.get("endereco")),
         "dados_bancarios": limpar_texto(request.form.get("dados_bancarios")), "proxima_acao": "",
         "data_retorno": limpar_texto(request.form.get("data_retorno")), "observacoes": limpar_texto(request.form.get("observacoes")),
@@ -2306,6 +2458,7 @@ def dados_nova_proposta() -> dict[str, Any]:
 
 def proposta_vazia(status: str | None = None, funil: str = FUNIL_PADRAO) -> dict[str, Any]:
     proposta = {campo: "" for campo in CAMPOS_PROPOSTA}
+    proposta["responsavel"] = vendedora_para_nova_proposta()
     proposta["status"] = status or status_entrada_proposta(funil)
     proposta["beneficio_bloqueado"] = "NÃO"
     proposta["valor_caiu_promotora"] = "NÃO"
@@ -3361,6 +3514,10 @@ def filtros_sql() -> tuple[str, list[Any], dict[str, str]]:
 
     where = []
     params: list[Any] = []
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
+    if parametros_vendedora:
+        where.append(filtro_vendedora)
+        params.extend(parametros_vendedora)
     if filtros["nome"]:
         where.append("nome LIKE ?")
         params.append(f"%{filtros['nome']}%")
@@ -3517,6 +3674,9 @@ def helpers() -> dict[str, Any]:
         "TAREFA_STATUS": TAREFA_STATUS,
         "TAREFA_PRIORIDADES": TAREFA_PRIORIDADES,
         "TAREFA_CATEGORIAS": TAREFA_CATEGORIAS,
+        "vendedoras": listar_vendedoras(apenas_ativas=True),
+        "vendedoras_formulario": listar_vendedoras(),
+        "vendedora_atual": vendedora_atual_nome() or "todas",
         "br_moeda": br_moeda,
         "br_percentual": br_percentual,
         "br_data": br_data,
@@ -4514,7 +4674,7 @@ def simulador_inss_criar_proposta():
         "comissao": 0,
         "margem_apos": "",
         "status": "Em atendimento" if status_valido("Em atendimento") else status_padrao(),
-        "responsavel": "",
+        "responsavel": vendedora_para_nova_proposta(),
         "telefone": dados_sim["telefone"],
         "endereco": "",
         "dados_bancarios": "",
@@ -4947,23 +5107,26 @@ def api_buscar_propostas():
 
     like = f"%{termo_original}%"
     like_digitos = f"%{termo_digitos}%" if termo_digitos else like
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = get_db().execute(
-        """
+        f"""
         SELECT id, nome, cpf, telefone, status, produto, banco_digitado, banco_atual, banco_destino,
                numero_proposta, numero_port_vinculada, numero_refin_vinculada
         FROM propostas
-        WHERE nome LIKE ?
-           OR cpf LIKE ?
-           OR telefone LIKE ?
-           OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cpf, ''), '.', ''), '-', ''), ' ', ''), '/', '') LIKE ?
-           OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(telefone, ''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
-           OR COALESCE(numero_proposta, '') LIKE ?
-           OR COALESCE(numero_port_vinculada, '') LIKE ?
-           OR COALESCE(numero_refin_vinculada, '') LIKE ?
+        WHERE (
+               nome LIKE ?
+            OR cpf LIKE ?
+            OR telefone LIKE ?
+            OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cpf, ''), '.', ''), '-', ''), ' ', ''), '/', '') LIKE ?
+            OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(telefone, ''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
+            OR COALESCE(numero_proposta, '') LIKE ?
+            OR COALESCE(numero_port_vinculada, '') LIKE ?
+            OR COALESCE(numero_refin_vinculada, '') LIKE ?
+        ) AND {filtro_vendedora}
         ORDER BY data_atualizacao DESC, id DESC
         LIMIT 10
         """,
-        (like, like, like, like_digitos, like_digitos, like, like, like),
+        (like, like, like, like_digitos, like_digitos, like, like, like, *parametros_vendedora),
     ).fetchall()
 
     def match_info(p: sqlite3.Row) -> tuple[str, str]:
@@ -5012,6 +5175,7 @@ def carregar_clientes_nutricao(funil: str = FUNIL_PADRAO) -> list[dict[str, Any]
     if not posteriores:
         return []
     filtro_funil, parametros_funil = filtro_sql_funil(funil)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora("p")
     db = get_db()
     registros = db.execute(f"""
         SELECT p.*, c.nome AS cadastro_nome, c.cpf AS cadastro_cpf,
@@ -5023,11 +5187,11 @@ def carregar_clientes_nutricao(funil: str = FUNIL_PADRAO) -> list[dict[str, Any]
             ORDER BY a2.data_hora DESC, a2.id DESC LIMIT 1
         )
         WHERE p.status IN ({','.join('?' for _ in posteriores)})
-          AND {filtro_funil}
+          AND {filtro_funil} AND {filtro_vendedora}
           AND (p.status NOT IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
                OR substr(p.data_encerramento, 1, 10) = ?)
         ORDER BY p.data_atualizacao DESC, p.id DESC
-    """, [*posteriores, *parametros_funil, hoje_iso()]).fetchall()
+    """, [*posteriores, *parametros_funil, *parametros_vendedora, hoje_iso()]).fetchall()
     ids_exibidos = {row["id"] for row in registros}
     retornos = {r["cliente_chave"]: r["ultimo"] for r in db.execute(
         "SELECT cliente_chave, MAX(registrado_em) AS ultimo FROM nutricao_retornos"
@@ -5234,19 +5398,22 @@ def detalhe_cliente(cliente_id: int):
     if not cliente:
         abort(404)
 
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = get_db().execute(
-        """
+        f"""
         SELECT id, nome, cpf, nb_matricula, status, produto, banco_digitado,
                banco_atual, banco_destino, data_atualizacao
         FROM propostas
-        WHERE cliente_id = ?
-           OR (
-                cpf = ?
-                AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
-           )
+        WHERE (
+                cliente_id = ?
+             OR (
+                  cpf = ?
+                  AND NORMALIZAR_MATRICULA(nb_matricula) = NORMALIZAR_MATRICULA(?)
+             )
+        ) AND {filtro_vendedora}
         ORDER BY data_atualizacao DESC, id DESC
         """,
-        (cliente_id, cliente["cpf"], cliente["nb_matricula"]),
+        (cliente_id, cliente["cpf"], cliente["nb_matricula"], *parametros_vendedora),
     ).fetchall()
     return render_template(
         "detalhe_cliente.html",
@@ -5487,23 +5654,26 @@ def api_pesquisa_global():
         """,
         (like, like, like, like, like_digitos, like_digitos),
     ).fetchall()
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = db.execute(
-        """
+        f"""
         SELECT id, nome, cpf, telefone, status, produto, banco_digitado, banco_atual, banco_destino,
                numero_proposta, numero_port_vinculada, numero_refin_vinculada
         FROM propostas
-        WHERE nome LIKE ?
-           OR cpf LIKE ?
-           OR telefone LIKE ?
-           OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cpf, ''), '.', ''), '-', ''), ' ', ''), '/', '') LIKE ?
-           OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(telefone, ''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
-           OR COALESCE(numero_proposta, '') LIKE ?
-           OR COALESCE(numero_port_vinculada, '') LIKE ?
-           OR COALESCE(numero_refin_vinculada, '') LIKE ?
+        WHERE (
+               nome LIKE ?
+            OR cpf LIKE ?
+            OR telefone LIKE ?
+            OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cpf, ''), '.', ''), '-', ''), ' ', ''), '/', '') LIKE ?
+            OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(telefone, ''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
+            OR COALESCE(numero_proposta, '') LIKE ?
+            OR COALESCE(numero_port_vinculada, '') LIKE ?
+            OR COALESCE(numero_refin_vinculada, '') LIKE ?
+        ) AND {filtro_vendedora}
         ORDER BY data_atualizacao DESC, id DESC
         LIMIT 10
         """,
-        (like, like, like, like_digitos, like_digitos, like, like, like),
+        (like, like, like, like_digitos, like_digitos, like, like, like, *parametros_vendedora),
     ).fetchall()
 
     def match_info_cliente(cliente: sqlite3.Row) -> tuple[str, str]:
@@ -6768,6 +6938,12 @@ def carregar_tarefas_agenda(filtros: dict[str, str]) -> list[sqlite3.Row]:
         where.append("t.proposta_id IS NOT NULL")
     if filtros["vinculo"] == "sem_proposta":
         where.append("t.proposta_id IS NULL")
+    filtro_tarefa_vendedora, parametros_tarefa_vendedora = filtro_sql_tarefa_vendedora()
+    if parametros_tarefa_vendedora:
+        # Compromissos sem proposta continuam compartilhados; os vinculados
+        # acompanham a vendedora responsável pela proposta.
+        where.append(filtro_tarefa_vendedora)
+        params.extend(parametros_tarefa_vendedora)
     sql = "WHERE " + " AND ".join(where) if where else ""
     return get_db().execute(
         f"""
@@ -6857,8 +7033,9 @@ def carregar_retornos_agenda(inicio: date, fim: date) -> list[sqlite3.Row]:
     A coluna ``ja_atuado`` marca o retorno quando a proposta já passou por
     "Aguardando CIP" e hoje está em outra etapa do funil.
     """
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora("p")
     return get_db().execute(
-        """
+        f"""
         SELECT p.id, p.nome, p.data_retorno, p.proxima_acao, p.status,
                CASE
                    WHEN p.status <> 'Aguardando CIP' AND EXISTS (
@@ -6872,6 +7049,7 @@ def carregar_retornos_agenda(inicio: date, fim: date) -> list[sqlite3.Row]:
         FROM propostas p
         WHERE p.data_retorno >= ? AND p.data_retorno < ?
           AND p.status NOT IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
+          AND {filtro_vendedora}
           AND NOT (
               UPPER(TRIM(COALESCE(p.produto, ''))) = 'REFINANCIAMENTO'
               AND COALESCE(TRIM(p.numero_port_vinculada), '') <> ''
@@ -6886,7 +7064,7 @@ def carregar_retornos_agenda(inicio: date, fim: date) -> list[sqlite3.Row]:
           )
         ORDER BY p.data_retorno, p.nome, p.id
         """,
-        (inicio.isoformat(), fim.isoformat()),
+        (inicio.isoformat(), fim.isoformat(), *parametros_vendedora),
     ).fetchall()
 
 
@@ -6897,12 +7075,13 @@ def contexto_calendario(mes: date) -> dict[str, Any]:
     else:
         proximo_mes = mes.replace(month=mes.month + 1)
     mes_anterior = (mes - timedelta(days=1)).replace(day=1)
+    filtro_tarefa_vendedora, parametros_tarefa_vendedora = filtro_sql_tarefa_vendedora()
     tarefas = get_db().execute(
-        """SELECT t.*, p.nome AS proposta_nome FROM tarefas t
+        f"""SELECT t.*, p.nome AS proposta_nome FROM tarefas t
            LEFT JOIN propostas p ON p.id = t.proposta_id
-           WHERE t.data_tarefa >= ? AND t.data_tarefa < ?
+           WHERE t.data_tarefa >= ? AND t.data_tarefa < ? AND {filtro_tarefa_vendedora}
            ORDER BY COALESCE(NULLIF(t.horario, ''), '99:99'), t.id""",
-        (mes.isoformat(), proximo_mes.isoformat()),
+        (mes.isoformat(), proximo_mes.isoformat(), *parametros_tarefa_vendedora),
     ).fetchall()
     retornos = carregar_retornos_agenda(mes, proximo_mes)
     eventos_por_data: dict[str, list[dict[str, Any]]] = {}
@@ -6946,12 +7125,13 @@ def contexto_semana_agenda(referencia: date) -> dict[str, Any]:
     """Monta a visão semanal da Agenda, de domingo a sábado."""
     inicio = referencia - timedelta(days=(referencia.weekday() + 1) % 7)
     fim = inicio + timedelta(days=7)
+    filtro_tarefa_vendedora, parametros_tarefa_vendedora = filtro_sql_tarefa_vendedora()
     tarefas = get_db().execute(
-        """SELECT t.*, p.nome AS proposta_nome FROM tarefas t
+        f"""SELECT t.*, p.nome AS proposta_nome FROM tarefas t
            LEFT JOIN propostas p ON p.id = t.proposta_id
-           WHERE t.data_tarefa >= ? AND t.data_tarefa < ?
+           WHERE t.data_tarefa >= ? AND t.data_tarefa < ? AND {filtro_tarefa_vendedora}
            ORDER BY t.data_tarefa, COALESCE(NULLIF(t.horario, ''), '99:99'), t.id""",
-        (inicio.isoformat(), fim.isoformat()),
+        (inicio.isoformat(), fim.isoformat(), *parametros_tarefa_vendedora),
     ).fetchall()
     retornos = carregar_retornos_agenda(inicio, fim)
     eventos_horarios: dict[str, list[dict[str, Any]]] = {}
@@ -7101,23 +7281,25 @@ def interacao_hoje(proposta: sqlite3.Row | dict[str, Any]) -> bool:
 def carregar_propostas_abertas_hoje() -> list[sqlite3.Row]:
     status_visiveis = status_ativos()
     placeholders = ",".join("?" for _ in status_visiveis)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     return get_db().execute(
         f"""
         SELECT * FROM propostas
-        WHERE status IN ({placeholders})
+        WHERE status IN ({placeholders}) AND {filtro_vendedora}
         ORDER BY
             CASE WHEN COALESCE(data_retorno, '') = '' THEN 1 ELSE 0 END,
             data_retorno ASC,
             data_atualizacao ASC,
             id ASC
         """,
-        status_visiveis,
+        (*status_visiveis, *parametros_vendedora),
     ).fetchall()
 
 
 def carregar_propostas_operacao() -> list[dict[str, Any]]:
     status_visiveis = status_ativos()
     placeholders = ",".join("?" for _ in status_visiveis)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     rows = get_db().execute(
         f"""
         SELECT p.*,
@@ -7138,9 +7320,9 @@ def carregar_propostas_operacao() -> list[dict[str, Any]]:
                    WHERE h.proposta_id = p.id
                ) AS ultimo_historico
         FROM propostas p
-        WHERE p.status IN ({placeholders})
+        WHERE p.status IN ({placeholders}) AND {filtro_vendedora}
         """,
-        status_visiveis,
+        (*status_visiveis, *parametros_vendedora),
     ).fetchall()
     propostas = [preparar_proposta_operacao(row) for row in rows]
     return sorted(
@@ -7357,17 +7539,18 @@ def encerradas():
     mes = limpar_texto(request.args.get("mes")) or mes_atual()
     funil_selecionado = funil_atual()
     filtro_funil, parametros_funil = filtro_sql_funil(funil_selecionado)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = get_db().execute(
         f"""
         SELECT * FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
           AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
-          AND {filtro_funil}
+          AND {filtro_funil} AND {filtro_vendedora}
         ORDER BY COALESCE(data_encerramento, data_atualizacao) DESC, id DESC
         """,
-        (mes, *parametros_funil),
+        (mes, *parametros_funil, *parametros_vendedora),
     ).fetchall()
-    todas_propostas = get_db().execute("SELECT * FROM propostas").fetchall()
+    todas_propostas = buscar_todas_propostas_da_vendedora()
     propostas_encerradas = []
     for proposta in propostas:
         dados = dict(proposta)
@@ -7444,6 +7627,64 @@ def administrativo():
 def configuracoes():
     if request.method == "POST":
         acao = limpar_texto(request.form.get("acao")) or "agenda"
+        if acao == "adicionar_vendedora":
+            nome = limpar_texto(request.form.get("nome"))[:80]
+            if not nome or nome.casefold() == "todas":
+                flash("Informe um nome válido para a vendedora.", "erro")
+                return redirect(url_for("configuracoes"))
+            try:
+                ordem = get_db().execute("SELECT COALESCE(MAX(ordem), 0) + 1 AS proxima FROM vendedoras").fetchone()["proxima"]
+                get_db().execute(
+                    "INSERT INTO vendedoras (nome, ativo, ordem, criado_em) VALUES (?, 1, ?, ?)",
+                    (nome, ordem, agora_iso()),
+                )
+                get_db().commit()
+                flash(f"Vendedora {nome} adicionada.", "ok")
+            except sqlite3.IntegrityError:
+                flash("Já existe uma vendedora com esse nome.", "erro")
+            return redirect(url_for("configuracoes"))
+        if acao == "alternar_vendedora":
+            vendedora_id = request.form.get("vendedora_id", type=int)
+            vendedora = get_db().execute("SELECT * FROM vendedoras WHERE id = ?", (vendedora_id,)).fetchone()
+            if not vendedora:
+                flash("Vendedora não encontrada.", "erro")
+                return redirect(url_for("configuracoes"))
+            novo_ativo = 0 if vendedora["ativo"] else 1
+            if not novo_ativo and len(listar_vendedoras(apenas_ativas=True)) <= 1:
+                flash("Mantenha pelo menos uma vendedora ativa.", "erro")
+                return redirect(url_for("configuracoes"))
+            get_db().execute("UPDATE vendedoras SET ativo = ? WHERE id = ?", (novo_ativo, vendedora_id))
+            get_db().commit()
+            flash(f"Vendedora {vendedora['nome']} {'ativada' if novo_ativo else 'desativada'}.", "ok")
+            return redirect(url_for("configuracoes"))
+        if acao == "renomear_vendedora":
+            vendedora_id = request.form.get("vendedora_id", type=int)
+            nome = limpar_texto(request.form.get("nome"))[:80]
+            vendedora = get_db().execute("SELECT * FROM vendedoras WHERE id = ?", (vendedora_id,)).fetchone()
+            if not vendedora or not nome or nome.casefold() == "todas":
+                flash("Informe um nome válido para a vendedora.", "erro")
+                return redirect(url_for("configuracoes"))
+            try:
+                get_db().execute("UPDATE vendedoras SET nome = ? WHERE id = ?", (nome, vendedora_id))
+                get_db().execute("UPDATE propostas SET responsavel = ? WHERE responsavel = ?", (nome, vendedora["nome"]))
+                chave_antiga = f"saldo_em_conta:{vendedora['nome']}"
+                chave_nova = f"saldo_em_conta:{nome}"
+                if chave_antiga != chave_nova:
+                    ja_existe = get_db().execute(
+                        "SELECT 1 FROM configuracoes WHERE chave = ?", (chave_nova,)
+                    ).fetchone()
+                    if not ja_existe:
+                        get_db().execute(
+                            "UPDATE configuracoes SET chave = ? WHERE chave = ?",
+                            (chave_nova, chave_antiga),
+                        )
+                if limpar_texto(session.get("vendedora_atual")).casefold() == vendedora["nome"].casefold():
+                    session["vendedora_atual"] = nome
+                get_db().commit()
+                flash("Vendedora renomeada e vínculos atualizados.", "ok")
+            except sqlite3.IntegrityError:
+                flash("Já existe uma vendedora com esse nome.", "erro")
+            return redirect(url_for("configuracoes"))
         if acao == "documentos":
             caminho, erro = validar_pasta_base_anexos(request.form.get("anexos_base_dir"))
             if erro:
@@ -7481,6 +7722,7 @@ def configuracoes():
         pasta_anexos_atual=str(pasta_base_anexos()),
         pasta_anexos_padrao=str(ANEXOS_BASE_DIR_PADRAO),
         pasta_anexos_personalizada=bool(obter_configuracao("anexos_base_dir", "")),
+        vendedoras_admin=listar_vendedoras(),
         titulo="Configurações",
         subtitulo="Personalize os alertas, o funil e a aparência do CRM.",
     )
@@ -8107,12 +8349,15 @@ def comparativo_promotoras_dashboard(
         if grupo:
             comissoes[grupo] += float(proposta["comissao"] or 0)
 
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     todas_propostas = get_db().execute(
-        """
+        f"""
         SELECT id, produto, promotora, portabilidade_id, numero_proposta,
                numero_port_vinculada, numero_refin_vinculada
         FROM propostas
-        """
+        WHERE {filtro_vendedora}
+        """,
+        parametros_vendedora,
     ).fetchall()
     ports = [proposta for proposta in todas_propostas if produto_eh_portabilidade_com_refin(proposta)]
     refins_vinculados = {
@@ -8153,23 +8398,28 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         mes,
         incluir_anteriores,
     )
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = db.execute(
-        f"SELECT * FROM propostas WHERE {filtro_mes_propostas} ORDER BY data_criacao DESC",
-        parametros_mes_propostas,
+        f"SELECT * FROM propostas WHERE {filtro_mes_propostas} AND {filtro_vendedora} ORDER BY data_criacao DESC",
+        (*parametros_mes_propostas, *parametros_vendedora),
     ).fetchall()
     propostas_encerradas_mes = db.execute(
-        """
+        f"""
         SELECT *
         FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
           AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_vendedora}
         """,
-        (mes,),
+        (mes, *parametros_vendedora),
     ).fetchall()
-    todas_propostas = db.execute("SELECT * FROM propostas").fetchall()
+    todas_propostas = buscar_todas_propostas_da_vendedora()
     placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
     filtro_criacao_comissao_prevista = ""
-    parametros_comissao_prevista: list[Any] = list(STATUS_COMISSAO_PREVISTA)
+    parametros_comissao_prevista: list[Any] = [
+        *STATUS_COMISSAO_PREVISTA,
+        *parametros_vendedora,
+    ]
     if not incluir_anteriores:
         filtro_criacao_comissao_prevista = "AND substr(data_criacao, 1, 7) = ?"
         parametros_comissao_prevista.append(mes)
@@ -8178,6 +8428,7 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         SELECT *
         FROM propostas
         WHERE status IN ({placeholders_comissao_prevista})
+          AND {filtro_vendedora}
           {filtro_criacao_comissao_prevista}
         """,
         parametros_comissao_prevista,
@@ -8266,13 +8517,14 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
     db = get_db()
     filtro_mes, parametros_mes = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
     filtro_funil, parametros_funil = filtro_sql_funil(FUNIL_MARGEM)
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
     propostas = db.execute(
         f"""
         SELECT * FROM propostas
-        WHERE ({filtro_mes}) AND {filtro_funil}
+        WHERE ({filtro_mes}) AND {filtro_funil} AND {filtro_vendedora}
         ORDER BY data_criacao DESC
         """,
-        (*parametros_mes, *parametros_funil),
+        (*parametros_mes, *parametros_funil, *parametros_vendedora),
     ).fetchall()
     propostas_encerradas_mes = db.execute(
         f"""
@@ -8280,17 +8532,18 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
         FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
           AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
-          AND {filtro_funil}
+          AND {filtro_funil} AND {filtro_vendedora}
         """,
-        (mes, *parametros_funil),
+        (mes, *parametros_funil, *parametros_vendedora),
     ).fetchall()
-    todas_propostas = db.execute("SELECT * FROM propostas").fetchall()
+    todas_propostas = buscar_todas_propostas_da_vendedora()
 
     placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
     filtro_criacao_comissao_prevista = ""
     parametros_comissao_prevista: list[Any] = [
         *STATUS_COMISSAO_PREVISTA,
         *parametros_funil,
+        *parametros_vendedora,
     ]
     if not incluir_anteriores:
         filtro_criacao_comissao_prevista = "AND substr(data_criacao, 1, 7) = ?"
@@ -8300,7 +8553,7 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
         SELECT *
         FROM propostas
         WHERE status IN ({placeholders_comissao_prevista})
-          AND {filtro_funil}
+          AND {filtro_funil} AND {filtro_vendedora}
           {filtro_criacao_comissao_prevista}
         """,
         parametros_comissao_prevista,
@@ -8358,9 +8611,16 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
 
 
 def saldo_em_conta() -> float:
-    registro = get_db().execute(
-        "SELECT valor FROM configuracoes WHERE chave = 'saldo_em_conta'"
-    ).fetchone()
+    nome = vendedora_atual_nome()
+    if nome is None:
+        registro = get_db().execute(
+            "SELECT valor FROM configuracoes WHERE chave = 'saldo_em_conta'"
+        ).fetchone()
+    else:
+        registro = get_db().execute(
+            "SELECT valor FROM configuracoes WHERE chave = ?",
+            (f"saldo_em_conta:{nome}",),
+        ).fetchone()
     return parse_moeda(registro["valor"]) if registro else 0.0
 
 
@@ -8405,6 +8665,10 @@ def calcular_agregado_dashboard(
     else:
         filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
         where = [filtro_mes_propostas]
+    filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
+    if parametros_vendedora:
+        where.append(filtro_vendedora)
+        params.extend(parametros_vendedora)
     if (
         not somar_comissao_por_status_como_operacao
         and filtro_campo in DASHBOARD_FILTRO_CAMPOS
@@ -8752,10 +9016,12 @@ def atualizar_saldo_dashboard():
     if not valor_informado:
         flash("Informe o saldo em conta.", "erro")
     else:
+        nome = vendedora_atual_nome()
+        chave = "saldo_em_conta" if nome is None else f"saldo_em_conta:{nome}"
         get_db().execute(
-            """INSERT INTO configuracoes (chave, valor, atualizado_em) VALUES ('saldo_em_conta', ?, ?)
+            """INSERT INTO configuracoes (chave, valor, atualizado_em) VALUES (?, ?, ?)
                ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, atualizado_em = excluded.atualizado_em""",
-            (str(parse_moeda(valor_informado)), agora_iso()),
+            (chave, str(parse_moeda(valor_informado)), agora_iso()),
         )
         get_db().commit()
         flash("Saldo em conta atualizado.", "ok")
@@ -9382,7 +9648,7 @@ def importar():
                 parse_moeda(row.get("comissao")),
                 limpar_texto(row.get("margem_apos")),
                 status,
-                texto_planilha(row.get("responsavel")),
+                normalizar_vendedora(row.get("responsavel")),
                 texto_planilha(dados_cliente_importados.get("telefone")),
                 texto_planilha(dados_cliente_importados.get("endereco")),
                 texto_planilha(dados_cliente_importados.get("dados_bancarios")),

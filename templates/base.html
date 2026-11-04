@@ -96,6 +96,17 @@
             </div>
             <div class="topbar-actions">
                 <a class="btn btn-back" href="{{ url_retorno_padrao() }}" title="Voltar para a origem"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Voltar</span></a>
+                <form class="seller-selector" method="post" action="{{ url_for('selecionar_vendedora') }}">
+                    <input type="hidden" name="next" value="{{ request.full_path }}">
+                    <label for="sellerSelector"><i class="bi bi-person-badge" aria-hidden="true"></i><span class="seller-selector-label">Vendedora</span></label>
+                    <select id="sellerSelector" name="vendedora" onchange="this.form.submit()" aria-label="Filtrar por vendedora">
+                        <option value="todas" {% if vendedora_atual == 'todas' %}selected{% endif %}>Todas</option>
+                        {% for vendedora in vendedoras %}
+                        <option value="{{ vendedora.nome }}" {% if vendedora_atual == vendedora.nome %}selected{% endif %}>{{ vendedora.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <noscript><button class="btn" type="submit">Aplicar</button></noscript>
+                </form>
                 <div class="quick-search" data-search-url="{{ url_for('api_pesquisa_global') }}">
                     <i class="bi bi-search quick-search-icon" aria-hidden="true"></i>
                     <input id="quickSearchInput" type="search" placeholder="Pesquisar cliente, CPF ou telefone..." autocomplete="off">

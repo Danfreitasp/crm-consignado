@@ -46,17 +46,6 @@
     cep: ['CEP'],
     bairro: ['Bairro'],
     cidadeUf: ['Cidade - UF', 'Cidade/UF'],
-    // Dia em que o benefício é pago. É o mesmo dia usado pelo banco nos
-    // vencimentos da portabilidade e do refinanciamento.
-    pagamento: [
-      'Data de Pagamento',
-      'Data do Pagamento',
-      'Dia de Pagamento',
-      'Dia do Pagamento',
-      'Data de pagamento do benefício',
-      'Data de crédito do benefício',
-      'Pago em',
-    ],
   };
 
   const seletorRotulos = 'label, dt, th, td, span, strong, p, div';
@@ -218,114 +207,10 @@
     return String(valor || '').replace(/\s*[-–]\s*[A-Z]{2}\s*$/i, '').trim();
   }
 
-  function diaDoMes(valor) {
-    const texto = String(valor || '').trim();
-    if (!texto) return '';
-    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const data = texto.match(/(?:^|\D)(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D|$)/);
-    const dia = iso
-      ? Number(iso[3])
-      : data
-        ? Number(data[1])
-        : Number((texto.match(/\bdia\s*(\d{1,2})\b/i) || [])[1] || (texto.match(/^\s*(\d{1,2})\s*$/) || [])[1]);
-    return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? String(dia) : '';
-  }
-
   function valorDoTexto(texto, rotulo) {
     const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const correspondencia = String(texto || '').match(new RegExp(`${escapado}\\s*:\\s*([^\\n]+)`, 'i'));
     return correspondencia?.[1]?.trim() || '';
-  }
-
-  // O portal às vezes coloca o rótulo e a data em linhas/células diferentes.
-  // Nesse caso o valor não está na mesma linha do rótulo, então procuramos a
-  // primeira data logo depois dele.
-  function ocorrenciasDoRotulo(fonte, rotulos) {
-    const achados = [];
-    for (const rotulo of rotulos) {
-      const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(escapado, 'gi');
-      let encontrado;
-      while ((encontrado = re.exec(fonte))) {
-        achados.push({ fim: encontrado.index + encontrado[0].length });
-        if (encontrado.index === re.lastIndex) re.lastIndex += 1;
-      }
-    }
-    return achados;
-  }
-
-  function dataProximaDoRotulo(texto, rotulos, limite = 100) {
-    const fonte = String(texto || '');
-    for (const { fim } of ocorrenciasDoRotulo(fonte, rotulos)) {
-      const janela = fonte.slice(fim, fim + limite);
-      // Datas de <input type="date"> chegam no formato ISO (aaaa-mm-dd).
-      const iso = janela.match(/(?:^|\D)(\d{4})-(\d{2})-(\d{2})(?:\D|$)/);
-      if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-      const data = janela.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
-      if (data) return data[0];
-    }
-    return '';
-  }
-
-  // Alguns benefícios mostram apenas o dia ("Dia de Pagamento: 3"), sem a data
-  // completa. Aceita tanto uma data quanto um número solto logo após o rótulo.
-  function diaProximaDoRotulo(texto, rotulos, limite = 60) {
-    const fonte = String(texto || '');
-    for (const { fim } of ocorrenciasDoRotulo(fonte, rotulos)) {
-      const janela = fonte.slice(fim, fim + limite);
-      const dia = diaDoMes(janela);
-      if (dia) return dia;
-      const numero = janela.match(/^\s*:?\s*(\d{1,2})(?:\D|$)/);
-      if (numero) {
-        const valor = Number(numero[1]);
-        if (Number.isInteger(valor) && valor >= 1 && valor <= 31) return String(valor);
-      }
-    }
-    return '';
-  }
-
-  // Alguns campos do portal são inputs de data; o innerText não mostra o valor.
-  function dataDeCampo(escopo, termos) {
-    if (!escopo?.querySelectorAll) return '';
-    for (const campo of escopo.querySelectorAll('input, textarea, select')) {
-      const valor = String(campo.value || '').trim();
-      if (!diaDoMes(valor)) continue;
-      const descricao = normalizar([
-        campo.getAttribute('name'),
-        campo.getAttribute('id'),
-        campo.getAttribute('aria-label'),
-        campo.getAttribute('placeholder'),
-        campo.closest('label')?.innerText,
-      ].filter(Boolean).join(' '));
-      if (termos.some((termo) => descricao.includes(termo))) return valor;
-    }
-    return '';
-  }
-
-  const ROTULOS_VENCIMENTO = [
-    'Data de Vencimento', 'Data do Vencimento', 'Data Vencimento',
-    'Data de vencimento', 'Data do vencimento',
-    'Dt. Vencimento', 'Dt Vencimento', 'Vencimento', 'Venc.',
-  ];
-
-  const ROTULOS_PAGAMENTO = [
-    'Data de Pagamento do Benefício', 'Data de pagamento do benefício',
-    'Data de Pagamento', 'Data do Pagamento', 'Data Pagamento',
-    'Data de Pagto', 'Data do Pagto', 'Data Pagto',
-    'Dia de Pagamento', 'Dia do Pagamento',
-    'Data de Crédito do Benefício', 'Data de crédito do benefício',
-    'Data de Crédito', 'Data do Crédito',
-    'Pagamento do Benefício', 'Pago em',
-  ];
-
-  function diaDoPagamentoDoBeneficio() {
-    const texto = String(document.body?.innerText || document.body?.textContent || '');
-    return diaProximaDoRotulo(texto, ROTULOS_PAGAMENTO, 80)
-      // O vencimento de qualquer contrato do benefício usa o mesmo dia do
-      // pagamento; serve de reserva quando o portal não mostra o pagamento.
-      || diaProximaDoRotulo(texto, ROTULOS_VENCIMENTO, 50)
-      || diaDoMes(dataDeCampo(document, ['pagamento', 'pagto', 'credito']))
-      || diaDoMes(dataDeCampo(document, ['venc']));
   }
 
   function extrairContratosBancarios() {
@@ -340,11 +225,6 @@
       if (!numero || encontrados.has(numero)) return;
       const prazoTexto = valorDoTexto(texto, 'Prazo');
       const prazo = prazoTexto.match(/(\d+)\s*\/\s*(\d+)(?:\s*\|\s*(\d+)\s*pagas?)?/i);
-      // O vencimento pode estar em outra célula do mesmo portlet do contrato.
-      const escopo = elemento.closest('.portlet-banco, [data-contrato-bancario]') || elemento;
-      const textoCartao = String(escopo.innerText || texto);
-      const vencimento = dataProximaDoRotulo(textoCartao, ROTULOS_VENCIMENTO)
-        || dataDeCampo(escopo, ['venc']);
       encontrados.set(numero, {
         numero,
         banco: valorDoTexto(texto, 'Banco'),
@@ -355,8 +235,6 @@
         parcelas_pagas: prazo?.[3] || (prazo ? String(Math.max(0, Number(prazo[2]) - Number(prazo[1]))) : ''),
         taxa: valorDoTexto(texto, 'Taxa'),
         data_averbacao: valorDoTexto(texto, 'Data Averbação'),
-        vencimento,
-        dia_vencimento: diaDoMes(vencimento),
       });
     });
     return Array.from(encontrados.values());
@@ -392,13 +270,6 @@
         endereco: montarEndereco(bruto),
         dados_bancarios: montarDadosBancarios(bruto),
         margem_disponivel: extrairMargemDisponivel40(),
-        // O dia do pagamento do benefício é a data que o banco usa nos
-        // vencimentos. Sem ele, o CRM assume o dia padrão e o cálculo pode
-        // divergir da simulação do banco.
-        dia_pagamento_beneficio: diaDoPagamentoDoBeneficio() || diaDoMes(bruto.pagamento),
-        // Ajuda o CRM a avisar quando a página do Corban ainda está rodando
-        // uma versão antiga da extensão, sem os campos de dia/vencimento.
-        versao_extensao: chrome.runtime.getManifest().version,
         contratos: extrairContratosBancarios(),
       },
       encontrados: Object.keys(bruto).filter((chave) => Boolean(bruto[chave])),

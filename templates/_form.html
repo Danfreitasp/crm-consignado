@@ -5,6 +5,14 @@
     <label>Nº proposta
         <input name="numero_proposta" value="{{ proposta.numero_proposta or proposta['numero_proposta'] or '' }}" placeholder="Número desta proposta">
     </label>
+    <label>Vendedora{% if modo_nova %} *{% endif %}
+        <select name="responsavel" {% if modo_nova %}required{% endif %}>
+            {% set lista_vendedoras = vendedoras if modo_nova else vendedoras_formulario %}
+            {% for vendedora_index in lista_vendedoras %}
+            <option value="{{ vendedora_index.nome }}" {% if (proposta.responsavel or proposta['responsavel'] or '') == vendedora_index.nome %}selected{% endif %}>{{ vendedora_index.nome }}{% if not vendedora_index.ativo %} (inativa){% endif %}</option>
+            {% endfor %}
+        </select>
+    </label>
     <label data-portability-field {% if not produto_tem_campos_portabilidade(proposta.produto or proposta['produto'] or '') %}hidden{% endif %}>Banco atual
         <input name="banco_atual" value="{{ proposta.banco_atual or proposta['banco_atual'] or '' }}">
     </label>

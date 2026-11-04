@@ -35,6 +35,42 @@
 
     <section class="card settings-card">
         <div class="settings-card-heading">
+            <span class="settings-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+            <div>
+                <h2>Vendedoras</h2>
+                <p class="muted">Cada proposta pertence a uma vendedora. Desativar não apaga o histórico.</p>
+            </div>
+        </div>
+        <form method="post" class="stack settings-form">
+            <input type="hidden" name="acao" value="adicionar_vendedora">
+            <label>Nova vendedora
+                <input name="nome" maxlength="80" placeholder="Nome da vendedora" required>
+            </label>
+            <div class="actions">
+                <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar vendedora</span></button>
+            </div>
+        </form>
+        <div class="seller-settings-list">
+            {% for vendedora in vendedoras_admin %}
+            <div class="seller-settings-row">
+                <form method="post" class="seller-rename-form">
+                    <input type="hidden" name="acao" value="renomear_vendedora">
+                    <input type="hidden" name="vendedora_id" value="{{ vendedora.id }}">
+                    <input name="nome" value="{{ vendedora.nome }}" maxlength="80" aria-label="Nome da vendedora" required>
+                    <button class="mini-btn" type="submit" title="Salvar nome"><i class="bi bi-check-lg" aria-hidden="true"></i><span>Salvar</span></button>
+                </form>
+                <form method="post">
+                    <input type="hidden" name="acao" value="alternar_vendedora">
+                    <input type="hidden" name="vendedora_id" value="{{ vendedora.id }}">
+                    <button class="mini-btn" type="submit"><i class="bi bi-{{ 'person-check' if vendedora.ativo else 'person-plus' }}" aria-hidden="true"></i><span>{{ 'Desativar' if vendedora.ativo else 'Ativar' }}</span></button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card settings-card">
+        <div class="settings-card-heading">
             <span class="settings-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
             <div>
                 <h2>Funil</h2>

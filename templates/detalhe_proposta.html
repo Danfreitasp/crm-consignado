@@ -157,6 +157,7 @@
                     {% if proposta.nascimento %}<div><small>Nascimento</small><span>{{ proposta.nascimento }}</span></div>{% endif %}
                     {% if proposta.especie %}<div><small>Espécie do benefício</small><span>{{ proposta.especie }}</span></div>{% endif %}
                     <div><small>Tipo</small><span>{{ proposta.tipo_cliente or '-' }}</span></div>
+                    <div><small>Vendedora</small><span>{{ proposta.responsavel or '-' }}</span></div>
                     {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Banco atual</small><span>{{ proposta.banco_atual or '-' }}</span></div>{% endif %}
                     <div><small>Promotora</small><span>{{ proposta.promotora or '-' }}</span></div>
                     <div><small>Benefício bloqueado</small><span>{{ proposta.beneficio_bloqueado or 'NÃO' }}</span></div>
