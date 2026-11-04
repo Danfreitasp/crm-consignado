@@ -36,6 +36,9 @@
     {% elif dados.propostas_herdadas %}
     <p class="dashboard-carryover-note"><i class="bi bi-arrow-right-circle" aria-hidden="true"></i><span>{{ dados.propostas_herdadas }} {{ 'operação ativa de mês anterior foi incluída' if dados.propostas_herdadas == 1 else 'operações ativas de meses anteriores foram incluídas' }} neste mês.</span></p>
     {% endif %}
+    {% if dados.pagas_anteriores %}
+    <p class="dashboard-carryover-note"><i class="bi bi-arrow-right-circle" aria-hidden="true"></i><span>{{ dados.pagas_anteriores }} {{ 'comissão paga de mês anterior ainda não sacada foi migrada' if dados.pagas_anteriores == 1 else 'comissões pagas de meses anteriores ainda não sacadas foram migradas' }} para este mês. Ao marcar como sacada, a proposta volta a aparecer apenas no mês original.</span></p>
+    {% endif %}
 </section>
 
 <section class="metrics dashboard-standard-metrics">

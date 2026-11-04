@@ -1916,6 +1916,32 @@ def filtro_propostas_mes_dashboard(
     )
 
 
+def filtro_encerradas_mes(mes: str) -> tuple[str, list[Any]]:
+    """Filtra encerradas pelo mês, migrando comissões pendentes para o mês atual.
+
+    A comissão paga que ainda não foi sacada aparece somente no mês atual.
+    Ao ser marcada como sacada, volta a aparecer apenas no mês de encerramento.
+    """
+    data_encerramento = "COALESCE(data_encerramento, data_atualizacao, data_criacao)"
+    filtro_data = f"substr({data_encerramento}, 1, 7)"
+    if mes == mes_atual():
+        return (
+            "("
+            f"{filtro_data} = ? OR ("
+            "status = 'Pago' "
+            "AND COALESCE(valor_sacado, 'NÃO') != 'SIM' "
+            f"AND COALESCE(TRIM({filtro_data}), '') <> '' "
+            f"AND {filtro_data} < ?"
+            "))"
+        ), [mes, mes]
+    return (
+        "("
+        f"{filtro_data} = ? "
+        "AND NOT (status = 'Pago' AND COALESCE(valor_sacado, 'NÃO') != 'SIM')"
+        ")"
+    ), [mes]
+
+
 def status_encerrado(status: str) -> bool:
     return limpar_texto(status) in STATUS_ENCERRADOS
 
@@ -7540,15 +7566,16 @@ def encerradas():
     funil_selecionado = funil_atual()
     filtro_funil, parametros_funil = filtro_sql_funil(funil_selecionado)
     filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
+    filtro_mes_encerradas, parametros_mes_encerradas = filtro_encerradas_mes(mes)
     propostas = get_db().execute(
         f"""
         SELECT * FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
-          AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_mes_encerradas}
           AND {filtro_funil} AND {filtro_vendedora}
         ORDER BY COALESCE(data_encerramento, data_atualizacao) DESC, id DESC
         """,
-        (mes, *parametros_funil, *parametros_vendedora),
+        (*parametros_mes_encerradas, *parametros_funil, *parametros_vendedora),
     ).fetchall()
     todas_propostas = buscar_todas_propostas_da_vendedora()
     propostas_encerradas = []
@@ -8399,6 +8426,7 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         incluir_anteriores,
     )
     filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
+    filtro_mes_encerradas, parametros_mes_encerradas = filtro_encerradas_mes(mes)
     propostas = db.execute(
         f"SELECT * FROM propostas WHERE {filtro_mes_propostas} AND {filtro_vendedora} ORDER BY data_criacao DESC",
         (*parametros_mes_propostas, *parametros_vendedora),
@@ -8408,10 +8436,10 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         SELECT *
         FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
-          AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_mes_encerradas}
           AND {filtro_vendedora}
         """,
-        (mes, *parametros_vendedora),
+        (*parametros_mes_encerradas, *parametros_vendedora),
     ).fetchall()
     todas_propostas = buscar_todas_propostas_da_vendedora()
     placeholders_comissao_prevista = ", ".join("?" for _ in STATUS_COMISSAO_PREVISTA)
@@ -8442,6 +8470,18 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
     propostas_herdadas = propostas_como_operacoes(propostas_herdadas_registros, todas_propostas)
     pagas_registros = [p for p in propostas_encerradas_mes if p["status"] == "Pago"]
     perdidas_registros = [p for p in propostas_encerradas_mes if p["status"] in ("Perdido", "Cancelado", "Perdido / Cancelado")]
+    pagas_anteriores = propostas_como_operacoes(
+        [
+            proposta
+            for proposta in pagas_registros
+            if limpar_texto(
+                proposta["data_encerramento"]
+                or proposta["data_atualizacao"]
+                or proposta["data_criacao"]
+            )[:7] < mes
+        ],
+        todas_propostas,
+    )
     pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
     perdidas = propostas_como_operacoes(perdidas_registros, todas_propostas)
     pagas_financeiras = registros_financeiros_pagos(pagas_registros, todas_propostas)
@@ -8488,6 +8528,7 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         "incluir_anteriores": incluir_anteriores,
         "total": total,
         "propostas_herdadas": len(propostas_herdadas),
+        "pagas_anteriores": len(pagas_anteriores),
         "pagas": len(pagas),
         "perdidas": len(perdidas),
         "troco_previsto": troco_previsto,
@@ -8518,6 +8559,7 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
     filtro_mes, parametros_mes = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
     filtro_funil, parametros_funil = filtro_sql_funil(FUNIL_MARGEM)
     filtro_vendedora, parametros_vendedora = filtro_sql_vendedora()
+    filtro_mes_encerradas, parametros_mes_encerradas = filtro_encerradas_mes(mes)
     propostas = db.execute(
         f"""
         SELECT * FROM propostas
@@ -8531,10 +8573,10 @@ def consulta_dashboard_margem(mes: str, incluir_anteriores: bool = True) -> dict
         SELECT *
         FROM propostas
         WHERE status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')
-          AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_mes_encerradas}
           AND {filtro_funil} AND {filtro_vendedora}
         """,
-        (mes, *parametros_funil, *parametros_vendedora),
+        (*parametros_mes_encerradas, *parametros_funil, *parametros_vendedora),
     ).fetchall()
     todas_propostas = buscar_todas_propostas_da_vendedora()
 
@@ -8657,10 +8699,10 @@ def calcular_agregado_dashboard(
     )
 
     if base_data == "encerramento":
-        params: list[Any] = [mes]
+        filtro_mes_encerradas, params = filtro_encerradas_mes(mes)
         where = [
             "status IN ('Pago', 'Perdido / Cancelado', 'Perdido', 'Cancelado')",
-            "substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?",
+            filtro_mes_encerradas,
         ]
     else:
         filtro_mes_propostas, params = filtro_propostas_mes_dashboard(mes, incluir_anteriores)
@@ -8722,12 +8764,18 @@ def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
         if dados.get("mes") == mes_atual() and dados.get("incluir_anteriores", True)
         else ""
     )
+    nota_comissoes_anteriores = (
+        " No mês atual, inclui comissões pagas de meses anteriores que ainda não foram sacadas; "
+        "elas são migradas para cá e voltam ao mês original apenas quando marcadas como sacadas."
+        if dados.get("mes") == mes_atual()
+        else ""
+    )
     ajudas = {
         "total": "Conta as operações consideradas no mês selecionado. Port + Refin vinculados contam uma vez." + nota_pendencias,
-        "pagas": "Conta as operações encerradas como Pago no mês selecionado. Port + Refin vinculados contam uma vez.",
+        "pagas": "Conta as operações encerradas como Pago no mês selecionado. Port + Refin vinculados contam uma vez." + nota_comissoes_anteriores,
         "perdidas": "Conta as operações encerradas como Perdido ou Cancelado no mês selecionado. Port + Refin vinculados contam uma vez.",
         "troco_previsto": "Soma o Troco de todas as propostas consideradas no mês selecionado." + nota_pendencias,
-        "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado.",
+        "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado." + nota_comissoes_anteriores,
         "comissao_prevista": (
             "Soma a Comissão atual de todas as propostas nos status: "
             f"{', '.join(dados['comissao_prevista_status'])}. "
@@ -8738,14 +8786,14 @@ def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
                 else "Com o filtro ativo, considera apenas propostas criadas no mês selecionado."
             )
         ),
-        "comissao_paga": "Soma as comissões das operações pagas no mês, incluindo Port + Refin vinculados.",
+        "comissao_paga": "Soma as comissões das operações pagas no mês, incluindo Port + Refin vinculados." + nota_comissoes_anteriores,
         "valor_a_sacar": (
             "Soma as comissões das operações pagas no mês em que Valor caiu na promotora = SIM "
-            "e Valor sacado é diferente de SIM."
+            "e Valor sacado é diferente de SIM." + nota_comissoes_anteriores
         ),
         "falta_cair_promotora": (
             "Soma as comissões das operações pagas no mês em que Valor caiu na promotora "
-            "é diferente de SIM."
+            "é diferente de SIM." + nota_comissoes_anteriores
         ),
         "valor_ja_sacado": (
             "Soma as comissões das operações pagas no mês em que Valor sacado = SIM."

@@ -12,7 +12,7 @@
         </label>
         <button class="btn btn-primary" type="submit"><i class="bi bi-filter" aria-hidden="true"></i><span>Filtrar mês</span></button>
         <a class="btn" href="{{ url_for('encerradas', funil=funil) }}"><i class="bi bi-arrow-return-left" aria-hidden="true"></i><span>Mês atual</span></a>
-        <span class="filter-hint">Filtro usado para levantamentos mensais das propostas pagas e perdidas.</span>
+        <span class="filter-hint">No mês atual, comissões pagas de meses anteriores que ainda não foram sacadas são migradas para cá e deixam de aparecer no mês original. Ao marcar como sacada, a proposta volta ao mês original.</span>
     </form>
 </section>
 
