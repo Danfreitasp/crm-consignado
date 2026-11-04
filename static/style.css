@@ -3955,6 +3955,15 @@ html[data-theme="escuro"] .simulator-rate-editor {
     margin-top: 16px;
     padding-top: 0;
     border-top: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+    .simulator-results-new { grid-template-columns: 1fr 1fr; }
+    .simulator-results-new .summary-card:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+    .simulator-results-new { grid-template-columns: 1fr; }
+    .simulator-results-new .summary-card:last-child { grid-column: auto; }
 }
 html[data-theme="escuro"] .simulator-results .highlight-card {
     border-color: rgba(96, 165, 250, 0.32);
@@ -3989,12 +3998,15 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     align-items: center;
     justify-content: center;
     gap: 9px;
+    width: 100%;
+    height: 100%;
     min-height: 40px;
     padding: 8px 14px;
     border: 1px solid transparent;
     border-radius: calc(var(--radius-lg) - 4px);
     color: var(--muted);
     font-weight: 700;
+    text-align: center;
     transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
 }
 .simulator-mode-option input:checked + span {
@@ -4060,10 +4072,11 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     flex-wrap: wrap;
     gap: 12px;
 }
-.simulator-recalculate-field > label { flex: 0 1 220px; min-width: 170px; }
+.simulator-recalculate-field > label { flex: 0 1 190px; min-width: 160px; }
 .simulator-recalculate-field .simulator-auto-saldo {
     flex: 0 1 auto;
     min-width: 0;
+    margin-left: auto;
     flex-direction: row;
     align-items: center;
     gap: 8px;
@@ -4075,7 +4088,7 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
 .simulator-recalculate-field .simulator-auto-saldo input { width: auto; }
 .simulator-recalculate-field .simulator-recalculate-action {
     flex: 0 1 auto;
-    margin-left: auto;
+    margin-left: 0;
 }
 .simulator-recalculate-field .btn { justify-content: center; }
 .simulator-recalculate-action {
@@ -4320,7 +4333,7 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
 }
 .simulator-negative-toggle-cell {
     display: flex;
-    align-items: flex-end;
+    align-items: stretch;
 }
 .simulator-negative-toggle {
     display: flex;
@@ -4378,12 +4391,15 @@ html[data-theme="escuro"] .simulator-results .highlight-card {
     line-height: 1.4;
 }
 .simulator-advanced {
+    display: flex;
+    flex-direction: column;
     margin: 0;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: var(--surface-soft);
 }
 .simulator-collapsible.simulator-advanced > summary {
+    flex: 1 1 auto;
     padding: 9px 11px;
     min-height: 38px;
 }
@@ -4530,7 +4546,8 @@ html[data-theme="escuro"] .statement-reader-status[data-state="success"] { color
 html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: #fca5a5; }
 @media (max-width: 1100px) {
     .form-grid-four { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
-    .simulator-contract-number { grid-column: auto; }
+    .simulator-contract-section .form-grid-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .simulator-advanced { grid-column: 1 / -1; }
     .port-refin-results { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
 }
 @media (max-width: 860px) {
@@ -4541,11 +4558,12 @@ html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: 
         display: grid;
         grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
         align-items: start;
-        gap: 12px;
+        gap: 14px;
     }
     [data-simulator-panel="port_refin"] > .simulator-contract-section {
         grid-column: 1;
-        grid-row: 1 / span 2;
+        grid-row: 1 / span 3;
+        align-self: stretch;
     }
     [data-simulator-panel="port_refin"] > .simulator-operation-section {
         grid-column: 2;
@@ -4558,7 +4576,10 @@ html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: 
         border-top: 0;
         padding-top: 0;
     }
-    [data-simulator-panel="port_refin"] > .simulator-viability,
+    [data-simulator-panel="port_refin"] > .simulator-viability {
+        grid-column: 2;
+        grid-row: 3;
+    }
     [data-simulator-panel="port_refin"] > .simulator-offer-actions,
     [data-simulator-panel="port_refin"] > .simulator-offer-summary,
     [data-simulator-panel="port_refin"] > .simulator-message-editor {
@@ -4568,10 +4589,11 @@ html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: 
     [data-simulator-panel="port_refin"] .simulator-operation-section .form-grid-four {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    [data-simulator-panel="port_refin"] .simulator-contract-section .simulator-recalculate-field {
+    [data-simulator-panel="port_refin"] .simulator-contract-section .simulator-phone-field {
         grid-column: span 2;
     }
-    [data-simulator-panel="port_refin"] .simulator-operation-section .simulator-table-field {
+    [data-simulator-panel="port_refin"] .simulator-operation-section .simulator-table-field,
+    [data-simulator-panel="port_refin"] .simulator-operation-section .simulator-advanced {
         grid-column: 1 / -1;
     }
     [data-simulator-panel="port_refin"] .simulator-contract-section .statement-reader-actions input[type="file"] {
@@ -4583,6 +4605,8 @@ html[data-theme="escuro"] .statement-reader-status[data-state="error"] { color: 
     .simulator-source-switch,
     .form-grid-four,
     .port-refin-results { grid-template-columns: 1fr; }
+    .simulator-contract-section .form-grid-four { grid-template-columns: 1fr; }
+    .simulator-contract-number { grid-column: auto; }
     .simulator-wide-field { grid-column: auto; }
     .simulator-negative-panel { grid-template-columns: 1fr; }
     .statement-reader { grid-template-columns: 1fr; align-items: start; }
