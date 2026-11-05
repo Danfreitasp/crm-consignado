@@ -134,6 +134,7 @@
                 </div>
                 <div class="simulator-contract-footer">
                     <input type="hidden" name="dia_pagamento_beneficio" id="portDiaBeneficio" value="{{ dados.dia_pagamento_beneficio or '' }}">
+                    <button class="btn" id="portCalcularParcelasPagas" type="button" title="Estima parcelas pagas usando saldo, parcela e taxa atual do contrato"><i class="bi bi-calculator" aria-hidden="true"></i><span>Calcular parcelas pagas pelo saldo</span></button>
                     <small class="muted" id="portSaldoRecalculadoStatus" role="status"></small>
                 </div>
             </section>
@@ -146,7 +147,7 @@
                         <select name="tabela_port_refin" id="portTabela">
                             <option value="">Cálculo livre (sem tabela)</option>
                             {% for codigo, tabela in tabelas_port_refin.items() %}
-                            <option value="{{ codigo }}" data-taxa="{{ tabela.taxa }}" data-prazo="{{ tabela.prazo }}" data-coeficiente="{{ tabela.coeficiente }}" data-fator-liquido="{{ fatores_quali[tabela.taxa] }}" data-fator-liquido-mesmo-dia="{{ fatores_quali_mesmo_dia[tabela.taxa] }}" data-fator-liquido-dois-dias="{{ fatores_quali_dois_dias.get(tabela.taxa, '') }}" data-comissao-percentual="{{ tabela.comissao_percentual }}" {% if dados.tabela_port_refin == codigo %}selected{% endif %}>{{ codigo }} - {{ tabela.nome }} · comissão {{ br_percentual(tabela.comissao_percentual) }}</option>
+                            <option value="{{ codigo }}" data-taxa="{{ tabela.taxa }}" data-prazo="{{ tabela.prazo }}" data-coeficiente="{{ tabela.coeficiente }}" data-fator-liquido="{{ fatores_quali[tabela.taxa] }}" data-fator-liquido-mesmo-dia="{{ fatores_quali_mesmo_dia[tabela.taxa] }}" data-fator-liquido-dois-dias="{{ fatores_quali_dois_dias.get(tabela.taxa, '') }}" data-fator-liquido-newcorban-nov05="{{ fatores_quali_newcorban_nov05.get(codigo, '') }}" data-comissao-percentual="{{ tabela.comissao_percentual if tabela.comissao_percentual is not none else '' }}" data-saldo-minimo="{{ tabela.saldo_minimo or '' }}" data-saldo-maximo="{{ tabela.saldo_maximo if tabela.saldo_maximo is not none else '' }}" data-carencia-dias="{{ tabela.carencia_dias or 0 }}" data-dias-liberacao-newcorban-nov05="{{ tabela.dias_liberacao_20261105 if tabela.dias_liberacao_20261105 is not none else '' }}" data-taxa-maxima-portabilidade="1.85" {% if dados.tabela_port_refin == codigo %}selected{% endif %}>{{ codigo }} - {{ tabela.nome }} · comissão {{ br_percentual(tabela.comissao_percentual) if tabela.comissao_percentual is not none else 'a confirmar' }}</option>
                             {% endfor %}
                         </select>
                     </label>
@@ -186,11 +187,11 @@
             <section class="simulator-results port-refin-results" aria-live="polite">
                 <div class="summary-card"><small>Novo contrato</small><strong id="portValorContrato">{{ br_moeda(resultado.valor_contrato if resultado and modo == 'port_refin' else 0) }}</strong></div>
                 <div class="summary-card highlight-card"><small id="portTrocoLabel">Troco estimado</small><strong id="portTroco">{{ br_moeda(resultado.troco if resultado and modo == 'port_refin' else 0) }}</strong></div>
-                <div class="summary-card"><small>Comissão total estimada</small><strong id="portComissaoTotal">{{ br_moeda(resultado.comissao_total) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</strong><small><span id="portComissaoPercentual">{{ br_percentual(resultado.comissao_percentual) if resultado and modo == 'port_refin' and resultado.comissao_percentual else '-' }}</span> da tabela · mesma % nas duas operações</small></div>
+                <div class="summary-card"><small>Comissão total estimada</small><strong id="portComissaoTotal">{% if resultado and modo == 'port_refin' %}{% if resultado.comissao_percentual is none %}{{ 'a confirmar' if resultado.tabela_codigo else '-' }}{% elif resultado.comissao_percentual %}{{ br_moeda(resultado.comissao_total) }}{% else %}-{% endif %}{% else %}-{% endif %}</strong><small><span id="portComissaoPercentual">{% if resultado and modo == 'port_refin' %}{% if resultado.comissao_percentual is none %}{{ 'a confirmar' if resultado.tabela_codigo else '-' }}{% elif resultado.comissao_percentual %}{{ br_percentual(resultado.comissao_percentual) }}{% else %}-{% endif %}{% else %}-{% endif %}</span> da tabela · mesma % nas duas operações</small></div>
                 <div class="summary-card"><small>Coeficiente usado</small><strong id="portCoeficienteUsado">{{ '%.8f'|format(resultado.coeficiente) if resultado and modo == 'port_refin' and resultado.coeficiente else '-' }}</strong><small id="portOrigemCoeficiente">{{ resultado.origem_coeficiente if resultado and modo == 'port_refin' else 'Informe taxa ou coeficiente' }}</small></div>
             </section>
-            <div class="simulator-viability" id="portViabilidade" data-state="{{ 'ok' if resultado and modo == 'port_refin' and resultado.operacao_viavel else 'attention' }}" {% if not resultado %}hidden{% endif %}>
-                <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{{ 'Operação com troco positivo.' if resultado.operacao_viavel else (resultado.erros|join(' ') if resultado.erros else 'O novo contrato não cobre o saldo para quitação.') }}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
+            <div class="simulator-viability" id="portViabilidade" data-state="{{ 'attention' if resultado and modo == 'port_refin' and (resultado.erros or resultado.avisos or not resultado.operacao_viavel) else 'ok' }}" {% if not resultado %}hidden{% endif %}>
+                <i class="bi bi-info-circle" aria-hidden="true"></i><span>{% if resultado and modo == 'port_refin' %}{% if resultado.erros %}{{ resultado.erros|join(' ') }}{% elif resultado.avisos %}{{ 'Operação com troco positivo. ' ~ resultado.avisos|join(' ') }}{% elif resultado.operacao_viavel %}Operação com troco positivo.{% else %}O novo contrato não cobre o saldo para quitação.{% endif %}{% else %}Preencha os dados para verificar o troco estimado.{% endif %}</span>
             </div>
             <div class="simulator-offer-actions">
                 <button class="btn" id="portAdicionarOferta" type="button" disabled><i class="bi bi-plus-circle" aria-hidden="true"></i><span>Adicionar ao resumo de ofertas</span></button>
@@ -231,7 +232,7 @@
 
 <div class="actions simulator-actions simulator-actions-bottom">
     <button class="btn btn-primary" type="submit" form="simuladorInssForm"><i class="bi bi-calculator" aria-hidden="true"></i><span>Calcular</span></button>
-    <button class="btn" id="portInserirProposta" type="submit" form="simuladorInssForm" formaction="{{ url_for('simulador_inss_criar_proposta') }}" {% if not (resultado and modo == 'port_refin' and resultado.operacao_viavel) %}hidden{% endif %}>
+    <button class="btn" id="portInserirProposta" type="submit" form="simuladorInssForm" formaction="{{ url_for('simulador_inss_criar_proposta') }}" {% if not (resultado and modo == 'port_refin' and resultado.operacao_viavel and resultado.comissao_percentual is not none) %}hidden{% endif %}>
         <i class="bi bi-plus-circle" aria-hidden="true"></i><span>Inserir proposta com esses dados</span>
     </button>
     <button class="btn copy-btn" id="simCopiarResumo" type="button" data-copy="{{ resultado.mensagem if resultado else '' }}" data-copy-target="#simResumoTexto"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar resumo</span></button>

@@ -4,6 +4,7 @@ import csv
 import calendar
 import io
 import json
+import math
 import os
 import re
 import sqlite3
@@ -246,28 +247,51 @@ INSS_NOVO_COEFICIENTES = {
 }
 CONFIG_INSS_NOVO_COEFICIENTES = "simulador_inss_novo_coeficientes"
 
-# Fluxo por dias corridos (base 30) e fatores líquidos conferidos na Quali /
-# NewCorban em 30/09/2026. O saldo é atualizado até o refinanciamento; o
-# desconto líquido incide somente quando há troco positivo. Os vencimentos
-# sugeridos são estimativas e podem ser ajustados aos informados pelo banco.
-# As comissões vêm da lista QUALIBANKING do NewCorban, coluna "Total", em
-# 30/10/2026 e valem igualmente para a portabilidade e para o refinanciamento.
-# A lista atual possui somente as tabelas "REFIN DA PORT" abaixo; os
-# coeficientes por taxa foram mantidos da conferência anterior no NewCorban.
+# Fluxo por dias corridos (base 30). A lista de tabelas foi conferida no
+# NewCorban em 05/11/2026; os fatores líquidos abaixo incluem os retornos do
+# simulador para o contrato de referência dessa data. As comissões das tabelas
+# de 108X vêm da lista QUALIBANKING de 30/10/2026. Comissão None significa que
+# a lista ainda não traz a tabela (as de 96X) e precisa ser confirmada.
 INSS_PORT_REFIN_TABELAS = {
-    "633": {"nome": "REFIN DA PORT - INSS - 000633 PORT + REFIN 1,85% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.72},
-    "634": {"nome": "REFIN DA PORT - INSS - 000634 PORT + REFIN 1,83% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.74},
-    "635": {"nome": "REFIN DA PORT - INSS - 000635 PORT + REFIN 1,80% 108X MIN 6 MIL - VD (Venda Digital)", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 1.76},
-    "636": {"nome": "REFIN DA PORT - INSS - 000636 PORT + REFIN 1,78% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 1.18},
-    "648": {"nome": "REFIN DA PORT - INSS - 000648 PORT + REFIN 1,75% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 0.98},
-    "649": {"nome": "REFIN DA PORT - INSS - 000649 PORT + REFIN 1,72% 108X MIN 8 MIL - VD (Venda Digital)", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 0.49},
-    # Tabelas de saldo mínimo de R$ 2 mil sem carência de 90 dias. Os
-    # coeficientes acompanham a taxa equivalente; com fluxo válido, o simulador
-    # recalcula cada um pelas datas da operação. Comissões da lista NewCorban.
-    "655": {"nome": "REFIN DA PORT - INSS - 000655 PORT + REFIN 1,85% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 2.69},
-    "656": {"nome": "REFIN DA PORT - INSS - 000656 PORT + REFIN 1,83% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 1.72},
-    "657": {"nome": "REFIN DA PORT - INSS - 000657 PORT + REFIN 1,80% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 0.49},
+    "633": {"nome": "PORT + REFIN 1,85% 108X MIN 6 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.72, "saldo_minimo": 6000, "dias_liberacao_20261105": 0},
+    "634": {"nome": "PORT + REFIN 1,83% 108X MIN 6 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.74, "saldo_minimo": 6000, "dias_liberacao_20261105": 0},
+    "635": {"nome": "PORT + REFIN 1,80% 108X MIN 6 MIL", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 1.76, "saldo_minimo": 6000, "dias_liberacao_20261105": 0},
+    "636": {"nome": "PORT + REFIN 1,78% 108X MIN 8 MIL", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 1.18, "saldo_minimo": 8000, "dias_liberacao_20261105": 0},
+    "639": {"nome": "PORT + REFIN 1,85% 108X MIN 6 MIL CAR 90D", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 4.21, "saldo_minimo": 6000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "640": {"nome": "PORT + REFIN 1,83% 108X MIN 6 MIL CAR 90D", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 3.23, "saldo_minimo": 6000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "641": {"nome": "PORT + REFIN 1,80% 108X MIN 6 MIL CAR 90D", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 2.45, "saldo_minimo": 6000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "642": {"nome": "PORT + REFIN 1,78% 108X MIN 8 MIL CAR 90D", "taxa": 1.78, "prazo": 108, "coeficiente": 0.022241641955, "comissao_percentual": 1.47, "saldo_minimo": 8000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "648": {"nome": "PORT + REFIN 1,75% 108X MIN 8 MIL", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 0.98, "saldo_minimo": 8000, "dias_liberacao_20261105": 0},
+    "649": {"nome": "PORT + REFIN 1,72% 108X MIN 8 MIL", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 0.49, "saldo_minimo": 8000, "dias_liberacao_20261105": 0},
+    "650": {"nome": "PORT + REFIN 1,75% 108X MIN 8 MIL CAR 90D", "taxa": 1.75, "prazo": 108, "coeficiente": 0.021982144977, "comissao_percentual": 1.72, "saldo_minimo": 8000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "651": {"nome": "PORT + REFIN 1,72% 108X MIN 8 MIL CAR 90D", "taxa": 1.72, "prazo": 108, "coeficiente": 0.0212635136, "comissao_percentual": 0.78, "saldo_minimo": 8000, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "652": {"nome": "PORT + REFIN 1,85% 108X SALDO DE 2 MIL A 5.999,99 MIL CAR 90D", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.43, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "653": {"nome": "PORT + REFIN 1,83% 108X SALDO DE 2 MIL A 5.999,99 MIL CAR 90D", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.45, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "654": {"nome": "PORT + REFIN 1,80% 108X SALDO DE 2 MIL A 5.999,99 MIL CAR 90D", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 1.47, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "carencia_dias": 90, "dias_liberacao_20261105": 5},
+    "655": {"nome": "PORT + REFIN 1,85% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 2.69, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
+    "656": {"nome": "PORT + REFIN 1,83% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 1.72, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
+    "657": {"nome": "PORT + REFIN 1,80% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 0.49, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
+    "658": {"nome": "PORT + REFIN 1,85% 96X MIN 6 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "659": {"nome": "PORT + REFIN 1,83% 96X MIN 6 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "660": {"nome": "PORT + REFIN 1,80% 96X MIN 6 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "661": {"nome": "PORT + REFIN 1,78% 96X MIN 8 MIL", "taxa": 1.78, "prazo": 96, "coeficiente": 0.021809054613, "comissao_percentual": None, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
+    "662": {"nome": "PORT + REFIN 1,75% 96X MIN 8 MIL", "taxa": 1.75, "prazo": 96, "coeficiente": 0.021581009871, "comissao_percentual": None, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
+    "664": {"nome": "PORT + REFIN 1,85% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
+    "665": {"nome": "PORT + REFIN 1,83% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
+    "666": {"nome": "PORT + REFIN 1,80% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
 }
+
+INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105 = {
+    "633": 0.966361080348, "634": 0.966366809341, "635": 0.966378912610, "636": 0.966383834222,
+    "639": 0.966270075791, "640": 0.966270540989, "641": 0.966268473655, "642": 0.966269045952,
+    "648": 0.966394564474, "649": 0.966404378949, "650": 0.966268719261, "651": 0.966270381080,
+    "652": 0.966270075791, "653": 0.966270540989, "654": 0.966268473655,
+    "655": 0.966361080348, "656": 0.966366809341, "657": 0.966378912610,
+    "658": 0.966523026641, "659": 0.966533218593, "660": 0.966546056954,
+    "661": 0.966555666856, "662": 0.966567636227,
+    "664": 0.966523026641, "665": 0.966533218593, "666": 0.966546056954,
+}
+INSS_PORT_REFIN_TAXA_MAXIMA_PORTABILIDADE = 1.85
 
 INSS_PORT_REFIN_FATORES_LIQUIDOS = {
     1.72: 0.966278088217, 1.75: 0.966274070934, 1.78: 0.966271588373,
@@ -3977,6 +4001,28 @@ def taxa_fluxo_quali(parcela: float, saldo: float, dias: list[int]) -> float:
     return (inferior + superior) / 2
 
 
+def parcelas_restantes_pelo_saldo(parcela: float, saldo: float, taxa_percentual: float, prazo_total: int) -> int | None:
+    """Estima parcelas restantes a partir da parcela, saldo e taxa do contrato.
+
+    Usa a mesma anuidade mensal do recálculo do Corban. Retorna None quando os
+    dados não descrevem um saldo amortizável ou a quantidade ultrapassa o prazo.
+    """
+    if parcela <= 0 or saldo <= 0 or taxa_percentual < 0 or prazo_total <= 0:
+        return None
+    taxa = taxa_percentual / 100
+    if taxa == 0:
+        parcelas = saldo / parcela
+    else:
+        denominador = parcela - saldo * taxa
+        if denominador <= 0:
+            return None
+        parcelas = math.log(parcela / denominador) / math.log1p(taxa)
+    if not math.isfinite(parcelas):
+        return None
+    restantes = math.floor(parcelas + 0.5)
+    return restantes if 1 <= restantes <= prazo_total else None
+
+
 def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     parcela_atual = float(dados.get("parcela_atual") or 0)
     margem_importada = float(dados.get("margem_disponivel_importada") or 0)
@@ -4020,6 +4066,7 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         dados["saldo_quitacao"] = saldo_quitacao
 
     erros = []
+    avisos = []
     if parcela_atual <= 0:
         erros.append("Informe a parcela atual do contrato.")
     if saldo_quitacao <= 0:
@@ -4028,6 +4075,13 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         erros.append("Informe o novo prazo.")
     if descontos_banco < 0:
         erros.append("Os descontos do banco não podem ser negativos.")
+    if tabela and saldo_quitacao > 0:
+        saldo_minimo = float(tabela.get("saldo_minimo") or 0)
+        saldo_maximo = tabela.get("saldo_maximo")
+        if saldo_minimo and saldo_quitacao < saldo_minimo:
+            erros.append(f"O saldo devedor mínimo desta tabela é de {br_moeda(saldo_minimo)}.")
+        if saldo_maximo is not None and saldo_quitacao > float(saldo_maximo):
+            erros.append(f"Valor máximo do saldo devedor é de {br_moeda(float(saldo_maximo))}.")
 
     try:
         dia_beneficio = int(dados.get("dia_pagamento_beneficio") or 0)
@@ -4040,6 +4094,16 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     except ValueError:
         referencia = date.today()
     defaults = datas_simulador_quali(referencia, dia_beneficio)
+    carencia_dias = int(tabela.get("carencia_dias") or 0) if tabela else 0
+    if carencia_dias and not dados.get("primeiro_vencimento_refin"):
+        primeiro_padrao = date.fromisoformat(defaults["primeiro_vencimento_refin"])
+        defaults["primeiro_vencimento_refin"] = (primeiro_padrao + timedelta(days=carencia_dias)).isoformat()
+    dias_liberacao_benchmark = tabela.get("dias_liberacao_20261105") if tabela else None
+    if (referencia == date(2026, 11, 5) and dias_liberacao_benchmark is not None
+            and not dados.get("data_refinanciamento")):
+        defaults["data_refinanciamento"] = (
+            referencia + timedelta(days=int(dias_liberacao_benchmark))
+        ).isoformat()
     for campo, padrao in defaults.items():
         dados[campo] = dados.get(campo) or padrao
         try:
@@ -4076,11 +4140,26 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
     if tabela and fluxo_valido and parcelas_abertas > 0 and parcela_atual > 0 and saldo_quitacao > 0:
         taxa_portabilidade = taxa_fluxo_quali(parcela_atual, saldo_quitacao, dias_fluxo_quali(
             datas["primeiro_vencimento_port"], datas["data_simulacao"], parcelas_abertas))
+        if taxa_portabilidade * 100 > INSS_PORT_REFIN_TAXA_MAXIMA_PORTABILIDADE + 1e-6:
+            # O New Corban exibe a limitação, mas continua devolvendo os valores
+            # da simulação; por isso ela é um aviso e não bloqueia a proposta.
+            avisos.append(
+                f"Taxa máxima da portabilidade é de {INSS_PORT_REFIN_TAXA_MAXIMA_PORTABILIDADE:.3f}%."
+            )
         dias_entre_operacoes = (datas["data_refinanciamento"] - datas["data_simulacao"]).days
         saldo_considerado = round(saldo_quitacao * (1 + taxa_portabilidade) ** (dias_entre_operacoes / 30), 2)
     troco_bruto = round(valor_contrato - saldo_considerado, 2)
     fator_liquido = INSS_PORT_REFIN_FATORES_LIQUIDOS.get(taxa_nova, 1.0) if tabela else 1.0
-    if tabela and fluxo_valido and datas["data_refinanciamento"] == datas["data_simulacao"]:
+    vencimento_refin_padrao = date.fromisoformat(
+        datas_simulador_quali(referencia, dia_beneficio)["primeiro_vencimento_refin"]
+    ) + timedelta(days=carencia_dias)
+    fator_benchmark = INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105.get(tabela_codigo) if tabela else None
+    if (tabela and fluxo_valido and fator_benchmark is not None and dias_liberacao_benchmark is not None
+            and datas["data_simulacao"] == date(2026, 11, 5)
+            and datas["data_refinanciamento"] == date(2026, 11, 5) + timedelta(days=int(dias_liberacao_benchmark))
+            and datas["primeiro_vencimento_refin"] == vencimento_refin_padrao):
+        fator_liquido = fator_benchmark
+    elif tabela and fluxo_valido and datas["data_refinanciamento"] == datas["data_simulacao"]:
         fator_liquido = INSS_PORT_REFIN_FATORES_MESMO_DIA.get(taxa_nova, fator_liquido)
     elif tabela and fluxo_valido and (datas["data_refinanciamento"] - datas["data_simulacao"]).days == 2:
         fator_liquido = INSS_PORT_REFIN_FATORES_DOIS_DIAS.get(taxa_nova, fator_liquido)
@@ -4090,10 +4169,11 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         troco = round(valor_contrato - round(saldo_quitacao, 2) - round(descontos_banco, 2), 2)
     else:
         descontos_banco = descontos_estimados
-    comissao_percentual = float(tabela.get("comissao_percentual") or 0) if tabela else 0.0
-    comissao_portabilidade = saldo_quitacao * comissao_percentual / 100
-    comissao_refinanciamento = max(0.0, troco) * comissao_percentual / 100
-    comissao_total = comissao_portabilidade + comissao_refinanciamento
+    percentual_tabela = tabela.get("comissao_percentual") if tabela else 0.0
+    comissao_percentual = float(percentual_tabela) if percentual_tabela is not None else None
+    comissao_portabilidade = saldo_quitacao * comissao_percentual / 100 if comissao_percentual is not None else None
+    comissao_refinanciamento = max(0.0, troco) * comissao_percentual / 100 if comissao_percentual is not None else None
+    comissao_total = comissao_portabilidade + comissao_refinanciamento if comissao_percentual is not None else None
     operacao_viavel = not erros and troco >= 0
 
     resultado = {
@@ -4116,9 +4196,9 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         "fator_liquido": fator_liquido,
         "troco": round(troco, 2),
         "comissao_percentual": comissao_percentual,
-        "comissao_portabilidade": round(comissao_portabilidade, 2),
-        "comissao_refinanciamento": round(comissao_refinanciamento, 2),
-        "comissao_total": round(comissao_total, 2),
+        "comissao_portabilidade": round(comissao_portabilidade, 2) if comissao_portabilidade is not None else None,
+        "comissao_refinanciamento": round(comissao_refinanciamento, 2) if comissao_refinanciamento is not None else None,
+        "comissao_total": round(comissao_total, 2) if comissao_total is not None else None,
         "parcela_atual": round(parcela_atual, 2),
         "nova_parcela": round(nova_parcela, 2),
         "margem_disponivel_importada": round(margem_importada, 2),
@@ -4128,6 +4208,7 @@ def calcular_simulador_port_refin(dados: dict[str, Any]) -> dict[str, Any]:
         "parcelas_abertas": parcelas_abertas,
         "operacao_viavel": operacao_viavel,
         "erros": erros,
+        "avisos": avisos,
     }
     resultado["mensagem"] = montar_mensagem_simulador_port_refin(dados, resultado)
     return resultado
@@ -4153,19 +4234,47 @@ def montar_mensagem_simulador_port_refin(dados: dict[str, Any], resultado: dict[
 
 
 def competencia_mes(valor: Any) -> date | None:
-    correspondencia = re.search(r"\b(0[1-9]|1[0-2])/(\d{4})\b", limpar_texto(valor))
+    texto = limpar_texto(valor)
+    completa = re.search(r"\b(0[1-9]|[12]\d|3[01])[/.-](0[1-9]|1[0-2])[/.-](\d{4}|\d{2})\b", texto)
+    if completa:
+        ano = int(completa.group(3))
+        if ano < 100:
+            ano += 2000
+        return date(ano, int(completa.group(2)), 1)
+    correspondencia = re.search(r"\b(0[1-9]|1[0-2])/(\d{4})\b", texto)
     if not correspondencia:
         return None
     return date(int(correspondencia.group(2)), int(correspondencia.group(1)), 1)
 
 
-def parcelas_pagas_ate_competencia(inicio: Any, total: int, referencia: date) -> int:
-    """Estima competências pagas incluindo o mês inicial e o de referência."""
+def dia_do_mes(valor: Any) -> int | None:
+    texto = limpar_texto(valor)
+    completa = re.search(r"\b(0[1-9]|[12]\d|3[01])[/.-](0[1-9]|1[0-2])[/.-](\d{4}|\d{2})\b", texto)
+    if completa:
+        dia = int(completa.group(1))
+        return dia if 1 <= dia <= 31 else None
+    return None
+
+
+def parcelas_pagas_ate_competencia(
+    inicio: Any, total: int, referencia: date, dia_pagamento: int | None = None
+) -> int:
+    """Conta descontos já vencidos até a referência, sem antecipar o mês corrente.
+
+    ``inicio`` deve ser a data do primeiro desconto sempre que o extrato a
+    trouxer: a competência pode começar um mês antes por carência, o que fazia
+    o leitor somar uma parcela paga que ainda não havia sido descontada.
+    """
     competencia_inicio = competencia_mes(inicio)
     if not competencia_inicio or total <= 0:
         return 0
+    dia_pagamento = dia_pagamento or dia_do_mes(inicio)
     meses = (referencia.year - competencia_inicio.year) * 12 + referencia.month - competencia_inicio.month
-    return min(total, max(0, meses + 1))
+    if dia_pagamento and 1 <= dia_pagamento <= 31:
+        dia_vencimento = min(dia_pagamento, calendar.monthrange(referencia.year, referencia.month)[1])
+        if referencia.day > dia_vencimento:
+            meses += 1
+    return min(total, max(0, meses))
 
 
 def saldo_estimado_por_taxa(parcela: float, parcelas_restantes: int, taxa_percentual: float) -> float:
@@ -4190,6 +4299,27 @@ def data_averbacao_extrato(valor: Any) -> str:
         if correspondencia:
             return correspondencia.group(0).replace(".", "/").replace("-", "/")
     return ""
+
+
+def primeiro_desconto_extrato(valor: Any) -> str:
+    """Extrai a data do primeiro desconto da linha de contrato do extrato.
+
+    A coluna fica depois de "Valor pago" e antes das colunas de suspensão.
+    Versões antigas do PDF podem deslocar colunas; por isso há um fallback que
+    usa a segunda data completa da linha (a primeira é a inclusão/averbação).
+    """
+    valores = list(valor) if isinstance(valor, (list, tuple)) else [valor]
+    if len(valores) > 17:
+        texto = celula_extrato(valores[17])
+        correspondencia = re.search(r"\b\d{2}[./-]\d{2}[./-](?:\d{2}|\d{4})\b", texto)
+        if correspondencia:
+            return correspondencia.group(0).replace(".", "/").replace("-", "/")
+    datas = []
+    for item in valores:
+        texto = celula_extrato(item)
+        for correspondencia in re.finditer(r"\b\d{2}[./-]\d{2}[./-](?:\d{2}|\d{4})\b", texto):
+            datas.append(correspondencia.group(0).replace(".", "/").replace("-", "/"))
+    return datas[1] if len(datas) > 1 else ""
 
 
 def banco_extrato(valor: Any) -> tuple[str, str]:
@@ -4328,8 +4458,15 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
     except Exception as exc:
         raise ValueError("Não foi possível interpretar este extrato em PDF.") from exc
 
-    referencia_calculo = date.today()
-    referencia = referencia or referencia_calculo
+    referencia = referencia or date.today()
+    # O extrato é um retrato da data do documento: contar competências por
+    # "hoje" somaria parcelas descontadas depois que o saldo foi fotografado.
+    referencia_calculo = referencia
+    dados_beneficiario = dados_beneficiario_extrato("\n".join(textos_paginas))
+    try:
+        dia_pagamento = int(dados_beneficiario.get("dia_pagamento_beneficio") or 0)
+    except (TypeError, ValueError):
+        dia_pagamento = 0
     contratos: dict[str, dict[str, Any]] = {}
     for linha in linhas_contratos:
         total_texto = re.sub(r"\D", "", celula_extrato(linha[7]))
@@ -4340,7 +4477,10 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
         total = int(total_texto)
         taxa_extraida = parse_percentual(celula_extrato(linha[14]))
         taxa = taxa_extraida if taxa_extraida > 0 else 1.50
-        pagas = parcelas_pagas_ate_competencia(linha[5], total, referencia_calculo)
+        primeiro_desconto = primeiro_desconto_extrato(linha)
+        pagas = parcelas_pagas_ate_competencia(
+            primeiro_desconto or linha[5], total, referencia_calculo, dia_pagamento
+        )
         restantes = max(0, total - pagas)
         banco, banco_descricao = banco_extrato(linha[1])
         saldo = round(saldo_estimado_por_taxa(parcela, restantes, taxa), 2)
@@ -4351,6 +4491,7 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
             "situacao": celula_extrato(linha[2]),
             "competencia_inicio": celula_extrato(linha[5]),
             "competencia_fim": celula_extrato(linha[6]),
+            "primeiro_desconto": primeiro_desconto,
             # O Meu INSS pode deslocar a coluna de inclusão/averbação entre
             # versões do PDF; procurar a primeira data completa na linha evita
             # perder o dado quando a posição da tabela muda.
@@ -4367,7 +4508,6 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
 
     if not contratos:
         raise ValueError("Nenhum contrato ativo ou suspenso foi encontrado no extrato.")
-    dados_beneficiario = dados_beneficiario_extrato("\n".join(textos_paginas))
     return {
         "data_extrato": referencia.strftime("%d/%m/%Y"),
         "competencia_calculo": referencia_calculo.strftime("%m/%Y"),
@@ -4497,6 +4637,7 @@ def simulador_inss():
         fatores_quali=INSS_PORT_REFIN_FATORES_LIQUIDOS,
         fatores_quali_mesmo_dia=INSS_PORT_REFIN_FATORES_MESMO_DIA,
         fatores_quali_dois_dias=INSS_PORT_REFIN_FATORES_DOIS_DIAS,
+        fatores_quali_newcorban_nov05=INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105,
         mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
     )
 
@@ -4549,6 +4690,9 @@ def simulador_inss_criar_proposta():
                     return redirect(url_for("simulador_inss"))
                 contratos_no_lote.add(chave_contrato)
                 resultado_oferta = calcular_simulador_port_refin(dados_oferta)
+                if resultado_oferta["comissao_percentual"] is None:
+                    flash(f"Confirme a comissão da tabela da oferta {indice} antes de inserir a proposta.", "erro")
+                    return redirect(url_for("simulador_inss"))
                 if resultado_oferta["erros"] or not resultado_oferta["operacao_viavel"]:
                     flash(f"Revise a oferta {indice} antes de inserir as propostas.", "erro")
                     return redirect(url_for("simulador_inss"))
@@ -4569,7 +4713,6 @@ def simulador_inss_criar_proposta():
                     f"Tabela: {resultado_oferta.get('tabela_codigo') or 'livre'} - {tabela}.",
                     f"Novo contrato estimado: {br_moeda(resultado_oferta['valor_contrato'])}; troco estimado: {br_moeda(resultado_oferta['troco'])}.",
                     f"Atualização do saldo e descontos líquidos (informados ou estimados): {br_moeda(resultado_oferta['descontos_banco'])}.",
-            f"Datas utilizadas: portabilidade {dados_sim['data_simulacao']}, refinanciamento {dados_sim['data_refinanciamento']}; primeiros vencimentos {dados_sim['primeiro_vencimento_port']} / {dados_sim['primeiro_vencimento_refin']}.",
                     f"Datas utilizadas: portabilidade {dados_oferta['data_simulacao']}, refinanciamento {dados_oferta['data_refinanciamento']}; primeiros vencimentos {dados_oferta['primeiro_vencimento_port']} / {dados_oferta['primeiro_vencimento_refin']}.",
                 ]
                 proposta.update({
@@ -4598,6 +4741,20 @@ def simulador_inss_criar_proposta():
             flash(f"{len(ids_criados)} propostas inseridas a partir do Resumo de Ofertas.", "ok")
             return redirect(url_for("funil"))
         resultado = calcular_simulador_port_refin(dados_sim)
+        if resultado["comissao_percentual"] is None:
+            flash("Confirme a comissão desta tabela no NewCorban antes de inserir a proposta.", "erro")
+            return render_template(
+                "simulador_inss.html",
+                dados=dados_sim,
+                resultado=resultado,
+                prazos=prazos_simulador_inss(),
+                tabelas_port_refin=INSS_PORT_REFIN_TABELAS,
+                fatores_quali=INSS_PORT_REFIN_FATORES_LIQUIDOS,
+                fatores_quali_mesmo_dia=INSS_PORT_REFIN_FATORES_MESMO_DIA,
+                fatores_quali_dois_dias=INSS_PORT_REFIN_FATORES_DOIS_DIAS,
+                fatores_quali_newcorban_nov05=INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105,
+                mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
+            )
         if resultado["erros"] or not resultado["operacao_viavel"]:
             flash("Revise os dados da simulação antes de inserir a proposta.", "erro")
             return render_template(
@@ -4609,6 +4766,7 @@ def simulador_inss_criar_proposta():
                 fatores_quali=INSS_PORT_REFIN_FATORES_LIQUIDOS,
                 fatores_quali_mesmo_dia=INSS_PORT_REFIN_FATORES_MESMO_DIA,
                 fatores_quali_dois_dias=INSS_PORT_REFIN_FATORES_DOIS_DIAS,
+                fatores_quali_newcorban_nov05=INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105,
                 mensagem_modelo_padrao=INSS_PORT_REFIN_MENSAGEM_MODELO,
             )
 

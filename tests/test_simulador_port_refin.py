@@ -1,6 +1,7 @@
 """Regressões financeiras sem abrir o banco operacional."""
 import ast
 import calendar
+import math
 import re
 import unittest
 from datetime import date, timedelta
@@ -8,16 +9,19 @@ from pathlib import Path
 from typing import Any
 
 source = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8"))
-namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timedelta, "re": re,
+namespace = {"Any": Any, "calendar": calendar, "date": date, "timedelta": timedelta, "math": math, "re": re,
              "limpar_texto": lambda value: str(value or "").strip(),
              "normalizar_matricula": lambda value: str(value or "").strip(),
              "codigo_especie_beneficio_inss": lambda _: "",
+             "br_moeda": lambda value: f"R$ {value:.2f}",
              "montar_mensagem_simulador_port_refin": lambda *_: ""}
 constants = {"INSS_PORT_REFIN_TABELAS", "INSS_PORT_REFIN_FATORES_LIQUIDOS", "INSS_PORT_REFIN_FATORES_MESMO_DIA",
-             "INSS_PORT_REFIN_FATORES_DOIS_DIAS",
+             "INSS_PORT_REFIN_FATORES_DOIS_DIAS", "INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105",
+             "INSS_PORT_REFIN_TAXA_MAXIMA_PORTABILIDADE",
              "INSS_DIA_BENEFICIO_PADRAO"}
 functions = {"datas_simulador_quali", "dias_fluxo_quali", "coeficiente_fluxo_quali", "taxa_fluxo_quali",
-             "calcular_simulador_port_refin", "celula_extrato", "dados_beneficiario_extrato"}
+             "parcelas_restantes_pelo_saldo", "calcular_simulador_port_refin", "celula_extrato",
+             "dados_beneficiario_extrato"}
 nodes = [node for node in source.body
          if (isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in constants for t in node.targets))
          or (isinstance(node, ast.FunctionDef) and node.name in functions)]
@@ -26,6 +30,64 @@ calcular = namespace["calcular_simulador_port_refin"]
 
 
 class PortRefinTest(unittest.TestCase):
+    def test_parcelas_restantes_pelo_saldo_compara_com_newcorban(self):
+        restantes = namespace["parcelas_restantes_pelo_saldo"]
+        self.assertEqual(restantes(531.30, 20634.59, 2.14, 96), 84)
+        self.assertEqual(restantes(531.30, 19283.83, 2.14, 96), 71)
+        self.assertEqual(restantes(500, 2500, 0, 96), 5)
+        self.assertIsNone(restantes(100, 6000, 2.14, 96))
+        self.assertIsNone(restantes(0, 1000, 2.14, 96))
+
+    def test_contrato_aberto_no_newcorban_mantem_12_de_96(self):
+        result = calcular(dict(
+            tabela_port_refin="633", parcela_atual=531.30, nova_parcela=531.30,
+            saldo_quitacao=19283.83, prazo_contrato=96, parcelas_pagas=12,
+            taxa_contrato_atual=2.37, data_simulacao="2026-11-05",
+            data_refinanciamento="2026-11-05", primeiro_vencimento_port="2027-01-05",
+            primeiro_vencimento_refin="2027-01-05",
+        ))
+        self.assertEqual(result["parcelas_abertas"], 84)
+        self.assertAlmostEqual(result["taxa_portabilidade"], 2.2598, delta=.0001)
+        self.assertEqual(result["valor_contrato"], 24060.44)
+        # O troco do New Corban para esta simulação é R$ 4.615,93.
+        self.assertAlmostEqual(result["troco"], 4615.93, delta=.03)
+        self.assertIn("Taxa máxima da portabilidade", " ".join(result["avisos"]))
+        self.assertTrue(result["operacao_viavel"])
+
+    def test_tabelas_novas_reproduzem_resultados_newcorban_0511(self):
+        esperado = {
+            "633": (4615.93, "2027-01-05", "2026-11-05"), "634": (4795.46, "2027-01-05", "2026-11-05"),
+            "635": (5068.87, "2027-01-05", "2026-11-05"), "636": (5253.91, "2027-01-05", "2026-11-05"),
+            "639": (3351.73, "2027-04-05", "2026-11-10"), "640": (3534.55, "2027-04-05", "2026-11-10"),
+            "641": (3813.05, "2027-04-05", "2026-11-10"), "642": (4001.61, "2027-04-05", "2026-11-10"),
+            "648": (5535.74, "2027-01-05", "2026-11-05"), "649": (5822.77, "2027-01-05", "2026-11-05"),
+            "650": (4288.89, "2027-04-05", "2026-11-10"), "651": (4581.60, "2027-04-05", "2026-11-10"),
+            "652": (3351.73, "2027-04-05", "2026-11-10"), "653": (3534.55, "2027-04-05", "2026-11-10"),
+            "654": (3813.05, "2027-04-05", "2026-11-10"), "655": (4615.93, "2027-01-05", "2026-11-05"),
+            "656": (4795.46, "2027-01-05", "2026-11-05"), "657": (5068.87, "2027-01-05", "2026-11-05"),
+            "658": (3714.29, "2027-01-05", "2026-11-10"), "659": (3874.88, "2027-01-05", "2026-11-10"),
+            "660": (4119.11, "2027-01-05", "2026-11-10"), "661": (4284.20, "2027-01-05", "2026-11-10"),
+            "662": (4535.29, "2027-01-05", "2026-11-10"), "664": (3714.29, "2027-01-05", "2026-11-10"),
+            "665": (3874.88, "2027-01-05", "2026-11-10"), "666": (4119.11, "2027-01-05", "2026-11-10"),
+        }
+        for codigo, (troco, primeiro_vencimento, data_liberacao) in esperado.items():
+            with self.subTest(tabela=codigo):
+                result = calcular(dict(
+                    tabela_port_refin=codigo, parcela_atual=531.30, nova_parcela=531.30,
+                    saldo_quitacao=19283.83, prazo_contrato=96, parcelas_pagas=12,
+                    taxa_contrato_atual=2.37, data_simulacao="2026-11-05",
+                    data_refinanciamento=data_liberacao, primeiro_vencimento_port="2027-01-05",
+                    primeiro_vencimento_refin=primeiro_vencimento,
+                ))
+                self.assertAlmostEqual(result["troco"], troco, delta=.01)
+                self.assertEqual(result["parcelas_abertas"], 84)
+                self.assertIn("Taxa máxima da portabilidade", " ".join(result["avisos"]))
+                if codigo in {"652", "653", "654", "655", "656", "657", "664", "665", "666"}:
+                    self.assertIn("Valor máximo do saldo devedor", " ".join(result["erros"]))
+                    self.assertFalse(result["operacao_viavel"])
+                else:
+                    self.assertTrue(result["operacao_viavel"])
+
     def test_newcorban_0710_fluxo_padrao_e_todas_taxas(self):
         for codigo, esperado in [("649", 5337.15), ("648", 4992.18), ("636", 4653.48),
                                  ("635", 4431.08), ("634", 4102.50), ("633", 3886.73)]:
@@ -200,14 +262,28 @@ class PortRefinTest(unittest.TestCase):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo))["saldo_considerado"], 37030.65)
 
     def test_comissoes_conferidas_na_lista_newcorban_3010(self):
-        esperado = {"633": 3.72, "634": 2.74, "635": 1.76, "636": 1.18, "648": 0.98, "649": 0.49,
+        esperado = {"633": 3.72, "634": 2.74, "635": 1.76, "636": 1.18, "639": 4.21,
+                    "640": 3.23, "641": 2.45, "642": 1.47, "648": 0.98, "649": 0.49,
+                    "650": 1.72, "651": 0.78, "652": 3.43, "653": 2.45, "654": 1.47,
                     "655": 2.69, "656": 1.72, "657": 0.49}
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
-        self.assertEqual({codigo: tabela["comissao_percentual"] for codigo, tabela in tabelas.items()}, esperado)
+        self.assertEqual({codigo: tabelas[codigo]["comissao_percentual"] for codigo in esperado}, esperado)
+        self.assertTrue(all(tabela["comissao_percentual"] is None
+                            for codigo, tabela in tabelas.items() if codigo not in esperado))
         for codigo, tabela in tabelas.items():
             with self.subTest(tabela=codigo):
-                self.assertEqual(tabela["prazo"], 108)
+                self.assertIn(tabela["prazo"], {96, 108})
                 self.assertIn(tabela["taxa"], namespace["INSS_PORT_REFIN_FATORES_LIQUIDOS"])
+
+    def test_faixas_e_carencias_nas_tabelas_qualibanking(self):
+        tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
+        self.assertEqual(len(tabelas), 26)
+        for codigo in ("639", "640", "641", "642", "650", "651", "652", "653", "654"):
+            self.assertEqual(tabelas[codigo]["carencia_dias"], 90)
+        for codigo in ("658", "659", "660", "661", "662", "664", "665", "666"):
+            self.assertEqual(tabelas[codigo]["prazo"], 96)
+        self.assertEqual(tabelas["664"]["saldo_maximo"], 5999)
+        self.assertEqual(tabelas["655"]["saldo_maximo"], 5999.99)
 
     def test_tabelas_saldo_2mil_sem_carencia(self):
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]

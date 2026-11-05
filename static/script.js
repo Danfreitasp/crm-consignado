@@ -2289,6 +2289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const possuiMargemNegativa = document.getElementById('portPossuiMargemNegativa');
     const margemNegativaFields = document.getElementById('portMargemNegativaFields');
     const recalcularSaldo = document.getElementById('portRecalcularSaldo');
+    const recalcularParcelasPagas = document.getElementById('portCalcularParcelasPagas');
     const saldoRecalculadoStatus = document.getElementById('portSaldoRecalculadoStatus');
     const extratoArquivo = document.getElementById('portExtratoArquivo');
     const statementReader = extratoArquivo?.closest('.statement-reader');
@@ -2498,6 +2499,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Date(Date.UTC(ano, mes, Math.min(dia, ultimoDia))).toISOString().slice(0, 10);
     }
 
+    function adicionarDiasData(dataISO, dias) {
+        const base = dataFluxoQuali(dataISO || '');
+        if (!Number.isFinite(base)) return '';
+        return new Date(base + Math.trunc(dias) * 86400000).toISOString().slice(0, 10);
+    }
+
     // O banco libera o refinanciamento dois dias úteis depois do pagamento do
     // benefício. Como o dia do pagamento é fixo, a data (e o valor) só muda
     // quando vira o mês, igual à simulação do banco.
@@ -2545,8 +2552,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // A portabilidade assume o próximo vencimento do contrato atual (um
         // mês depois); o refinanciamento começa no mês seguinte, como na Quali.
         const vencimentoPort = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 1);
-        const vencimentoRefin = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 2);
-        const liberacao = dataLiberacaoQuali(portFields.dataSimulacao?.value, dia);
+        const vencimentoRefinBase = dataVencimentoSugerida(portFields.dataSimulacao?.value, dia, 2);
+        const carenciaDias = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.carenciaDias || 0);
+        const vencimentoRefin = carenciaDias ? adicionarDiasData(vencimentoRefinBase, carenciaDias) : vencimentoRefinBase;
+        const diasLiberacaoBenchmark = portFields.tabela?.selectedOptions?.[0]?.dataset.diasLiberacaoNewcorbanNov05;
+        const liberacao = portFields.dataSimulacao?.value === '2026-11-05' && diasLiberacaoBenchmark !== ''
+            ? adicionarDiasData(portFields.dataSimulacao.value, Number(diasLiberacaoBenchmark))
+            : dataLiberacaoQuali(portFields.dataSimulacao?.value, dia);
         if (portFields.vencimentoPort && vencimentoPort) portFields.vencimentoPort.value = vencimentoPort;
         if (portFields.vencimentoRefin && vencimentoRefin) portFields.vencimentoRefin.value = vencimentoRefin;
         if (portFields.dataRefinanciamento && liberacao) portFields.dataRefinanciamento.value = liberacao;
@@ -2583,17 +2595,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const dataSimulacao = dataFluxoQuali(portFields.dataSimulacao?.value || '');
         const dataRefinanciamento = dataFluxoQuali(portFields.dataRefinanciamento?.value || '');
         const diasAteLiberacao = (dataRefinanciamento - dataSimulacao) / 86400000;
-        const fatorLiquido = Number((diasAteLiberacao === 0
-            ? tabelaSelecionada?.dataset.fatorLiquidoMesmoDia
-            : diasAteLiberacao === 2
-                ? (tabelaSelecionada?.dataset.fatorLiquidoDoisDias || tabelaSelecionada?.dataset.fatorLiquido)
-                : tabelaSelecionada?.dataset.fatorLiquido) || 1);
+        const carenciaDias = Number(tabelaSelecionada?.dataset.carenciaDias || 0);
+        const vencimentoRefinPadrao = adicionarDiasData(
+            dataVencimentoSugerida(portFields.dataSimulacao?.value, diaBeneficioInformado(), 2),
+            carenciaDias,
+        );
+        const fatorBenchmark = Number(tabelaSelecionada?.dataset.fatorLiquidoNewcorbanNov05 || 0);
+        const diasLiberacaoBenchmark = tabelaSelecionada?.dataset.diasLiberacaoNewcorbanNov05;
+        const dataRefinBenchmark = diasLiberacaoBenchmark !== '' && diasLiberacaoBenchmark !== undefined
+            ? adicionarDiasData('2026-11-05', Number(diasLiberacaoBenchmark))
+            : '';
+        const fluxoBenchmark = portFields.dataSimulacao?.value === '2026-11-05'
+            && portFields.dataRefinanciamento?.value === dataRefinBenchmark
+            && portFields.vencimentoRefin?.value === vencimentoRefinPadrao;
+        const fatorLiquido = Number((fluxoBenchmark && fatorBenchmark > 0
+            ? fatorBenchmark
+            : diasAteLiberacao === 0
+                ? tabelaSelecionada?.dataset.fatorLiquidoMesmoDia
+                : diasAteLiberacao === 2
+                    ? (tabelaSelecionada?.dataset.fatorLiquidoDoisDias || tabelaSelecionada?.dataset.fatorLiquido)
+                    : tabelaSelecionada?.dataset.fatorLiquido) || 1);
         const vencimentoPort = dataFluxoQuali(portFields.vencimentoPort?.value || '');
         const vencimentoRefin = dataFluxoQuali(portFields.vencimentoRefin?.value || '');
         const fluxoValido = [dataSimulacao, dataRefinanciamento, vencimentoPort, vencimentoRefin].every(Number.isFinite)
             && dataRefinanciamento >= dataSimulacao && vencimentoPort > dataSimulacao && vencimentoRefin > dataRefinanciamento;
         const parcelasRestantes = Math.max(0, Number(portFields.prazoContrato?.value || 0) - Number(portFields.parcelasPagas?.value || 0));
-        const comissaoPercentual = Number(tabelaSelecionada?.dataset.comissaoPercentual || 0);
+        const comissaoRaw = tabelaSelecionada?.dataset.comissaoPercentual;
+        const comissaoPercentual = comissaoRaw ? Number(comissaoRaw) : null;
         let coeficiente = coeficienteInformado;
         let origem = portFields.tabela?.value ? `Tabela Quali ${portFields.tabela.value}` : 'Coeficiente informado';
 
@@ -2611,9 +2639,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const arredondarCentavos = (valor) => Math.round((valor + Number.EPSILON) * 100) / 100;
         const valorContrato = coeficiente > 0 && coeficiente <= 1 ? arredondarCentavos(novaParcela / coeficiente) : 0;
         let saldoConsiderado = arredondarCentavos(saldo);
+        let taxaPortabilidade = 0;
         if (usaQuali && fluxoValido && parcelasRestantes > 0 && parcelaAtual > 0 && saldo > 0) {
-            const taxaPort = taxaFluxoQuali(parcelaAtual, saldo, diasFluxoQuali(vencimentoPort, dataSimulacao, parcelasRestantes));
-            saldoConsiderado = arredondarCentavos(saldo * Math.pow(1 + taxaPort, (dataRefinanciamento - dataSimulacao) / 86400000 / 30));
+            taxaPortabilidade = taxaFluxoQuali(parcelaAtual, saldo, diasFluxoQuali(vencimentoPort, dataSimulacao, parcelasRestantes));
+            saldoConsiderado = arredondarCentavos(saldo * Math.pow(1 + taxaPortabilidade, (dataRefinanciamento - dataSimulacao) / 86400000 / 30));
         }
         const trocoBruto = arredondarCentavos(valorContrato - saldoConsiderado);
         const trocoAutomatico = trocoBruto > 0 ? arredondarCentavos(trocoBruto * (usaQuali ? fatorLiquido : 1)) : trocoBruto;
@@ -2621,10 +2650,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ? arredondarCentavos(valorContrato - arredondarCentavos(saldo) - arredondarCentavos(descontosBanco))
             : trocoAutomatico;
         const descontosEstimados = arredondarCentavos(valorContrato - saldo - trocoAutomatico);
-        const comissaoPortabilidade = saldo * (comissaoPercentual / 100);
-        const comissaoRefinanciamento = Math.max(0, troco) * (comissaoPercentual / 100);
-        const comissaoTotal = comissaoPortabilidade + comissaoRefinanciamento;
+        const comissaoPortabilidade = comissaoPercentual === null ? null : saldo * (comissaoPercentual / 100);
+        const comissaoRefinanciamento = comissaoPercentual === null ? null : Math.max(0, troco) * (comissaoPercentual / 100);
+        const comissaoTotal = comissaoPercentual === null ? null : comissaoPortabilidade + comissaoRefinanciamento;
         const erros = [];
+        const avisos = [];
         if (parcelaAtual <= 0) erros.push('Informe a parcela atual.');
         if (saldo <= 0) erros.push('Informe o saldo para quitação.');
         if (prazoNovo <= 0) erros.push('Informe o novo prazo.');
@@ -2633,6 +2663,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (descontosBanco < 0) erros.push('Os descontos do banco não podem ser negativos.');
         if (usaQuali && parcelasRestantes <= 0) erros.push('Informe prazo original e parcelas pagas para calcular as parcelas restantes.');
         if (usaQuali && !fluxoValido) erros.push('Revise as datas dos vencimentos da simulação.');
+        const saldoMinimoTabela = Number(tabelaSelecionada?.dataset.saldoMinimo || 0);
+        const saldoMaximoTabela = Number(tabelaSelecionada?.dataset.saldoMaximo || 0);
+        if (usaQuali && saldo > 0 && saldoMinimoTabela > 0 && saldo < saldoMinimoTabela) {
+            erros.push(`O saldo devedor mínimo desta tabela é de ${brl(saldoMinimoTabela)}.`);
+        }
+        if (usaQuali && saldo > 0 && saldoMaximoTabela > 0 && saldo > saldoMaximoTabela) {
+            erros.push(`Valor máximo do saldo devedor é de ${brl(saldoMaximoTabela)}.`);
+        }
+        const taxaMaximaPortabilidade = Number(tabelaSelecionada?.dataset.taxaMaximaPortabilidade || 0);
+        if (usaQuali && taxaMaximaPortabilidade > 0
+            && taxaPortabilidade * 100 > taxaMaximaPortabilidade + 0.000001) {
+            avisos.push(`Taxa máxima da portabilidade é de ${taxaMaximaPortabilidade.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}%.`);
+        }
 
         if (portOutputs.valorContrato) portOutputs.valorContrato.textContent = brl(valorContrato);
         if (portOutputs.troco) portOutputs.troco.textContent = brl(troco);
@@ -2643,12 +2686,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? 'Total informado substitui a estimativa automática.'
             : `Automático: ${brl(descontosEstimados)} (atualização do saldo e desconto líquido).`;
         if (portOutputs.comissaoPercentual) {
-            portOutputs.comissaoPercentual.textContent = comissaoPercentual
-                ? `${comissaoPercentual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                : '-';
+            portOutputs.comissaoPercentual.textContent = comissaoPercentual === null
+                ? 'a confirmar'
+                : `${comissaoPercentual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
         }
         if (portOutputs.comissaoTotal) {
-            portOutputs.comissaoTotal.textContent = comissaoPercentual ? brl(comissaoTotal) : '-';
+            portOutputs.comissaoTotal.textContent = comissaoPercentual === null ? 'a confirmar' : brl(comissaoTotal);
         }
         if (portOutputs.coeficiente) portOutputs.coeficiente.textContent = coeficiente ? coeficiente.toFixed(8) : '-';
         if (portOutputs.origem) portOutputs.origem.textContent = coeficiente ? origem : 'Informe taxa ou coeficiente';
@@ -2660,8 +2703,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!temDados) {
             aviso = 'Preencha os dados para verificar o troco estimado.';
         } else if (!erros.length && troco >= 0) {
-            aviso = 'Operação com troco positivo.';
-            estado = 'ok';
+            const complementos = [...avisos];
+            if (usaQuali && comissaoPercentual === null) {
+                complementos.push('Comissão desta tabela ainda precisa ser confirmada no NewCorban.');
+            }
+            aviso = ['Operação com troco positivo.', ...complementos].join(' ');
+            estado = complementos.length ? 'attention' : 'ok';
         } else if (!erros.length) {
             aviso = 'O novo contrato não cobre o saldo para quitação.';
         }
@@ -2672,9 +2719,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (texto) texto.textContent = aviso;
         }
         if (portOutputs.inserirProposta) {
-            portOutputs.inserirProposta.hidden = modoAtual() !== 'port_refin' || Boolean(erros.length) || troco < 0;
+            portOutputs.inserirProposta.hidden = modoAtual() !== 'port_refin' || Boolean(erros.length) || troco < 0
+                || (usaQuali && comissaoPercentual === null);
         }
         ofertaPortRefinAtual = !erros.length && troco >= 0 && modoAtual() === 'port_refin'
+            && !(usaQuali && comissaoPercentual === null)
             ? {
                 contrato: [bancoAtualInput?.value.trim() || 'Banco não informado', numeroContratoInput?.value.trim() || 'Sem número'].join(' · '),
                 parcelaAtual,
@@ -2734,12 +2783,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (field) field.readOnly = Boolean(option?.value);
         });
         if (!option?.value) {
+            sugerirVencimentos(diaBeneficioInformado());
             calcularPortRefin();
             return;
         }
         if (portFields.taxa) portFields.taxa.value = String(option.dataset.taxa || '').replace('.', ',');
         if (portFields.novoPrazo) portFields.novoPrazo.value = option.dataset.prazo || '';
         if (portFields.coeficiente) portFields.coeficiente.value = option.dataset.coeficiente || '';
+        sugerirVencimentos(diaBeneficioInformado());
         calcularPortRefin();
     }
 
@@ -2767,6 +2818,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saldoRecalculadoStatus) {
             const origemTaxa = taxaInformada ? 'taxa informada para o contrato' : `tabela ${portFields.tabela.value}`;
             saldoRecalculadoStatus.textContent = `Saldo recalculado em ${brl(saldoAtualizado)} para ${parcelasRestantes} parcelas restantes pela ${origemTaxa}.`;
+        }
+        calcularPortRefin();
+    }
+
+    function recalcularParcelasPagasPeloSaldo() {
+        const parcela = parseBR(portFields.parcelaAtual?.value);
+        const saldo = parseBR(portFields.saldo?.value);
+        const prazoOriginal = Math.max(0, Math.trunc(Number(portFields.prazoContrato?.value || 0)));
+        const taxaPercentual = parseCoeficiente(portFields.taxaContratoAtual?.value);
+        const taxaInformada = Boolean(portFields.taxaContratoAtual?.value.trim());
+        if (!(parcela > 0) || !(saldo > 0) || !(prazoOriginal > 0) || !taxaInformada || !(taxaPercentual >= 0)) {
+            if (saldoRecalculadoStatus) {
+                saldoRecalculadoStatus.textContent = 'Informe parcela, saldo, prazo original e taxa atual do contrato para estimar as parcelas pagas.';
+            }
+            return;
+        }
+
+        const taxa = taxaPercentual / 100;
+        const denominador = parcela - saldo * taxa;
+        if (taxa > 0 && !(denominador > 0)) {
+            if (saldoRecalculadoStatus) {
+                saldoRecalculadoStatus.textContent = 'Não foi possível estimar as parcelas: confira parcela, saldo e taxa do contrato.';
+            }
+            return;
+        }
+
+        const parcelasCalculadas = taxa === 0
+            ? saldo / parcela
+            : Math.log(parcela / denominador) / Math.log1p(taxa);
+        if (!Number.isFinite(parcelasCalculadas)) {
+            if (saldoRecalculadoStatus) saldoRecalculadoStatus.textContent = 'Não foi possível estimar as parcelas com esses dados.';
+            return;
+        }
+        const parcelasRestantes = Math.floor(parcelasCalculadas + 0.5);
+        if (parcelasRestantes < 1 || parcelasRestantes > prazoOriginal) {
+            if (saldoRecalculadoStatus) {
+                saldoRecalculadoStatus.textContent = `O saldo informado não corresponde a um número válido de parcelas dentro do prazo de ${prazoOriginal}.`;
+            }
+            return;
+        }
+
+        const parcelasPagas = prazoOriginal - parcelasRestantes;
+        if (portFields.parcelasPagas) portFields.parcelasPagas.value = String(parcelasPagas);
+        if (saldoRecalculadoStatus) {
+            saldoRecalculadoStatus.textContent = `Estimativa pelo saldo: ${parcelasPagas} pagas e ${parcelasRestantes} restantes, à taxa de ${taxaPercentual.toLocaleString('pt-BR')}% a.m. Confirme com o extrato.`;
         }
         calcularPortRefin();
     }
@@ -2969,6 +3065,7 @@ document.addEventListener('DOMContentLoaded', () => {
         calcularPortRefin();
     });
     if (recalcularSaldo) recalcularSaldo.addEventListener('click', recalcularSaldoContrato);
+    if (recalcularParcelasPagas) recalcularParcelasPagas.addEventListener('click', recalcularParcelasPagasPeloSaldo);
     if (lerExtrato) lerExtrato.addEventListener('click', carregarExtrato);
     if (extratoContractSelect) extratoContractSelect.addEventListener('change', aplicarContratoDoExtrato);
     if (adicionarOferta) adicionarOferta.addEventListener('click', () => {
