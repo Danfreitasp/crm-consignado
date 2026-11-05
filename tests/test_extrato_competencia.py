@@ -37,21 +37,21 @@ class CompetenciaTest(unittest.TestCase):
             with self.subTest(inicio=inicio, total=total, referencia=referencia, dia=dia_pagamento):
                 self.assertEqual(calcular(inicio, total, referencia, dia_pagamento), esperado)
 
-    def test_primeiro_desconto_evita_parcela_a_mais(self):
-        # Casos reais do extrato: a competência começava um mês antes do
-        # primeiro desconto e o leitor somava uma parcela ainda não paga.
+    def test_competencia_inicial_conta_parcelas_sem_adiantar(self):
+        # A competência inicial é o primeiro mês descontado. O dia do desconto
+        # só impede contar o mês corrente antes do vencimento.
         casos = [
-            ("08/12/2026", 108, date(2026, 11, 5), 0),
-            ("08/04/2026", 96, date(2026, 11, 5), 7),
-            ("10/03/2026", 96, date(2026, 11, 5), 8),
-            ("10/09/2025", 96, date(2026, 11, 5), 14),
-            ("07/04/2025", 96, date(2026, 11, 5), 19),
-            ("10/09/2025", 96, date(2026, 11, 10), 14),
-            ("10/09/2025", 96, date(2026, 11, 11), 15),
+            ("11/2026", 108, date(2026, 11, 5), 8, 0),
+            ("03/2026", 96, date(2026, 11, 5), 8, 8),
+            ("02/2026", 96, date(2026, 11, 5), 10, 9),
+            ("08/2025", 96, date(2026, 11, 5), 10, 15),
+            ("04/2025", 96, date(2026, 11, 5), 7, 19),
+            ("08/2025", 96, date(2026, 11, 10), 10, 15),
+            ("08/2025", 96, date(2026, 11, 11), 10, 16),
         ]
-        for inicio, total, referencia, esperado in casos:
-            with self.subTest(inicio=inicio, referencia=referencia):
-                self.assertEqual(calcular(inicio, total, referencia), esperado)
+        for inicio, total, referencia, dia, esperado in casos:
+            with self.subTest(inicio=inicio, referencia=referencia, dia=dia):
+                self.assertEqual(calcular(inicio, total, referencia, dia), esperado)
 
     def test_extrai_data_do_primeiro_desconto_da_linha(self):
         self.assertEqual(namespace["dia_do_mes"]("08/12/26"), 8)

@@ -2309,6 +2309,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const ofertaStatus = document.getElementById('portOfertaStatus');
     let contratosDoExtrato = [];
     let ofertaPortRefinAtual = null;
+    // Verdadeiro quando o saldo foi digitado/importado e não deve ser
+    // sobrescrito. Ao mexer em parcela, prazo, parcelas pagas ou taxa o modo
+    // automático volta, para o saldo acompanhar a operação.
+    let saldoManual = false;
+    // Enquanto o extrato preenche vários campos de uma vez, os eventos
+    // disparados por cada campo não devem sobrescrever o saldo importado.
+    let aplicandoExtrato = false;
     const ofertasPortRefin = [];
     const portOutputs = {
         valorContrato: document.getElementById('portValorContrato'),
@@ -2501,8 +2508,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function adicionarDiasData(dataISO, dias) {
         const base = dataFluxoQuali(dataISO || '');
-        if (!Number.isFinite(base)) return '';
-        return new Date(base + Math.trunc(dias) * 86400000).toISOString().slice(0, 10);
+        const quantidade = Number(dias);
+        if (!Number.isFinite(base) || !Number.isFinite(quantidade)) return '';
+        return new Date(base + Math.trunc(quantidade) * 86400000).toISOString().slice(0, 10);
     }
 
     // O banco libera o refinanciamento dois dias úteis depois do pagamento do
@@ -2533,13 +2541,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function atualizarSaldoAutomatico() {
-        const ativo = Boolean(portFields.saldoAutomatico?.checked) && Boolean(portFields.tabela?.value);
+        if (saldoManual || aplicandoExtrato) return false;
+        const taxaInformada = parseCoeficiente(portFields.taxaContratoAtual?.value);
+        // Basta a taxa do contrato ou uma tabela selecionada: o saldo depende
+        // da parcela, das parcelas restantes e da taxa, não da tabela nova.
+        const ativo = Boolean(portFields.saldoAutomatico?.checked)
+            && (Boolean(portFields.tabela?.value) || taxaInformada > 0);
         if (portFields.saldo) portFields.saldo.readOnly = ativo;
         if (!ativo || !portFields.saldo) return false;
         const parcela = parseBR(portFields.parcelaAtual?.value);
         const restantes = Math.max(0, Number(portFields.prazoContrato?.value || 0)
             - Number(portFields.parcelasPagas?.value || 0));
-        const taxaInformada = parseCoeficiente(portFields.taxaContratoAtual?.value);
         const taxa = taxaInformada || Number(portFields.tabela?.selectedOptions?.[0]?.dataset.taxa || 0);
         const saldo = saldoPelaTabela(parcela, restantes, taxa);
         if (!(saldo > 0)) return false;
@@ -2556,7 +2568,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const carenciaDias = Number(portFields.tabela?.selectedOptions?.[0]?.dataset.carenciaDias || 0);
         const vencimentoRefin = carenciaDias ? adicionarDiasData(vencimentoRefinBase, carenciaDias) : vencimentoRefinBase;
         const diasLiberacaoBenchmark = portFields.tabela?.selectedOptions?.[0]?.dataset.diasLiberacaoNewcorbanNov05;
-        const liberacao = portFields.dataSimulacao?.value === '2026-11-05' && diasLiberacaoBenchmark !== ''
+        const temLiberacaoBenchmark = diasLiberacaoBenchmark !== undefined && diasLiberacaoBenchmark !== '';
+        const liberacao = portFields.dataSimulacao?.value === '2026-11-05' && temLiberacaoBenchmark
             ? adicionarDiasData(portFields.dataSimulacao.value, Number(diasLiberacaoBenchmark))
             : dataLiberacaoQuali(portFields.dataSimulacao?.value, dia);
         if (portFields.vencimentoPort && vencimentoPort) portFields.vencimentoPort.value = vencimentoPort;
@@ -2790,6 +2803,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (portFields.taxa) portFields.taxa.value = String(option.dataset.taxa || '').replace('.', ',');
         if (portFields.novoPrazo) portFields.novoPrazo.value = option.dataset.prazo || '';
         if (portFields.coeficiente) portFields.coeficiente.value = option.dataset.coeficiente || '';
+        // Com tabela selecionada o saldo acompanha a parcela, o prazo e as
+        // parcelas pagas do contrato, independentemente de ajuste manual.
+        saldoManual = false;
+        if (portFields.saldoAutomatico) portFields.saldoAutomatico.checked = true;
         sugerirVencimentos(diaBeneficioInformado());
         calcularPortRefin();
     }
@@ -2812,7 +2829,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const taxaDecimal = taxaPercentual / 100;
         const saldoAtualizado = parcela * (1 - Math.pow(1 + taxaDecimal, -parcelasRestantes)) / taxaDecimal;
-        if (usaTabela && portFields.saldoAutomatico) portFields.saldoAutomatico.checked = true;
+        saldoManual = false;
+        if (portFields.saldoAutomatico) portFields.saldoAutomatico.checked = true;
         if (portFields.saldo) portFields.saldo.value = brl(saldoAtualizado);
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         if (saldoRecalculadoStatus) {
@@ -2861,6 +2879,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const parcelasPagas = prazoOriginal - parcelasRestantes;
         if (portFields.parcelasPagas) portFields.parcelasPagas.value = String(parcelasPagas);
+        // O cálculo partiu do saldo informado; não o substitui pelo saldo
+        // arredondado a partir das parcelas.
+        saldoManual = true;
         if (saldoRecalculadoStatus) {
             saldoRecalculadoStatus.textContent = `Estimativa pelo saldo: ${parcelasPagas} pagas e ${parcelasRestantes} restantes, à taxa de ${taxaPercentual.toLocaleString('pt-BR')}% a.m. Confirme com o extrato.`;
         }
@@ -2978,6 +2999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function aplicarContratoDoExtrato() {
         const contrato = contratosDoExtrato[Number(extratoContractSelect?.value)];
         if (!contrato) return;
+        aplicandoExtrato = true;
         if (portFields.descontosBanco) portFields.descontosBanco.value = '';
         preencherCampoExtrato(bancoAtualInput, contrato.banco || contrato.banco_descricao || '');
         preencherCampoExtrato(numeroContratoInput, contrato.numero || '');
@@ -2987,6 +3009,9 @@ document.addEventListener('DOMContentLoaded', () => {
         preencherCampoExtrato(portFields.prazoContrato, contrato.prazo_total);
         preencherCampoExtrato(portFields.parcelasPagas, contrato.parcelas_pagas);
         preencherCampoExtrato(portFields.taxaContratoAtual, Number(contrato.taxa).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+        aplicandoExtrato = false;
+        saldoManual = true;
+        if (portFields.saldoAutomatico) portFields.saldoAutomatico.checked = false;
         if (saldoRecalculadoStatus) {
             saldoRecalculadoStatus.textContent = `Saldo estimado em ${brl(contrato.saldo_calculado)} para ${contrato.parcelas_restantes} parcelas restantes à taxa de ${Number(contrato.taxa).toLocaleString('pt-BR')}% a.m.`;
         }
@@ -3061,6 +3086,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     if (portFields.tabela) portFields.tabela.addEventListener('change', aplicarTabelaPortRefin);
     if (portFields.saldoAutomatico) portFields.saldoAutomatico.addEventListener('change', () => {
+        saldoManual = !portFields.saldoAutomatico.checked;
         atualizarSaldoAutomatico();
         calcularPortRefin();
     });
@@ -3079,6 +3105,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ofertaStatus) ofertaStatus.textContent = 'Oferta adicionada ao resumo.';
         atualizarResumoOfertas();
     });
+    // Parcela, prazo, parcelas pagas e taxa atual são a base do saldo: ao
+    // mudar qualquer um deles o modo automático volta e o saldo é recalculado.
+    [portFields.parcelaAtual, portFields.prazoContrato, portFields.parcelasPagas,
+        portFields.taxaContratoAtual].forEach((field) => {
+        if (!field) return;
+        ['input', 'change'].forEach((evento) => {
+            field.addEventListener(evento, () => {
+                if (aplicandoExtrato) return;
+                saldoManual = false;
+                if (portFields.saldoAutomatico) portFields.saldoAutomatico.checked = true;
+            });
+        });
+    });
+    // Já o saldo digitado é manual: não pode ser sobrescrito enquanto o
+    // usuário estiver informando um valor do banco.
+    if (portFields.saldo) {
+        ['input', 'change'].forEach((evento) => {
+            portFields.saldo.addEventListener(evento, () => {
+                if (aplicandoExtrato) return;
+                saldoManual = true;
+                if (portFields.saldoAutomatico) portFields.saldoAutomatico.checked = false;
+            });
+        });
+    }
     Object.values(portFields).forEach((field) => {
         if (!field) return;
         if (field !== portFields.descontosBanco && field !== portFields.tabela) {

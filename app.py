@@ -4261,9 +4261,11 @@ def parcelas_pagas_ate_competencia(
 ) -> int:
     """Conta descontos já vencidos até a referência, sem antecipar o mês corrente.
 
-    ``inicio`` deve ser a data do primeiro desconto sempre que o extrato a
-    trouxer: a competência pode começar um mês antes por carência, o que fazia
-    o leitor somar uma parcela paga que ainda não havia sido descontada.
+    ``inicio`` é a competência inicial do desconto: o mês em que a primeira
+    parcela é descontada. ``dia_pagamento`` é o dia em que o desconto acontece
+    e serve apenas para não contar o mês corrente antes do vencimento. A
+    competência inicial já representa a primeira parcela paga; somar um mês
+    fixo adiantava uma parcela em todo extrato.
     """
     competencia_inicio = competencia_mes(inicio)
     if not competencia_inicio or total <= 0:
@@ -4478,8 +4480,12 @@ def ler_extrato_emprestimo_consignado(conteudo: bytes) -> dict[str, Any]:
         taxa_extraida = parse_percentual(celula_extrato(linha[14]))
         taxa = taxa_extraida if taxa_extraida > 0 else 1.50
         primeiro_desconto = primeiro_desconto_extrato(linha)
+        # A competência inicial marca o primeiro mês descontado. A data do
+        # primeiro desconto é usada só para saber se o mês corrente já caiu;
+        # usá-la como início atrasava a contagem em uma parcela.
         pagas = parcelas_pagas_ate_competencia(
-            primeiro_desconto or linha[5], total, referencia_calculo, dia_pagamento
+            linha[5], total, referencia_calculo,
+            dia_pagamento or dia_do_mes(primeiro_desconto),
         )
         restantes = max(0, total - pagas)
         banco, banco_descricao = banco_extrato(linha[1])
