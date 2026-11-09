@@ -265,11 +265,13 @@ class PortRefinTest(unittest.TestCase):
         esperado = {"633": 3.72, "634": 2.74, "635": 1.76, "636": 1.18, "639": 4.21,
                     "640": 3.23, "641": 2.45, "642": 1.47, "648": 0.98, "649": 0.49,
                     "650": 1.72, "651": 0.78, "652": 3.43, "653": 2.45, "654": 1.47,
-                    "655": 2.69, "656": 1.72, "657": 0.49}
+                    "655": 2.69, "656": 1.72, "657": 0.49,
+                    "658": 3.09, "659": 1.96, "660": 1.08, "661": 0.64, "662": 0.29,
+                    "664": 2.01, "665": 0.98, "666": 0.24}
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
         self.assertEqual({codigo: tabelas[codigo]["comissao_percentual"] for codigo in esperado}, esperado)
-        self.assertTrue(all(tabela["comissao_percentual"] is None
-                            for codigo, tabela in tabelas.items() if codigo not in esperado))
+        self.assertTrue(all(tabela["comissao_percentual"] is not None
+                            for tabela in tabelas.values()))
         for codigo, tabela in tabelas.items():
             with self.subTest(tabela=codigo):
                 self.assertIn(tabela["prazo"], {96, 108})

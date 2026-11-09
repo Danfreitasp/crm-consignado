@@ -250,8 +250,8 @@ CONFIG_INSS_NOVO_COEFICIENTES = "simulador_inss_novo_coeficientes"
 # Fluxo por dias corridos (base 30). A lista de tabelas foi conferida no
 # NewCorban em 05/11/2026; os fatores líquidos abaixo incluem os retornos do
 # simulador para o contrato de referência dessa data. As comissões das tabelas
-# de 108X vêm da lista QUALIBANKING de 30/10/2026. Comissão None significa que
-# a lista ainda não traz a tabela (as de 96X) e precisa ser confirmada.
+# de 108X e 96X vêm da lista QUALIBANKING de 30/10/2026. Comissão None indica
+# que a tabela ainda não apareceu na lista e precisa ser confirmada.
 INSS_PORT_REFIN_TABELAS = {
     "633": {"nome": "PORT + REFIN 1,85% 108X MIN 6 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 3.72, "saldo_minimo": 6000, "dias_liberacao_20261105": 0},
     "634": {"nome": "PORT + REFIN 1,83% 108X MIN 6 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 2.74, "saldo_minimo": 6000, "dias_liberacao_20261105": 0},
@@ -271,14 +271,14 @@ INSS_PORT_REFIN_TABELAS = {
     "655": {"nome": "PORT + REFIN 1,85% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 108, "coeficiente": 0.022851712332, "comissao_percentual": 2.69, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
     "656": {"nome": "PORT + REFIN 1,83% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 108, "coeficiente": 0.022676602023, "comissao_percentual": 1.72, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
     "657": {"nome": "PORT + REFIN 1,80% 108X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 108, "coeficiente": 0.022415097141, "comissao_percentual": 0.49, "saldo_minimo": 2000, "saldo_maximo": 5999.99, "dias_liberacao_20261105": 0},
-    "658": {"nome": "PORT + REFIN 1,85% 96X MIN 6 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
-    "659": {"nome": "PORT + REFIN 1,83% 96X MIN 6 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
-    "660": {"nome": "PORT + REFIN 1,80% 96X MIN 6 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": None, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
-    "661": {"nome": "PORT + REFIN 1,78% 96X MIN 8 MIL", "taxa": 1.78, "prazo": 96, "coeficiente": 0.021809054613, "comissao_percentual": None, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
-    "662": {"nome": "PORT + REFIN 1,75% 96X MIN 8 MIL", "taxa": 1.75, "prazo": 96, "coeficiente": 0.021581009871, "comissao_percentual": None, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
-    "664": {"nome": "PORT + REFIN 1,85% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
-    "665": {"nome": "PORT + REFIN 1,83% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
-    "666": {"nome": "PORT + REFIN 1,80% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": None, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
+    "658": {"nome": "PORT + REFIN 1,85% 96X MIN 6 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": 3.09, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "659": {"nome": "PORT + REFIN 1,83% 96X MIN 6 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": 1.96, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "660": {"nome": "PORT + REFIN 1,80% 96X MIN 6 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": 1.08, "saldo_minimo": 6000, "dias_liberacao_20261105": 5},
+    "661": {"nome": "PORT + REFIN 1,78% 96X MIN 8 MIL", "taxa": 1.78, "prazo": 96, "coeficiente": 0.021809054613, "comissao_percentual": 0.64, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
+    "662": {"nome": "PORT + REFIN 1,75% 96X MIN 8 MIL", "taxa": 1.75, "prazo": 96, "coeficiente": 0.021581009871, "comissao_percentual": 0.29, "saldo_minimo": 8000, "dias_liberacao_20261105": 5},
+    "664": {"nome": "PORT + REFIN 1,85% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.85, "prazo": 96, "coeficiente": 0.022345265366, "comissao_percentual": 2.01, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
+    "665": {"nome": "PORT + REFIN 1,83% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.83, "prazo": 96, "coeficiente": 0.022191480683, "comissao_percentual": 0.98, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
+    "666": {"nome": "PORT + REFIN 1,80% 96X SALDO DE 2 MIL A 5.999,99 MIL", "taxa": 1.80, "prazo": 96, "coeficiente": 0.021961674192, "comissao_percentual": 0.24, "saldo_minimo": 2000, "saldo_maximo": 5999.00, "dias_liberacao_20261105": 5},
 }
 
 INSS_PORT_REFIN_FATORES_NEW_CORBAN_20261105 = {
