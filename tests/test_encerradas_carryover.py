@@ -117,6 +117,33 @@ class EncerradasCarryoverTest(unittest.TestCase):
         self.assertEqual(atual["falta_cair_promotora"], 70.0)
         self.assertEqual(atual["valor_a_sacar"], 0.0)
 
+    def test_valor_pago_permanece_no_mes_de_encerramento(self):
+        pendente = self.inserir_proposta("Paga pendente", self.mes_anterior, 100)
+        sacada = self.inserir_proposta("Paga sacada", self.mes_anterior, 50, valor_sacado="SIM")
+        atual = self.inserir_proposta("Paga atual", self.mes_atual, 30)
+        for proposta_id, troco in ((pendente, 1000), (sacada, 500), (atual, 300)):
+            self.db.execute("UPDATE propostas SET troco = ? WHERE id = ?", (troco, proposta_id))
+        self.db.commit()
+
+        for incluir_anteriores in (True, False):
+            anterior = self.dashboard(self.mes_anterior, incluir_anteriores)
+            corrente = self.dashboard(self.mes_atual, incluir_anteriores)
+            self.assertEqual(anterior["troco_pago"], 1500)
+            self.assertEqual(corrente["troco_pago"], 300)
+            self.assertEqual(corrente["comissao_paga"], 130)
+            self.assertEqual(anterior["comissao_paga_historica"], 150)
+            self.assertEqual(corrente["comissao_paga_historica"], 30)
+
+    def test_saldos_atuais_nao_aparecem_em_meses_passados(self):
+        self.db.execute(
+            "INSERT OR REPLACE INTO configuracoes (chave, valor, atualizado_em) VALUES (?, ?, ?)",
+            ("saldo_em_conta:Oliana", "2146.18", "2026-01-01"),
+        )
+        self.db.commit()
+        self.assertEqual(self.dashboard(self.mes_anterior)["saldo_em_conta"], 0)
+        self.assertEqual(self.dashboard(self.mes_anterior)["valor_a_receber"], 0)
+        self.assertEqual(self.dashboard(self.mes_atual)["saldo_em_conta"], 2146.18)
+
     def test_paga_sacada_nao_entra_no_mes_atual(self):
         self.inserir_proposta(
             "Já sacada",

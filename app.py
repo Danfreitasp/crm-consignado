@@ -182,6 +182,7 @@ DASHBOARD_INDICADORES_BASE = {
     "troco_pago": {"nome": "Valor pago no mês", "tipo": "moeda"},
     "comissao_prevista": {"nome": "Comissão prevista", "tipo": "moeda"},
     "comissao_paga": {"nome": "Comissão paga no mês", "tipo": "moeda"},
+    "comissao_paga_historica": {"nome": "Comissão paga no mês de encerramento", "tipo": "moeda"},
     "valor_a_sacar": {"nome": "Valor a sacar", "tipo": "moeda"},
     "falta_cair_promotora": {"nome": "Falta cair na promotora", "tipo": "moeda"},
     "valor_ja_sacado": {"nome": "Já sacado", "tipo": "moeda"},
@@ -8678,6 +8679,16 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
     pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
     perdidas = propostas_como_operacoes(perdidas_registros, todas_propostas)
     pagas_financeiras = registros_financeiros_pagos(pagas_registros, todas_propostas)
+    pagas_mes = db.execute(
+        f"""SELECT * FROM propostas WHERE status = 'Pago'
+        AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+        AND {filtro_vendedora}""",
+        (mes, *parametros_vendedora),
+    ).fetchall()
+    comissao_paga_historica = sum(
+        float(p["comissao"] or 0)
+        for p in registros_financeiros_pagos(pagas_mes, todas_propostas)
+    )
     bancos_origem_encerradas = agrupar_bancos_origem_encerradas(
         [proposta for proposta in pagas if produto_eh_portabilidade_com_refin(proposta)],
         [proposta for proposta in perdidas if produto_eh_portabilidade_com_refin(proposta)],
@@ -8697,13 +8708,22 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
     ]
     total = len(propostas_operacoes)
     troco_previsto = sum(float(p["troco"] or 0) for p in propostas)
-    troco_pago = sum(float(p["troco"] or 0) for p in pagas_registros)
+    troco_pago = db.execute(
+        f"""
+        SELECT COALESCE(SUM(troco), 0) AS total
+        FROM propostas
+        WHERE status = 'Pago'
+          AND substr(COALESCE(data_encerramento, data_atualizacao, data_criacao), 1, 7) = ?
+          AND {filtro_vendedora}
+        """,
+        (mes, *parametros_vendedora),
+    ).fetchone()["total"]
     comissao_prevista = sum(float(p["comissao"] or 0) for p in propostas_comissao_prevista)
     comissao_paga = sum(float(p["comissao"] or 0) for p in pagas_financeiras)
     valor_a_sacar = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_caiu_promotora"] or "NÃO") == "SIM" and (p["valor_sacado"] or "NÃO") != "SIM")
     falta_cair_promotora = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_caiu_promotora"] or "NÃO") != "SIM")
     valor_ja_sacado = sum(float(p["comissao"] or 0) for p in pagas_financeiras if (p["valor_sacado"] or "NÃO") == "SIM")
-    saldo_atual = saldo_em_conta()
+    saldo_atual = saldo_em_conta() if mes >= mes_atual() else 0.0
     valor_a_receber = valor_a_sacar + falta_cair_promotora + saldo_atual
     valor_previsto = comissao_prevista + valor_a_receber
     comparativo_promotoras = comparativo_promotoras_dashboard(propostas, pagas_financeiras)
@@ -8733,11 +8753,12 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         "comissao_prevista": comissao_prevista,
         "comissao_prevista_status": STATUS_COMISSAO_PREVISTA,
         "comissao_paga": comissao_paga,
+        "comissao_paga_historica": comissao_paga_historica,
         "valor_a_sacar": valor_a_sacar,
         "falta_cair_promotora": falta_cair_promotora,
         "valor_ja_sacado": valor_ja_sacado,
         "saldo_em_conta": saldo_atual,
-        "valor_a_receber": valor_a_receber,
+        "valor_a_receber": valor_a_receber if mes >= mes_atual() else 0.0,
         "valor_previsto": valor_previsto,
         "comparativo_promotoras": comparativo_promotoras,
         "por_status": agrupar("status"),
@@ -8974,7 +8995,7 @@ def ajuda_indicador_padrao_dashboard(chave: str, dados: dict[str, Any]) -> str:
         "pagas": "Conta as operações encerradas como Pago no mês selecionado. Port + Refin vinculados contam uma vez." + nota_comissoes_anteriores,
         "perdidas": "Conta as operações encerradas como Perdido ou Cancelado no mês selecionado. Port + Refin vinculados contam uma vez.",
         "troco_previsto": "Soma o Troco de todas as propostas consideradas no mês selecionado." + nota_pendencias,
-        "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado." + nota_comissoes_anteriores,
+        "troco_pago": "Soma o Troco das propostas encerradas como Pago no mês selecionado.",
         "comissao_prevista": (
             "Soma a Comissão atual de todas as propostas nos status: "
             f"{', '.join(dados['comissao_prevista_status'])}. "
