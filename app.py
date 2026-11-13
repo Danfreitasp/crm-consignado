@@ -207,6 +207,8 @@ DASHBOARD_COMPONENTES_PADRAO = {
     "grafico_status": {"nome": "Propostas por status", "tipo": "grafico_barras", "dados_chave": "por_status", "cor": "azul", "ordem": 102},
     "grafico_banco": {"nome": "Propostas por banco digitado", "tipo": "grafico_barras", "dados_chave": "por_banco", "cor": "verde", "ordem": 103},
     "grafico_produto": {"nome": "Propostas por produto", "tipo": "grafico_barras", "dados_chave": "por_produto", "cor": "roxo", "ordem": 104},
+    "grafico_banco_origem_pagas": {"nome": "Propostas Pagas por Banco Origem", "tipo": "grafico_barras", "dados_chave": "por_banco_origem_pagas", "cor": "verde", "ordem": 105},
+    "grafico_banco_origem_reprovadas": {"nome": "Propostas Reprovadas por Banco Origem", "tipo": "grafico_barras", "dados_chave": "por_banco_origem_reprovadas", "cor": "vermelho", "ordem": 106},
 }
 NOTIFICACOES_IMPORTANTES_OBSERVACOES = (
     "Proposta criada%",
@@ -3260,6 +3262,33 @@ def propostas_como_operacoes(
         and any(propostas_formam_par_port_refin(port, proposta) for port in ports)
     }
     return [proposta for proposta in propostas if proposta["id"] not in ids_refins_vinculados]
+
+
+def agrupar_bancos_origem_encerradas(
+    pagas: list[sqlite3.Row],
+    perdidas: list[sqlite3.Row],
+) -> dict[str, list[dict[str, Any]]]:
+    """Agrupa operações pagas e perdidas em listas separadas por banco de origem."""
+    contagens: dict[str, dict[str, int]] = {}
+    for chave, propostas in (("pagas", pagas), ("reprovadas", perdidas)):
+        for proposta in propostas:
+            banco = limpar_texto(proposta["banco_atual"]) or "Não informado"
+            if banco not in contagens:
+                contagens[banco] = {"pagas": 0, "reprovadas": 0}
+            contagens[banco][chave] += 1
+
+    resultado: dict[str, list[dict[str, Any]]] = {}
+    for chave in ("pagas", "reprovadas"):
+        bancos = sorted(
+            ((banco, valores[chave]) for banco, valores in contagens.items() if valores[chave] > 0),
+            key=lambda item: (-item[1], item[0].casefold()),
+        )
+        maior = max((qtd for _, qtd in bancos), default=1)
+        resultado[chave] = [
+            {"nome": banco, "qtd": qtd, "percentual": round(qtd / maior * 100, 1)}
+            for banco, qtd in bancos
+        ]
+    return resultado
 
 
 def registros_financeiros_pagos(
@@ -8649,6 +8678,10 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
     pagas = propostas_como_operacoes(pagas_registros, todas_propostas)
     perdidas = propostas_como_operacoes(perdidas_registros, todas_propostas)
     pagas_financeiras = registros_financeiros_pagos(pagas_registros, todas_propostas)
+    bancos_origem_encerradas = agrupar_bancos_origem_encerradas(
+        [proposta for proposta in pagas if produto_eh_portabilidade_com_refin(proposta)],
+        [proposta for proposta in perdidas if produto_eh_portabilidade_com_refin(proposta)],
+    )
     propostas_comissao_prevista = [
         proposta
         for proposta in propostas_comissao_prevista
@@ -8710,6 +8743,8 @@ def consulta_dashboard(mes: str, incluir_anteriores: bool = True) -> dict[str, A
         "por_status": agrupar("status"),
         "por_banco": agrupar("banco_digitado"),
         "por_produto": agrupar("produto"),
+        "por_banco_origem_pagas": bancos_origem_encerradas["pagas"],
+        "por_banco_origem_reprovadas": bancos_origem_encerradas["reprovadas"],
     }
 
 

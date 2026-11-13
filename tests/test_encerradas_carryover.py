@@ -53,21 +53,23 @@ class EncerradasCarryoverTest(unittest.TestCase):
         numero_proposta: str = "",
         numero_port_vinculada: str = "",
         portabilidade_id: int | None = None,
+        banco_origem: str = "",
     ) -> int:
         cursor = self.db.execute(
             """
             INSERT INTO propostas (
-                nome, cpf, tipo_cliente, produto, comissao, status, responsavel,
+                nome, cpf, tipo_cliente, produto, banco_atual, comissao, status, responsavel,
                 valor_sacado, valor_caiu_promotora, numero_proposta,
                 numero_port_vinculada, portabilidade_id,
                 data_criacao, data_atualizacao, data_encerramento
             )
-            VALUES (?, '000', 'INSS', ?, ?, ?, 'Oliana', ?, ?, ?, ?, ?,
+            VALUES (?, '000', 'INSS', ?, ?, ?, ?, 'Oliana', ?, ?, ?, ?, ?,
                     ?, ?, ?)
             """,
             (
                 nome,
                 produto,
+                banco_origem,
                 comissao,
                 status,
                 valor_sacado,
@@ -145,6 +147,56 @@ class EncerradasCarryoverTest(unittest.TestCase):
         self.assertEqual(self.dashboard(self.mes_atual)["perdidas"], 0)
         self.assertEqual(self.dashboard(self.mes_anterior)["perdidas"], 1)
 
+    def test_encerradas_sao_comparadas_por_banco_de_origem(self):
+        produto = "Portabilidade com Refinanciamento"
+        self.inserir_proposta("Paga A1", self.mes_atual, 10, produto=produto, banco_origem="Banco A")
+        self.inserir_proposta("Paga A2", self.mes_atual, 10, produto=produto, banco_origem="Banco A")
+        self.inserir_proposta("Paga B", self.mes_atual, 10, produto=produto, banco_origem="Banco B")
+        self.inserir_proposta(
+            "Perdida B1", self.mes_atual, 10,
+            status="Perdido / Cancelado", produto=produto, banco_origem="Banco B",
+        )
+        self.inserir_proposta(
+            "Perdida B2", self.mes_atual, 10,
+            status="Cancelado", produto=produto, banco_origem="Banco B",
+        )
+        self.inserir_proposta(
+            "Perdida C", self.mes_atual, 10,
+            status="Perdido", produto=produto, banco_origem="Banco C",
+        )
+        self.inserir_proposta("Novo fora do relatório", self.mes_atual, 10, produto="Novo", banco_origem="Banco D")
+        self.inserir_proposta(
+            "Portabilidade fora do relatório", self.mes_atual, 10,
+            status="Perdido", produto="Portabilidade", banco_origem="Banco E",
+        )
+
+        dashboard = self.dashboard(self.mes_atual)
+
+        self.assertEqual(
+            dashboard["por_banco_origem_pagas"],
+            [
+                {"nome": "Banco A", "qtd": 2, "percentual": 100.0},
+                {"nome": "Banco B", "qtd": 1, "percentual": 50.0},
+            ],
+        )
+        self.assertEqual(
+            dashboard["por_banco_origem_reprovadas"],
+            [
+                {"nome": "Banco B", "qtd": 2, "percentual": 100.0},
+                {"nome": "Banco C", "qtd": 1, "percentual": 50.0},
+            ],
+        )
+        with self.crm.app.test_client() as cliente:
+            with cliente.session_transaction() as sessao:
+                sessao["vendedora_atual"] = "Oliana"
+            pagina = cliente.get(f"/dashboard?mes={self.mes_atual}")
+
+        self.assertEqual(pagina.status_code, 200)
+        conteudo = pagina.get_data(as_text=True)
+        self.assertIn("Propostas Pagas por Banco Origem", conteudo)
+        self.assertIn("Propostas Reprovadas por Banco Origem", conteudo)
+        self.assertIn("Banco B", pagina.get_data(as_text=True))
+
     def test_somente_mes_nao_remove_comissao_pendente_anterior(self):
         self.inserir_proposta(
             "Ativa antiga",
@@ -173,6 +225,7 @@ class EncerradasCarryoverTest(unittest.TestCase):
             100,
             produto="Portabilidade com Refinanciamento",
             numero_proposta="900001",
+            banco_origem="Banco Port",
         )
         self.inserir_proposta(
             "Refin pendente",
@@ -182,11 +235,17 @@ class EncerradasCarryoverTest(unittest.TestCase):
             numero_proposta="900002",
             numero_port_vinculada="900001",
             portabilidade_id=port_id,
+            banco_origem="Banco Refin",
         )
 
         atual = self.dashboard(self.mes_atual)
         self.assertEqual(atual["pagas"], 1)
         self.assertEqual(atual["comissao_paga"], 120.0)
+        self.assertEqual(
+            atual["por_banco_origem_pagas"],
+            [{"nome": "Banco Port", "qtd": 1, "percentual": 100.0}],
+        )
+        self.assertEqual(atual["por_banco_origem_reprovadas"], [])
 
         original = self.dashboard(self.mes_anterior)
         self.assertEqual(original["pagas"], 0)
