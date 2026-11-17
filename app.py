@@ -4576,19 +4576,38 @@ def api_ler_extrato_simulador_inss():
 def converter_contatos():
     if request.method == "POST":
         arquivo = request.files.get("arquivo")
+        previsualizar = request.form.get("acao") == "previsualizar"
         if not arquivo or not arquivo.filename:
+            if previsualizar:
+                return jsonify(erro="Selecione um arquivo CSV ou XLSX para converter."), 400
             flash("Selecione um arquivo CSV ou XLSX para converter.", "erro")
             return redirect(url_for("converter_contatos"))
         try:
             linhas, total_lidas = linhas_contatos_convertidas(arquivo)
         except Exception as exc:
+            if previsualizar:
+                return jsonify(erro=f"Erro ao converter arquivo: {exc}"), 400
             flash(f"Erro ao converter arquivo: {exc}", "erro")
             return redirect(url_for("converter_contatos"))
 
         if not linhas:
+            if previsualizar:
+                return jsonify(erro="Nenhum contato válido encontrado. Verifique os nomes e TELEFONE1."), 400
             flash("Nenhum contato válido encontrado. Verifique se TELEFONE1 possui números preenchidos.", "erro")
             return redirect(url_for("converter_contatos"))
 
+        if previsualizar:
+            return jsonify(contatos=linhas[:5], total=len(linhas), ignorados=total_lidas - len(linhas),
+                           incomuns=sum(len(linha["numero"]) not in (12, 13) for linha in linhas))
+
+        if request.form.get("formato") == "csv":
+            saida = io.StringIO(newline="")
+            writer = csv.writer(saida, delimiter=";", lineterminator="\r\n")
+            writer.writerow(["nome", "numero"])
+            writer.writerows((linha["nome"], linha["numero"]) for linha in linhas)
+            memoria_csv = io.BytesIO(("\ufeff" + saida.getvalue()).encode("utf-8"))
+            return send_file(memoria_csv, mimetype="text/csv; charset=utf-8", as_attachment=True,
+                             download_name="contatos_convertidos.csv")
         memoria = gerar_excel_contatos_convertidos(linhas)
         nome_saida = f"contatos_convertidos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         return send_file(
@@ -9698,6 +9717,8 @@ def normalizar_telefone_contato(valor: Any) -> str:
     digitos = re.sub(r"\D", "", limpar_texto(valor))
     if not digitos:
         return ""
+    if digitos.startswith("0055") and len(digitos) in (14, 15):
+        digitos = digitos[2:]
     # Evita duplicar o DDI se a base já vier com 55 no início.
     if digitos.startswith("55") and len(digitos) >= 12:
         return digitos
@@ -9716,7 +9737,8 @@ def linhas_contatos_convertidas(arquivo: Any) -> tuple[list[dict[str, str]], int
     if filename.endswith(".csv"):
         conteudo = arquivo.read().decode("utf-8-sig", errors="replace")
         sample = conteudo[:4096]
-        delimiter = ";" if sample.count(";") >= sample.count(",") else ","
+        primeira_linha = sample.splitlines()[0] if sample else ""
+        delimiter = max((";", "\t", ","), key=primeira_linha.count)
         reader = csv.reader(io.StringIO(conteudo), delimiter=delimiter)
         rows = list(reader)
         if not rows:
@@ -9727,6 +9749,8 @@ def linhas_contatos_convertidas(arquivo: Any) -> tuple[list[dict[str, str]], int
         if idx_nome is None or idx_tel is None:
             raise ValueError("Não encontrei as colunas NOME e TELEFONE1/TELEFONE 1 no arquivo.")
         for row in rows[1:]:
+            if not any(limpar_texto(campo) for campo in row):
+                continue
             total_lidas += 1
             nome = limpar_texto(row[idx_nome] if idx_nome < len(row) else "").strip('"')
             numero = normalizar_telefone_contato(row[idx_tel] if idx_tel < len(row) else "")
@@ -9753,6 +9777,8 @@ def linhas_contatos_convertidas(arquivo: Any) -> tuple[list[dict[str, str]], int
         if header_idx is None or idx_nome is None or idx_tel is None:
             raise ValueError("Não encontrei as colunas NOME e TELEFONE1/TELEFONE 1 no arquivo.")
         for row in rows[header_idx + 1:]:
+            if not any(limpar_texto(campo) for campo in row):
+                continue
             total_lidas += 1
             nome = limpar_texto(row[idx_nome] if idx_nome < len(row) else "").strip('"')
             numero = normalizar_telefone_contato(row[idx_tel] if idx_tel < len(row) else "")

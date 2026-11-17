@@ -1,60 +1,52 @@
 {% extends 'base.html' %}
 {% set titulo = 'Converter contatos' %}
-{% set subtitulo = 'Transforme uma planilha em uma lista simples com nome e número já com DDI 55.' %}
+{% set subtitulo = 'Prepare sua lista com nome e número no padrão internacional.' %}
 {% block content %}
 <section class="card converter-hero">
-    <div>
-        <h2>Converter planilha para modelo de contatos</h2>
-        <p>Envie um arquivo CSV ou XLSX. O CRM vai manter apenas <strong>NOME</strong> e o primeiro telefone, <strong>TELEFONE1 / TELEFONE 1</strong>, adicionando o DDI <strong>55</strong> antes do número.</p>
-    </div>
+    <div class="converter-kicker">ORGANIZE SUA BASE</div>
+    <h2>Contatos no padrão certo.</h2>
+    <p>Transforme sua planilha em uma lista pronta para usar, com nome e telefone no formato internacional.</p>
 </section>
-
-<section class="card converter-grid">
-    <form method="post" enctype="multipart/form-data" class="stack converter-form">
-        <label>Arquivo original
-            <input type="file" name="arquivo" accept=".csv,.xlsx" required>
-        </label>
-        <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Converter e baixar Excel</span></button>
-    </form>
-
-    <div class="converter-preview">
-        <h3>Modelo de saída</h3>
-        <div class="table-wrap small-table-wrap">
-            <table class="small-table">
-                <thead>
-                    <tr>
-                        <th>nome</th>
-                        <th>numero</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>CLIENTE EXEMPLO 1</td>
-                        <td>5511999990001</td>
-                    </tr>
-                    <tr>
-                        <td>CLIENTE EXEMPLO 2</td>
-                        <td>5521999990002</td>
-                    </tr>
-                    <tr>
-                        <td>CLIENTE EXEMPLO 3</td>
-                        <td>5531999990003</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <p class="muted-note">Se o número já começar com 55, o CRM não duplica o DDI.</p>
-    </div>
+<div class="converter-layout">
+    <section class="card">
+        <h2>Importar contatos</h2>
+        <p class="converter-muted">Escolha um arquivo ou cole os dados da sua planilha.</p>
+        <form id="contatos-form" method="post" enctype="multipart/form-data" class="stack">
+            <label class="converter-drop" id="contatos-drop" for="contatos-arquivo">
+                <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+                <strong>Arraste sua planilha para cá</strong>
+                <span>ou clique para selecionar · CSV ou XLSX</span>
+            </label>
+            <input type="file" id="contatos-arquivo" name="arquivo" accept=".csv,.xlsx" required>
+            <div class="converter-divider">OU COLE OS DADOS</div>
+            <label for="contatos-colados">Dados copiados da planilha</label>
+            <textarea id="contatos-colados" rows="4" placeholder="Cole as linhas copiadas da planilha, incluindo os cabeçalhos"></textarea>
+            <div class="converter-actions">
+                <button class="btn" id="contatos-colar" type="button"><i class="bi bi-clipboard" aria-hidden="true"></i> Processar dados colados</button>
+                <button class="btn" id="contatos-limpar" type="button">Limpar</button>
+            </div>
+            <p id="contatos-status" class="converter-muted" role="status" aria-live="polite">Aguardando uma planilha para começar.</p>
+            <div id="contatos-aviso-sucesso" class="converter-success" hidden>
+                <div><strong><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Planilha pronta!</strong><span>Confira os contatos e escolha como baixar.</span></div>
+                <button class="btn btn-primary" id="contatos-ver-resultado" type="button">Ver resultado <i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+            </div>
+            <noscript><button class="btn btn-primary" type="submit">Converter e baixar Excel</button></noscript>
+        </form>
+    </section>
+    <aside class="card converter-guide">
+        <h2>Simples assim</h2><p class="converter-muted">Uma lista organizada em poucos passos.</p>
+        <div class="converter-step"><span>1</span><div><strong>Adicione sua planilha</strong><p>Use as colunas NOME e TELEFONE 1.</p></div></div>
+        <div class="converter-step"><span>2</span><div><strong>Confira o resultado</strong><p>O primeiro telefone recebe o DDI 55 quando necessário.</p></div></div>
+        <div class="converter-step"><span>3</span><div><strong>Baixe e utilize</strong><p>Receba as colunas nome e numero prontas para usar.</p></div></div>
+        <p class="converter-note">Linhas sem nome ou telefone são ignoradas. O arquivo é processado pelo CRM.</p>
+    </aside>
+</div>
+<section class="card converter-result" id="contatos-resultado" tabindex="-1" hidden>
+    <h2>Tudo pronto para baixar</h2><p class="converter-muted">Confira uma prévia dos contatos padronizados.</p>
+    <div class="converter-stats" id="contatos-estatisticas"></div>
+    <div class="table-wrap"><table class="small-table"><thead><tr><th>nome</th><th>numero</th></tr></thead><tbody id="contatos-previa"></tbody></table></div>
+    <div class="converter-actions"><button class="btn btn-primary" id="contatos-baixar" type="button"><i class="bi bi-download" aria-hidden="true"></i> Baixar planilha XLSX</button><button class="btn" id="contatos-csv" type="button">Baixar CSV</button></div>
+    <p class="converter-note">No XLSX, os números são armazenados como texto. Ao abrir o CSV, o Excel pode interpretá-los como números.</p>
 </section>
-
-<section class="card tips-card">
-    <h3>Regras usadas na conversão</h3>
-    <ul>
-        <li>Coluna de nome esperada: <strong>NOME</strong>.</li>
-        <li>Telefone mantido: <strong>TELEFONE1</strong> ou <strong>TELEFONE 1</strong>.</li>
-        <li>Demais telefones, código e outras colunas são removidos.</li>
-        <li>Espaços, traços, parênteses e caracteres extras do telefone são removidos.</li>
-        <li>Linhas sem nome ou sem telefone são ignoradas.</li>
-    </ul>
-</section>
+<script src="{{ url_for('static', filename='converter_contatos.js', v='3') }}" defer></script>
 {% endblock %}
