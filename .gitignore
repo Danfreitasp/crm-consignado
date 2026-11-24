@@ -75,3 +75,7 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Arquivos de compilação do gerenciador WPF
+/gerenciador_wpf/bin/
+/gerenciador_wpf/obj/

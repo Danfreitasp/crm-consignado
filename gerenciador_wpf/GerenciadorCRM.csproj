@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationIcon>..\static\icons\gerenciador_crm.ico</ApplicationIcon><AssemblyName>GerenciadorCRM</AssemblyName><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained><PublishSingleFile>true</PublishSingleFile><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile></PropertyGroup>
+<ItemGroup><Resource Include="..\static\icons\gerenciador_crm.ico" Link="static\icons\gerenciador_crm.ico" /></ItemGroup></Project>

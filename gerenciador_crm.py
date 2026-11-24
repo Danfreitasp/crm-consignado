@@ -1465,7 +1465,10 @@ class GerenciadorCRM(tk.Tk):
             return
         janela = tk.Toplevel(self)
         janela.title("Configurações")
-        janela.transient(self)
+        if hasattr(self, "_preparar_janela_configuracoes"):
+            self._preparar_janela_configuracoes(janela)
+        else:
+            janela.transient(self)
         janela.grab_set()
         janela.resizable(False, False)
         janela.configure(bg=COR_FUNDO)
