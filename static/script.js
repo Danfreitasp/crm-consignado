@@ -651,6 +651,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const beneficioMargemAumento = document.getElementById('simBeneficioMargemAumento');
+    if (beneficioMargemAumento) {
+        const salarioMinimoCentavos = 162100;
+        const parcelaMinimoCentavos = 4515;
+        const reajustePercentual = 5.5;
+        const margemPercentual = 35;
+        const parcelaReferenciaCentavos = 8079;
+        // Valores líquidos de referência, em centavos, para o prazo de 108 parcelas.
+        const multiplicadorSemCarencia = 354250 / parcelaReferenciaCentavos;
+        const multiplicadorComCarencia = 334972 / parcelaReferenciaCentavos;
+        const formatador = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        const parcelaSaida = document.getElementById('simParcelaMargemAumento');
+        const semCarenciaSaida = document.getElementById('simLiberadoMargemSemCarencia');
+        const comCarenciaSaida = document.getElementById('simLiberadoMargemComCarencia');
+        const status = document.getElementById('simMargemAumentoStatus');
+
+        function atualizarMargemAumento() {
+            const entrada = beneficioMargemAumento.value.replace(/^R\$\s*/i, '').trim();
+            const moedaValida = /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$|^\d+\.\d{1,2}$/.test(entrada);
+            const beneficioCentavos = moedaValida ? Math.round(parseMoneyInputValue(entrada) * 100) : 0;
+            const valido = Number.isSafeInteger(beneficioCentavos) && beneficioCentavos >= salarioMinimoCentavos;
+            if (!valido) {
+                beneficioMargemAumento.setAttribute('aria-invalid', String(Boolean(entrada)));
+                status.textContent = entrada ? 'Informe um benefício de pelo menos R$ 1.621,00.' : '';
+                parcelaSaida.textContent = '—';
+                semCarenciaSaida.textContent = '—';
+                comCarenciaSaida.textContent = '—';
+                return;
+            }
+
+            beneficioMargemAumento.removeAttribute('aria-invalid');
+            status.textContent = '';
+            // Limita a parcela ao centavo inferior.
+            const parcelaCentavos = beneficioCentavos === salarioMinimoCentavos
+                ? parcelaMinimoCentavos
+                : Math.floor(beneficioCentavos * reajustePercentual * margemPercentual / 10_000);
+            parcelaSaida.textContent = formatador.format(parcelaCentavos / 100);
+            semCarenciaSaida.textContent = formatador.format(parcelaCentavos * multiplicadorSemCarencia / 100);
+            comCarenciaSaida.textContent = formatador.format(parcelaCentavos * multiplicadorComCarencia / 100);
+        }
+
+        beneficioMargemAumento.addEventListener('input', atualizarMargemAumento);
+        atualizarMargemAumento();
+    }
 
 
     document.querySelectorAll('.percent-mask').forEach((input) => {

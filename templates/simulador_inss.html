@@ -238,6 +238,37 @@
     <button class="btn copy-btn" id="simCopiarResumo" type="button" data-copy="{{ resultado.mensagem if resultado else '' }}" data-copy-target="#simResumoTexto"><i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar resumo</span></button>
 </div>
 
+<section class="card simulator-card" aria-labelledby="simMargemAumentoTitulo">
+    <div class="section-title-row">
+        <div>
+            <h2 id="simMargemAumentoTitulo">Margem de Aumento</h2>
+            <small>Simulação em 108 parcelas para quem estava com a margem zerada.</small>
+        </div>
+    </div>
+    <div class="form-grid form-grid-three">
+        <label for="simBeneficioMargemAumento">Benefício antes do reajuste
+            <input id="simBeneficioMargemAumento" inputmode="decimal" value="1.621,00"
+                aria-describedby="simMargemAumentoAjuda simMargemAumentoStatus">
+            <small id="simMargemAumentoAjuda">Um salário mínimo tem parcela fixa de R$ 45,15. Acima do mínimo, a estimativa usa reajuste de 5,50% e margem de 35%.</small>
+        </label>
+    </div>
+    <small id="simMargemAumentoStatus" class="muted" role="status"></small>
+    <div class="simulator-results simulator-results-new" aria-live="polite">
+        <div class="summary-card">
+            <small>Parcela disponível</small>
+            <strong id="simParcelaMargemAumento">—</strong>
+        </div>
+        <div class="summary-card highlight-card">
+            <small>Liberado sem carência</small>
+            <strong id="simLiberadoMargemSemCarencia">—</strong>
+        </div>
+        <div class="summary-card highlight-card">
+            <small>Liberado com carência de 90 dias</small>
+            <strong id="simLiberadoMargemComCarencia">—</strong>
+        </div>
+    </div>
+</section>
+
 <script id="inssCoeficientes" type="application/json">{{ {"novo": prazos}|tojson }}</script>
 <script id="portMensagemModeloPadrao" type="application/json">{{ mensagem_modelo_padrao|tojson }}</script>
 <script src="{{ url_for('static', filename='portal_import.js', v='20261103-ciclo-simulacao-2') }}"></script>
