@@ -60,15 +60,7 @@ class PortRefinTest(unittest.TestCase):
             "635": (5068.87, "2027-01-05", "2026-11-05"), "636": (5253.91, "2027-01-05", "2026-11-05"),
             "639": (3351.73, "2027-04-05", "2026-11-10"), "640": (3534.55, "2027-04-05", "2026-11-10"),
             "641": (3813.05, "2027-04-05", "2026-11-10"), "642": (4001.61, "2027-04-05", "2026-11-10"),
-            "648": (5535.74, "2027-01-05", "2026-11-05"), "649": (5822.77, "2027-01-05", "2026-11-05"),
-            "650": (4288.89, "2027-04-05", "2026-11-10"), "651": (4581.60, "2027-04-05", "2026-11-10"),
-            "652": (3351.73, "2027-04-05", "2026-11-10"), "653": (3534.55, "2027-04-05", "2026-11-10"),
-            "654": (3813.05, "2027-04-05", "2026-11-10"), "655": (4615.93, "2027-01-05", "2026-11-05"),
-            "656": (4795.46, "2027-01-05", "2026-11-05"), "657": (5068.87, "2027-01-05", "2026-11-05"),
-            "658": (3714.29, "2027-01-05", "2026-11-10"), "659": (3874.88, "2027-01-05", "2026-11-10"),
-            "660": (4119.11, "2027-01-05", "2026-11-10"), "661": (4284.20, "2027-01-05", "2026-11-10"),
-            "662": (4535.29, "2027-01-05", "2026-11-10"), "664": (3714.29, "2027-01-05", "2026-11-10"),
-            "665": (3874.88, "2027-01-05", "2026-11-10"), "666": (4119.11, "2027-01-05", "2026-11-10"),
+            "648": (5535.74, "2027-01-05", "2026-11-05"), "650": (4288.89, "2027-04-05", "2026-11-10"),
         }
         for codigo, (troco, primeiro_vencimento, data_liberacao) in esperado.items():
             with self.subTest(tabela=codigo):
@@ -82,14 +74,10 @@ class PortRefinTest(unittest.TestCase):
                 self.assertAlmostEqual(result["troco"], troco, delta=.01)
                 self.assertEqual(result["parcelas_abertas"], 84)
                 self.assertIn("Taxa máxima da portabilidade", " ".join(result["avisos"]))
-                if codigo in {"652", "653", "654", "655", "656", "657", "664", "665", "666"}:
-                    self.assertIn("Valor máximo do saldo devedor", " ".join(result["erros"]))
-                    self.assertFalse(result["operacao_viavel"])
-                else:
-                    self.assertTrue(result["operacao_viavel"])
+                self.assertTrue(result["operacao_viavel"])
 
     def test_newcorban_0710_fluxo_padrao_e_todas_taxas(self):
-        for codigo, esperado in [("649", 5337.15), ("648", 4992.18), ("636", 4653.48),
+        for codigo, esperado in [("648", 4992.18), ("636", 4653.48),
                                  ("635", 4431.08), ("634", 4102.50), ("633", 3886.73)]:
             with self.subTest(tabela=codigo):
                 result = calcular(dict(tabela_port_refin=codigo, parcela_atual=638.48,
@@ -100,14 +88,13 @@ class PortRefinTest(unittest.TestCase):
                 self.assertEqual(result["saldo_considerado"], 24882.19)
                 self.assertTrue(result["operacao_viavel"])
 
-    def test_newcorban_variacao_da_parcela(self):
-        for parcela, esperado in [(900, 17372.51), (1000, 21974.58)]:
-            result = calcular(dict(tabela_port_refin="649", parcela_atual=638.48,
+    def test_variacao_da_parcela_na_tabela_648(self):
+        for parcela, esperado in [(900, 16886.12), (1000, 21434.13)]:
+            result = calcular(dict(tabela_port_refin="648", parcela_atual=638.48,
                                   nova_parcela=parcela, saldo_quitacao=24882.19,
                                   prazo_contrato=84, parcelas_pagas=25, data_simulacao="2026-10-07",
                                   data_refinanciamento="2026-10-07", dia_pagamento_beneficio=7))
-            # A estimativa líquida pode variar poucos centavos do arredondamento do banco.
-            self.assertAlmostEqual(result["troco"], esperado, delta=.05)
+            self.assertEqual(result["troco"], esperado)
 
     def test_datas_sugeridas_calendario_e_referencia(self):
         datas = namespace["datas_simulador_quali"](date(2026, 10, 7))
@@ -166,7 +153,6 @@ class PortRefinTest(unittest.TestCase):
             "635": (0.02163428, 1433.41),
             "636": (0.02146702, 1572.66),
             "648": (0.02121719, 1784.70),
-            "649": (0.02096866, 2000.67),
         }
         for codigo, (coeficiente, troco) in esperados.items():
             with self.subTest(tabela=codigo):
@@ -180,7 +166,7 @@ class PortRefinTest(unittest.TestCase):
 
     def test_saldo_bmg_permanece_fixo_ao_alternar_tabelas(self):
         esperados = {"634": 1853.19, "635": 2126.43, "636": 2311.37,
-                     "648": 2593.03, "649": 2879.90}
+                     "648": 2593.03}
         for codigo, troco in esperados.items():
             with self.subTest(tabela=codigo):
                 resultado = calcular(dict(tabela_port_refin=codigo, parcela_atual=531.30,
@@ -221,7 +207,7 @@ class PortRefinTest(unittest.TestCase):
         self.assertNotIn("Banco:", dados["dados_bancarios"])
 
     def dados(self, **changes):
-        dados = dict(tabela_port_refin="649", parcela_atual=786.73, saldo_quitacao=36977.65,
+        dados = dict(tabela_port_refin="648", parcela_atual=786.73, saldo_quitacao=36977.65,
                      prazo_contrato=96, parcelas_pagas=14, descontos_banco=None,
                      data_simulacao="2026-09-30", data_refinanciamento="2026-10-03",
                      primeiro_vencimento_port="2026-11-25", primeiro_vencimento_refin="2026-12-25")
@@ -230,21 +216,21 @@ class PortRefinTest(unittest.TestCase):
 
     def test_exemplo_banco_sem_troco_nao_libera_proposta(self):
         result = calcular(self.dados())
-        self.assertEqual(result["valor_contrato"], 36999.06)
+        self.assertEqual(result["valor_contrato"], 36556.84)
         self.assertEqual(result["saldo_considerado"], 37030.65)
-        self.assertEqual(result["troco"], -31.59)
+        self.assertEqual(result["troco"], -473.81)
         self.assertFalse(result["operacao_viavel"])
         self.assertEqual(result["comissao_refinanciamento"], 0)
 
-    def test_segunda_simulacao_confirmada_na_quali(self):
+    def test_simulacao_com_troco_calcula_comissao_do_refinanciamento(self):
         result = calcular(self.dados(parcela_atual=484.52, saldo_quitacao=22338.04, parcelas_pagas=17))
-        self.assertEqual(result["valor_contrato"], 22786.45)
-        self.assertEqual(result["troco"], 402.38)
+        self.assertEqual(result["valor_contrato"], 22514.10)
+        self.assertEqual(result["troco"], 139.21)
         self.assertTrue(result["operacao_viavel"])
-        self.assertEqual(result["comissao_refinanciamento"], 1.97)
+        self.assertEqual(result["comissao_refinanciamento"], 0.35)
 
     def test_parcelas_e_taxas_conferidas_no_newcorban(self):
-        for parcela, esperado in [(800, 572.50), (900, 5116.80), (1000, 9661.10)]:
+        for parcela, esperado in [(800, 137.98), (900, 4627.96), (1000, 9117.93)]:
             with self.subTest(parcela=parcela):
                 self.assertEqual(calcular(self.dados(nova_parcela=parcela))["troco"], esperado)
         for codigo, esperado in [("648", 4627.96), ("636", 4148.03), ("635", 3832.94), ("634", 3367.44), ("633", 3061.77)]:
@@ -252,53 +238,43 @@ class PortRefinTest(unittest.TestCase):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo, nova_parcela=900))["troco"], esperado)
 
     def test_descontos_manuais_substituem_estimativa_e_zero_e_explicito(self):
-        self.assertEqual(calcular(self.dados(descontos_banco=53))["troco"], -31.59)
-        self.assertEqual(calcular(self.dados(descontos_banco=0))["troco"], 21.41)
-        self.assertFalse(calcular(self.dados(descontos_banco=-53))["operacao_viavel"])
+        self.assertEqual(calcular(self.dados(nova_parcela=800, descontos_banco=53))["troco"], 142.80)
+        self.assertEqual(calcular(self.dados(nova_parcela=800, descontos_banco=0))["troco"], 195.80)
+        self.assertFalse(calcular(self.dados(nova_parcela=800, descontos_banco=-53))["operacao_viavel"])
 
     def test_todas_tabelas_atualizam_quitacao_integral(self):
         for codigo in namespace["INSS_PORT_REFIN_TABELAS"]:
             with self.subTest(tabela=codigo):
                 self.assertEqual(calcular(self.dados(tabela_port_refin=codigo))["saldo_considerado"], 37030.65)
 
-    def test_comissoes_conferidas_na_lista_newcorban_3010(self):
-        esperado = {"633": 3.72, "634": 2.74, "635": 1.76, "636": 1.18, "639": 4.21,
-                    "640": 3.23, "641": 2.45, "642": 1.47, "648": 0.98, "649": 0.49,
-                    "650": 1.72, "651": 0.78, "652": 3.43, "653": 2.45, "654": 1.47,
-                    "655": 2.69, "656": 1.72, "657": 0.49,
-                    "658": 3.09, "659": 1.96, "660": 1.08, "661": 0.64, "662": 0.29,
-                    "664": 2.01, "665": 0.98, "666": 0.24}
+    def test_catalogo_da_lista_qualibanking_2411(self):
+        esperado = {"633": 3.30, "634": 2.25, "635": 1.25, "636": 0.75, "639": 4.00,
+                    "640": 3.50, "641": 2.00, "642": 1.20, "648": 0.25, "650": 0.25}
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
-        self.assertEqual({codigo: tabelas[codigo]["comissao_percentual"] for codigo in esperado}, esperado)
-        self.assertTrue(all(tabela["comissao_percentual"] is not None
-                            for tabela in tabelas.values()))
+        self.assertEqual({codigo: tabela["comissao_percentual"] for codigo, tabela in tabelas.items()}, esperado)
         for codigo, tabela in tabelas.items():
             with self.subTest(tabela=codigo):
-                self.assertIn(tabela["prazo"], {96, 108})
+                self.assertEqual(tabela["prazo"], 108)
                 self.assertIn(tabela["taxa"], namespace["INSS_PORT_REFIN_FATORES_LIQUIDOS"])
 
     def test_faixas_e_carencias_nas_tabelas_qualibanking(self):
         tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
-        self.assertEqual(len(tabelas), 26)
-        for codigo in ("639", "640", "641", "642", "650", "651", "652", "653", "654"):
-            self.assertEqual(tabelas[codigo]["carencia_dias"], 90)
-        for codigo in ("658", "659", "660", "661", "662", "664", "665", "666"):
-            self.assertEqual(tabelas[codigo]["prazo"], 96)
-        self.assertEqual(tabelas["664"]["saldo_maximo"], 5999)
-        self.assertEqual(tabelas["655"]["saldo_maximo"], 5999.99)
-
-    def test_tabelas_saldo_2mil_sem_carencia(self):
-        tabelas = namespace["INSS_PORT_REFIN_TABELAS"]
-        esperado = {"655": (1.85, 0.022851712332),
-                    "656": (1.83, 0.022676602023),
-                    "657": (1.80, 0.022415097141)}
-        for codigo, (taxa, coeficiente) in esperado.items():
+        com_carencia = {"639", "640", "641", "642", "650"}
+        saldo_minimo_8_mil = {"636", "642", "648", "650"}
+        for codigo, tabela in tabelas.items():
             with self.subTest(tabela=codigo):
-                self.assertEqual(tabelas[codigo]["taxa"], taxa)
-                self.assertEqual(tabelas[codigo]["prazo"], 108)
-                self.assertEqual(tabelas[codigo]["coeficiente"], coeficiente)
-                self.assertIn("SALDO DE 2 MIL", tabelas[codigo]["nome"])
-                self.assertNotIn("90D", tabelas[codigo]["nome"])
+                self.assertEqual(tabela.get("carencia_dias", 0), 90 if codigo in com_carencia else 0)
+                self.assertEqual(tabela["saldo_minimo"], 8000 if codigo in saldo_minimo_8_mil else 6000)
+
+    def test_tabela_retirada_nao_e_aceita_como_calculo_livre(self):
+        for codigo, prazo in (("649", 108), ("658", 96)):
+            with self.subTest(tabela=codigo):
+                resultado = calcular(self.dados(tabela_port_refin=codigo, novo_prazo=prazo,
+                                                coeficiente_port_refin=0.022345265366,
+                                                nova_parcela=1000))
+                self.assertFalse(resultado["operacao_viavel"])
+                self.assertEqual(len(resultado["erros"]), 1)
+                self.assertIn("A tabela Quali informada não está disponível", resultado["erros"][0])
 
     def test_calculo_livre_e_margem_negativa(self):
         result = calcular(self.dados(tabela_port_refin="", coeficiente_port_refin=.02, novo_prazo=108,
@@ -317,8 +293,9 @@ class PortRefinTest(unittest.TestCase):
     def test_fluxo_ajusta_fim_de_mes_e_ano_bissexto(self):
         dias = namespace["dias_fluxo_quali"](date(2028, 1, 31), date(2028, 1, 1), 3)
         self.assertEqual(dias, [30, 59, 90])
+        padrao = calcular(self.dados())
         alterado = calcular(self.dados(primeiro_vencimento_refin="2027-01-25"))
-        self.assertLess(alterado["valor_contrato"], 36999.06)
+        self.assertLess(alterado["valor_contrato"], padrao["valor_contrato"])
 
 
 if __name__ == "__main__":
