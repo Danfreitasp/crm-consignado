@@ -3,18 +3,23 @@
 {% set subtitulo = 'Atualize os dados do cliente e da operação.' %}
 {% block content %}
 <section class="card">
-    <form method="post" class="stack">
+    <form method="post" class="stack"{% if salvamento_automatico %} data-salvamento-automatico{% endif %}>
         <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+        {% set texto_retorno = 'Voltar' if salvamento_automatico else 'Cancelar' %}
+        {% set icone_retorno = 'arrow-left' if salvamento_automatico else 'x-circle' %}
         <div class="actions form-actions-top">
             <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
             <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
-            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></a>
+            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-{{ icone_retorno }}" aria-hidden="true"></i><span>{{ texto_retorno }}</span></a>
         </div>
+        {% if salvamento_automatico %}
+        <small class="muted" data-estado-salvamento role="status">As alterações são salvas ao sair de cada campo.</small>
+        {% endif %}
         {% include '_form.html' %}
         <div class="actions">
             <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
             <button class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
-            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span></a>
+            <a class="btn" href="{{ url_for('detalhe_proposta', proposta_id=proposta.id, origem=url_retorno_padrao()) }}"><i class="bi bi-{{ icone_retorno }}" aria-hidden="true"></i><span>{{ texto_retorno }}</span></a>
         </div>
     </form>
 </section>

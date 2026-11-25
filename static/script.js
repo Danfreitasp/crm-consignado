@@ -37,6 +37,7 @@ function tituloContratoExtrato(contrato, textoPrincipal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const formularioAutosave = document.querySelector('[data-salvamento-automatico]');
     const sidebarToggle = document.getElementById('sidebarToggle');
     if (sidebarToggle) {
         const atualizarSidebar = (recolhida) => {
@@ -573,6 +574,16 @@ document.addEventListener('DOMContentLoaded', () => {
             montarSelectMatriculas(clientesCPFCache);
             matriculaSelect.classList.remove('hidden');
             const cliente = clienteCorrespondente(clientesCPFCache);
+            if (formularioAutosave) {
+                if (cliente) {
+                    matriculaSelect.value = String(clientesCPFCache.indexOf(cliente));
+                } else {
+                    const opcao = new Option('Selecione uma matrícula cadastrada', '', true, true);
+                    matriculaSelect.prepend(opcao);
+                }
+                if (clienteAjuda) clienteAjuda.textContent = 'Selecione uma matrícula para reaproveitar o cadastro.';
+                return;
+            }
             if (cliente) {
                 const index = clientesCPFCache.indexOf(cliente);
                 matriculaSelect.value = String(index);
@@ -636,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return Number(text) || 0;
         }
 
-        if (/^\d{1,3}(\.\d{3})+$/.test(text)) {
+        if (/^[+-]?\d{1,3}(\.\d{3})+$/.test(text)) {
             text = text.replace(/\./g, '');
             return Number(text) || 0;
         }
@@ -644,11 +655,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return Number(text.replace(',', '.')) || 0;
     }
 
-    document.querySelectorAll('.money-mask').forEach((input) => {
-        input.addEventListener('blur', () => {
-            const number = parseMoneyInputValue(input.value);
-            input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    function prepararCampoNumerico(input, ler, formatar, semSimbolo) {
+        input.inputMode = 'decimal';
+        let zeroInicial = '';
+        input.addEventListener('focus', () => {
+            const texto = semSimbolo(input.value);
+            if (/^[+-]?0+(?:[,.]0+)?$/.test(texto)) {
+                zeroInicial = input.value;
+                input.value = '';
+            }
         });
+        input.addEventListener('blur', () => {
+            if (!input.value && zeroInicial) input.value = zeroInicial;
+            zeroInicial = '';
+            const texto = semSimbolo(input.value);
+            if (!texto || !/^[+-]?(?:(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?|\d+\.\d+)$/.test(texto)) return;
+            const numero = ler(texto);
+            if (Number.isFinite(numero)) input.value = formatar(numero);
+        });
+    }
+
+    document.querySelectorAll('.money-mask').forEach((input) => {
+        prepararCampoNumerico(input, parseMoneyInputValue, formatBRL, (valor) => valor.replace('R$', '').replace(/\s/g, ''));
     });
 
     const beneficioMargemAumento = document.getElementById('simBeneficioMargemAumento');
@@ -698,23 +726,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     document.querySelectorAll('.percent-mask').forEach((input) => {
-        input.addEventListener('blur', () => {
-            let value = input.value.trim().replace('%', '').replace(',', '.');
-            if (!value) return;
-            const number = Number(value);
-            if (Number.isNaN(number)) {
-                input.value = '';
-                return;
-            }
-            input.value = String(number).replace('.', ',');
-        });
+        prepararCampoNumerico(input, parsePercentInputValue, (numero) => String(numero).replace('.', ','),
+            (valor) => valor.replace(/\s/g, '').replace(/%$/, ''));
     });
-
-    function parseBRNumber(value) {
-        const text = String(value || '').replace('R$', '').replace('%', '').trim();
-        if (!text) return 0;
-        return Number(text.replace(/\./g, '').replace(',', '.')) || 0;
-    }
 
     function parsePercentInputValue(value) {
         let text = String(value || '').replace('%', '').replace(/\s/g, '').trim();
@@ -742,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const percentualTexto = percentualInput.value.trim();
         if (!percentualTexto) return;
 
-        const valor = parseBRNumber(trocoInput.value);
+        const valor = parseMoneyInputValue(trocoInput.value);
         const percentual = parsePercentInputValue(percentualTexto);
         const comissao = valor * (percentual / 100);
         comissaoInput.value = formatBRL(comissao);
@@ -762,12 +776,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             percentualInput.addEventListener('input', () => calcularComissaoNoEscopo(form, nomes));
             percentualInput.addEventListener('change', () => calcularComissaoNoEscopo(form, nomes));
-            percentualInput.addEventListener('blur', () => calcularComissaoNoEscopo(form, nomes));
             trocoInput.addEventListener('input', () => {
                 if (percentualInput.value.trim()) calcularComissaoNoEscopo(form, nomes);
             });
             trocoInput.addEventListener('change', () => calcularComissaoNoEscopo(form, nomes));
-            trocoInput.addEventListener('blur', () => calcularComissaoNoEscopo(form, nomes));
+            if (form !== formularioAutosave) {
+                percentualInput.addEventListener('blur', () => calcularComissaoNoEscopo(form, nomes));
+                trocoInput.addEventListener('blur', () => calcularComissaoNoEscopo(form, nomes));
+            }
         });
     });
 
@@ -778,11 +794,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!reutilizarInput || !percentualPortInput || !percentualRefinInput) return;
 
         const percentualRefinLabel = percentualRefinInput.closest('label');
-        const sincronizarPercentuais = () => {
+        const sincronizarPercentuais = (recalcular = true) => {
             const reutilizar = reutilizarInput.checked;
             percentualRefinInput.readOnly = reutilizar;
             percentualRefinLabel?.classList.toggle('refin-percent-reused', reutilizar);
-            if (!reutilizar) return;
+            if (!reutilizar || !recalcular) return;
 
             percentualRefinInput.value = percentualPortInput.value;
             calcularComissaoNoEscopo(
@@ -801,8 +817,185 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (reutilizarInput.checked) sincronizarPercentuais();
             });
         });
-        sincronizarPercentuais();
+        sincronizarPercentuais(form !== formularioAutosave);
     });
+
+    if (formularioAutosave) {
+        const form = formularioAutosave;
+        const estado = form.querySelector('[data-estado-salvamento]');
+        const campos = new Map(Array.from(form.elements)
+            .filter((campo) => campo.name && campo.matches('input:not([type="hidden"]):not([type="checkbox"]), select, textarea'))
+            .map((campo) => [campo.name, campo]));
+        const textoCampo = (campo, valor = campo.value) => {
+            if (campo.matches('.money-mask')) return valor.replace(/\s/g, '');
+            if (campo.matches('.percent-mask') && /^-?\d+(?:,\d+)?$/.test(valor)) {
+                return String(parsePercentInputValue(valor));
+            }
+            return valor;
+        };
+        const referencias = new Map(Array.from(campos, ([nome, campo]) => [nome, textoCampo(campo)]));
+        const falhas = new Map();
+        const resumo = Array.from(document.querySelectorAll('[data-proposta-salva]'));
+        let fila = Promise.resolve();
+        let pendentes = 0;
+        let finalizando = false;
+        let campoEmEdicao = null;
+        let avisoFalha = null;
+        const estadoInicial = estado.textContent;
+        const reutilizar = form.elements.namedItem('reutilizar_percentual_refin');
+        const dadosCadastrais = ['nome', 'cpf', 'nascimento', 'nb_matricula', 'especie', 'tipo_cliente',
+            'telefone', 'endereco', 'dados_bancarios', 'beneficio_bloqueado'];
+
+        async function enviar(valores, acao) {
+            const corpo = new URLSearchParams(valores);
+            corpo.set('origem', form.elements.namedItem('origem').value);
+            if (acao) corpo.set('acao', acao);
+            const resposta = await fetch(form.action, {
+                method: 'PATCH',
+                body: corpo,
+                signal: AbortSignal.timeout(10000),
+            });
+            const dados = await resposta.json().catch(() => ({}));
+            if (!resposta.ok || (!dados.valores && !dados.destino)) {
+                throw new Error(dados.erro || 'Não foi possível salvar. Tente novamente.');
+            }
+            return dados;
+        }
+
+        function mostrarFalha(erro) {
+            const mensagem = erro instanceof TypeError || erro.name === 'TimeoutError'
+                ? 'Não foi possível conectar. Tente novamente.'
+                : erro.message;
+            estado.textContent = mensagem;
+            avisoFalha?.remove();
+            avisoFalha = mostrarAvisoCopiado(mensagem, 'erro');
+            return mensagem;
+        }
+
+        function enfileirar(nomes) {
+            const valores = new Map();
+            for (const nome of nomes) {
+                const campo = campos.get(nome);
+                if (!campo || campo.disabled || campo.closest('[hidden]')) continue;
+                const texto = textoCampo(campo);
+                if (texto === referencias.get(nome) && !falhas.has(nome)) continue;
+                valores.set(nome, campo.value);
+                referencias.set(nome, texto);
+                falhas.delete(nome);
+                campo.removeAttribute('aria-invalid');
+            }
+            if (!valores.size) return;
+
+            pendentes += 1;
+            estado.textContent = 'Salvando…';
+            fila = fila.then(async () => {
+                try {
+                    const { valores: salvos } = await enviar(valores);
+                    for (const [nome, valor] of Object.entries(salvos)) {
+                        const campo = campos.get(nome);
+                        if (!campo) continue;
+                        const enviado = valores.has(nome) ? textoCampo(campo, valores.get(nome)) : referencias.get(nome);
+                        if (referencias.get(nome) === enviado && textoCampo(campo) === enviado && !falhas.has(nome)) {
+                            campo.value = valor;
+                            referencias.set(nome, textoCampo(campo));
+                        }
+                    }
+                    resumo.forEach((elemento) => {
+                        const nome = elemento.dataset.propostaSalva;
+                        if (Object.hasOwn(salvos, nome)) elemento.textContent = salvos[nome] || '-';
+                    });
+                    const comissaoTotal = document.querySelector('[data-proposta-comissao-total]');
+                    if (comissaoTotal && ('comissao' in salvos || 'refin_comissao' in salvos)) {
+                        const valores = comissaoTotal.dataset;
+                        if ('comissao' in salvos) valores.comissao = parseMoneyInputValue(salvos.comissao);
+                        if ('refin_comissao' in salvos) valores.refinComissao = parseMoneyInputValue(salvos.refin_comissao);
+                        comissaoTotal.textContent = formatBRL(Number(valores.comissao) + Number(valores.refinComissao));
+                    }
+                } catch (erro) {
+                    const mensagem = mostrarFalha(erro);
+                    for (const [nome, valor] of valores) {
+                        const campo = campos.get(nome);
+                        if (referencias.get(nome) !== textoCampo(campo, valor)) continue;
+                        falhas.set(nome, mensagem);
+                        campo.setAttribute('aria-invalid', 'true');
+                    }
+                } finally {
+                    pendentes -= 1;
+                    if (!falhas.size) avisoFalha?.remove();
+                    if (!pendentes && !finalizando) {
+                        estado.textContent = falhas.values().next().value || 'Alterações salvas.';
+                    }
+                }
+            });
+        }
+
+        function salvarCampo(campo) {
+            const nome = campo.name;
+            if (campos.get(nome) !== campo || (textoCampo(campo) === referencias.get(nome) && !falhas.has(nome))) return;
+            const dependentes = {
+                produto: ['status'],
+                troco: ['comissao'],
+                comissao_percentual: reutilizar?.checked
+                    ? ['comissao', 'refin_comissao_percentual', 'refin_comissao'] : ['comissao'],
+                refin_troco: ['refin_comissao'],
+                refin_comissao_percentual: ['refin_comissao'],
+            };
+            enfileirar([nome, ...(dependentes[nome] || [])]);
+        }
+
+        form.addEventListener('input', ({ target }) => {
+            if (campos.get(target.name) === target) campoEmEdicao = target;
+        });
+        form.addEventListener('focusout', ({ target }) => {
+            if (campoEmEdicao === target) campoEmEdicao = null;
+            salvarCampo(target);
+        });
+        reutilizar?.addEventListener('change', () => enfileirar(['refin_comissao_percentual', 'refin_comissao']));
+        form.querySelector('#cliente-matricula-select')?.addEventListener('change', () => enfileirar(dadosCadastrais));
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (finalizando) return;
+            finalizando = true;
+            document.activeElement?.blur();
+            await fila;
+            enfileirar(campos.keys());
+            await fila;
+            if (!falhas.size) {
+                try {
+                    const { destino } = await enviar(new Map(), event.submitter?.value || 'salvar');
+                    window.location.assign(destino);
+                    return;
+                } catch (erro) {
+                    mostrarFalha(erro);
+                }
+            } else {
+                estado.textContent = falhas.values().next().value;
+                campos.get(falhas.keys().next().value)?.focus();
+            }
+            finalizando = false;
+        });
+
+        document.addEventListener('click', async (event) => {
+            const link = event.target.closest('a[href]');
+            if (!pendentes || !link || event.defaultPrevented || event.button !== 0
+                || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.hasAttribute('download')
+                || (link.target && link.target !== '_self') || link.origin !== window.location.origin) return;
+            event.preventDefault();
+            await fila;
+            if (!falhas.size) window.location.assign(link.href);
+        });
+        window.addEventListener('beforeunload', (event) => {
+            const editando = campoEmEdicao && textoCampo(campoEmEdicao) !== referencias.get(campoEmEdicao.name);
+            if (!pendentes && !falhas.size && !editando) return;
+            event.preventDefault();
+            event.returnValue = '';
+        });
+        window.addEventListener('pageshow', ({ persisted }) => {
+            if (!persisted) return;
+            finalizando = false;
+            if (!pendentes && !falhas.size) estado.textContent = estadoInicial;
+        });
+    }
 
     function mostrarAvisoCopiado(mensagem, tipo = 'ok') {
         const aviso = document.createElement('div');
@@ -810,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aviso.className = `crm-toast toast-copiado ${tipo === 'erro' ? 'toast-erro' : 'toast-ok'}`;
         document.body.appendChild(aviso);
         setTimeout(() => aviso.remove(), tipo === 'erro' ? 3200 : 1800);
+        return aviso;
     }
 
     document.querySelectorAll('[data-toast="true"]').forEach((alerta, index) => {

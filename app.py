@@ -10,6 +10,7 @@ import re
 import sqlite3
 import threading
 import zipfile
+from collections.abc import Mapping
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any
@@ -38,7 +39,7 @@ DATABASE = Path(os.environ.get("CRM_DATABASE", BASE_DIR / "database.db"))
 DATA_DIR = BASE_DIR / "data"
 MODELOS_PATH = DATA_DIR / "modelos_mensagens.json"
 INSS_ESPECIES_PATH = DATA_DIR / "inss_especies_beneficios.json"
-BACKUP_DIR = BASE_DIR / "backups"
+BACKUP_DIR = DATABASE.parent / "backups"
 EXTENSAO_CORBAN_DIR = BASE_DIR / "integrations" / "sistemacorban-importer"
 MAX_BACKUPS = 30
 _backup_checked_date: str | None = None
@@ -1404,10 +1405,13 @@ def normalizar_vendedora(valor: Any, padrao: str | None = None) -> str:
     return padrao or vendedora_para_nova_proposta()
 
 
-def responsavel_do_formulario(atual: sqlite3.Row | dict[str, Any] | None = None) -> str:
+def responsavel_do_formulario(
+    atual: sqlite3.Row | dict[str, Any] | None = None,
+    formulario: Mapping[str, Any] | None = None,
+) -> str:
     dados_atuais = dict(atual) if atual else {}
     candidato = (
-        request.form.get("responsavel")
+        (request.form if formulario is None else formulario).get("responsavel")
         or dados_atuais.get("responsavel")
         or vendedora_para_nova_proposta()
     )
@@ -1703,7 +1707,7 @@ def parse_moeda(valor: Any) -> float:
         return 0.0
     if "," in texto:
         texto = texto.replace(".", "").replace(",", ".")
-    elif re.fullmatch(r"\d{1,3}(\.\d{3})+", texto):
+    elif re.fullmatch(r"[+-]?\d{1,3}(\.\d{3})+", texto):
         texto = texto.replace(".", "")
     try:
         return float(texto)
@@ -2103,7 +2107,7 @@ def texto_planilha(valor: Any) -> str:
         return str(int(valor))
     return limpar_texto(valor)
 
-def registrar_historico(proposta_id: int, anterior: str | None, novo: str | None, observacao: str) -> None:
+def registrar_historico(proposta_id: int, anterior: str | None, novo: str | None, observacao: str, *, confirmar: bool = True) -> None:
     db = get_db()
     db.execute(
         """
@@ -2112,7 +2116,8 @@ def registrar_historico(proposta_id: int, anterior: str | None, novo: str | None
         """,
         (proposta_id, agora_iso(), anterior, novo, observacao),
     )
-    db.commit()
+    if confirmar:
+        db.commit()
 
 
 def registrar_notificacao_importante(
@@ -2293,7 +2298,7 @@ def carregar_notificacoes_importantes(limite: int = 8) -> list[dict[str, Any]]:
     return notificacoes[:limite]
 
 
-def registrar_anotacao(proposta_id: int, texto: str, data_hora: str | None = None) -> None:
+def registrar_anotacao(proposta_id: int, texto: str, data_hora: str | None = None, *, confirmar: bool = True) -> None:
     texto = limpar_texto(texto)
     if not texto:
         return
@@ -2309,7 +2314,8 @@ def registrar_anotacao(proposta_id: int, texto: str, data_hora: str | None = Non
         "UPDATE propostas SET observacoes = ?, data_atualizacao = ? WHERE id = ?",
         (texto, agora_iso(), proposta_id),
     )
-    db.commit()
+    if confirmar:
+        db.commit()
 
 
 def normalizar_funil(valor: Any) -> str:
@@ -2437,34 +2443,39 @@ def status_entrada_proposta(funil: str = FUNIL_PADRAO) -> str:
     db.commit()
     return status
 
-def dados_formulario(proposta_atual: sqlite3.Row | dict[str, Any] | None = None) -> dict[str, Any]:
-    produto_formulario = limpar_texto(request.form.get("produto"))
+def dados_formulario(
+    proposta_atual: sqlite3.Row | dict[str, Any] | None = None,
+    formulario: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    if formulario is None:
+        formulario = request.form
+    produto_formulario = limpar_texto(formulario.get("produto"))
     funil_formulario = funil_do_produto(produto_formulario)
-    status = limpar_texto(request.form.get("status")) or "Novo lead"
+    status = limpar_texto(formulario.get("status")) or "Novo lead"
     if not status_valido(status, funil_formulario):
         status = status_padrao(funil_formulario)
     atual = dict(proposta_atual) if proposta_atual else {}
     dados = {
-        "nome": limpar_texto(request.form.get("nome")), "cpf": formatar_cpf(limpar_texto(request.form.get("cpf"))),
-        "nascimento": limpar_texto(request.form.get("nascimento")),
-        "nb_matricula": normalizar_matricula(request.form.get("nb_matricula")), "especie": limpar_texto(request.form.get("especie")), "numero_proposta": limpar_texto(request.form.get("numero_proposta")),
+        "nome": limpar_texto(formulario.get("nome")), "cpf": formatar_cpf(limpar_texto(formulario.get("cpf"))),
+        "nascimento": limpar_texto(formulario.get("nascimento")),
+        "nb_matricula": normalizar_matricula(formulario.get("nb_matricula")), "especie": limpar_texto(formulario.get("especie")), "numero_proposta": limpar_texto(formulario.get("numero_proposta")),
         "numero_port_vinculada": limpar_texto(atual.get("numero_port_vinculada")), "numero_refin_vinculada": limpar_texto(atual.get("numero_refin_vinculada")),
-        "tipo_cliente": limpar_texto(request.form.get("tipo_cliente")), "banco_atual": limpar_texto(request.form.get("banco_atual")),
-        "banco_destino": limpar_texto(request.form.get("banco_destino")), "banco_digitado": limpar_texto(request.form.get("banco_digitado")),
-        "produto": produto_formulario, "promotora": limpar_texto(request.form.get("promotora")),
-        "beneficio_bloqueado": normalizar_bloqueado(request.form.get("beneficio_bloqueado")), "valor_caiu_promotora": normalizar_sim_nao(request.form.get("valor_caiu_promotora")),
-        "valor_sacado": normalizar_sim_nao(request.form.get("valor_sacado")), "parcela_atual": parse_moeda(request.form.get("parcela_atual")),
-        "nova_parcela": parse_moeda(request.form.get("nova_parcela")), "troco": parse_moeda(request.form.get("troco")),
-        "comissao_percentual": parse_percentual(request.form.get("comissao_percentual")), "comissao": parse_moeda(request.form.get("comissao")),
-        "margem_apos": limpar_texto(request.form.get("margem_apos")), "status": status,
-        "responsavel": responsavel_do_formulario(proposta_atual),
-        "telefone": limpar_texto(request.form.get("telefone")), "endereco": limpar_texto(request.form.get("endereco")),
-        "dados_bancarios": limpar_texto(request.form.get("dados_bancarios")), "proxima_acao": "",
-        "data_retorno": limpar_texto(request.form.get("data_retorno")), "observacoes": limpar_texto(request.form.get("observacoes")),
-        "refin_numero_proposta": limpar_texto(request.form.get("refin_numero_proposta")),
-        "refin_troco": parse_moeda(request.form.get("refin_troco")),
-        "refin_comissao_percentual": parse_percentual(request.form.get("refin_comissao_percentual")),
-        "refin_comissao": parse_moeda(request.form.get("refin_comissao")),
+        "tipo_cliente": limpar_texto(formulario.get("tipo_cliente")), "banco_atual": limpar_texto(formulario.get("banco_atual")),
+        "banco_destino": limpar_texto(formulario.get("banco_destino")), "banco_digitado": limpar_texto(formulario.get("banco_digitado")),
+        "produto": produto_formulario, "promotora": limpar_texto(formulario.get("promotora")),
+        "beneficio_bloqueado": normalizar_bloqueado(formulario.get("beneficio_bloqueado")), "valor_caiu_promotora": normalizar_sim_nao(formulario.get("valor_caiu_promotora")),
+        "valor_sacado": normalizar_sim_nao(formulario.get("valor_sacado")), "parcela_atual": parse_moeda(formulario.get("parcela_atual")),
+        "nova_parcela": parse_moeda(formulario.get("nova_parcela")), "troco": parse_moeda(formulario.get("troco")),
+        "comissao_percentual": parse_percentual(formulario.get("comissao_percentual")), "comissao": parse_moeda(formulario.get("comissao")),
+        "margem_apos": limpar_texto(formulario.get("margem_apos")), "status": status,
+        "responsavel": responsavel_do_formulario(proposta_atual, formulario),
+        "telefone": limpar_texto(formulario.get("telefone")), "endereco": limpar_texto(formulario.get("endereco")),
+        "dados_bancarios": limpar_texto(formulario.get("dados_bancarios")), "proxima_acao": "",
+        "data_retorno": limpar_texto(formulario.get("data_retorno")), "observacoes": limpar_texto(formulario.get("observacoes")),
+        "refin_numero_proposta": limpar_texto(formulario.get("refin_numero_proposta")),
+        "refin_troco": parse_moeda(formulario.get("refin_troco")),
+        "refin_comissao_percentual": parse_percentual(formulario.get("refin_comissao_percentual")),
+        "refin_comissao": parse_moeda(formulario.get("refin_comissao")),
     }
     if not produto_tem_campos_portabilidade(dados["produto"]):
         dados["banco_atual"] = ""
@@ -3004,7 +3015,7 @@ def sincronizar_beneficio_bloqueado(
     return ids
 
 
-def buscar_propostas_vinculadas(proposta: sqlite3.Row) -> list[sqlite3.Row]:
+def buscar_propostas_vinculadas(proposta: sqlite3.Row | dict[str, Any]) -> list[sqlite3.Row]:
     """Busca somente o par válido de Port com Refin/Refin vinculado.
 
     O CPF e um número de proposta isolado nunca criam vínculo. A relação exige
@@ -5260,6 +5271,7 @@ def detalhe_proposta(proposta_id: int):
         funil=funil_proposta,
         funil_info=FUNIS[funil_proposta],
         status_por_funil=status_por_funil(),
+        salvamento_automatico=True,
     )
 
 
@@ -6667,80 +6679,166 @@ def atualizar_financeiro(proposta_id: int):
     return redirect(url_for("detalhe_proposta", proposta_id=proposta_id))
 
 
-@app.route("/proposta/<int:proposta_id>/editar", methods=["GET", "POST"])
+CAMPOS_CADASTRAIS_EDICAO = {
+    "nome", "cpf", "nascimento", "nb_matricula", "especie", "tipo_cliente",
+    "telefone", "endereco", "dados_bancarios",
+}
+CAMPOS_FINANCEIROS_REFIN_EDICAO = {
+    "refin_troco": "troco",
+    "refin_comissao_percentual": "comissao_percentual",
+    "refin_comissao": "comissao",
+}
+CAMPOS_MOEDA_EDICAO = {"parcela_atual", "nova_parcela", "troco", "comissao", "refin_troco", "refin_comissao"}
+CAMPOS_PERCENTUAL_EDICAO = {"comissao_percentual", "refin_comissao_percentual"}
+CAMPOS_AUTOSALVAMENTO = CAMPOS_CADASTRAIS_EDICAO | CAMPOS_MOEDA_EDICAO | CAMPOS_PERCENTUAL_EDICAO | {
+    "numero_proposta", "responsavel", "banco_atual", "banco_digitado", "produto", "promotora",
+    "beneficio_bloqueado", "valor_caiu_promotora", "valor_sacado", "status", "margem_apos",
+    "data_retorno", "observacoes",
+}
+
+
+def campos_edicao_proposta(dados: dict[str, Any]) -> dict[str, str]:
+    return {
+        campo: br_moeda(valor) if campo in CAMPOS_MOEDA_EDICAO
+        else br_percentual(valor).rstrip("%") if campo in CAMPOS_PERCENTUAL_EDICAO
+        else limpar_texto(valor)
+        for campo, valor in dados.items() if campo in CAMPOS_AUTOSALVAMENTO
+    }
+
+
+@app.route("/proposta/<int:proposta_id>/editar", methods=["GET", "POST", "PATCH"])
 def editar_proposta(proposta_id: int):
+    automatico = request.method == "PATCH"
+    salvando = automatico or request.method == "POST"
+    if salvando:
+        # Lê e atualiza a proposta sob a mesma transação, inclusive em duas abas.
+        get_db().execute("BEGIN IMMEDIATE")
     proposta = buscar_proposta(proposta_id)
     if not proposta:
+        if automatico:
+            return jsonify(erro="Proposta não encontrada."), 404
         flash("Proposta não encontrada.", "erro")
         return redirect(url_for("index"))
 
-    if request.method == "POST":
-        dados = dados_formulario(proposta)
+    if salvando:
         origem = url_retorno_padrao()
+        acao = request.form.get("acao")
+        db = get_db()
+        refin = None
+        campos_resposta = set()
+        if automatico:
+            entrada = request.form.to_dict()
+            entrada.pop("acao", None)
+            entrada.pop("origem", None)
+            if not entrada.keys() <= CAMPOS_AUTOSALVAMENTO:
+                return jsonify(erro="Campo inválido para salvamento da proposta."), 400
+            for campo in entrada.keys() & (CAMPOS_MOEDA_EDICAO | CAMPOS_PERCENTUAL_EDICAO):
+                valor = re.sub(r"\s+", "", entrada[campo])
+                valor = valor.replace("R$", "", 1) if campo in CAMPOS_MOEDA_EDICAO else valor.removesuffix("%")
+                if valor and not re.fullmatch(r"[+-]?(?:(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?|\d+\.\d+)", valor):
+                    return jsonify(erro="Informe um valor numérico válido."), 422
+                entrada[campo] = valor
+
+            base = dict(proposta)
+            dados = dados_formulario(proposta, {**base, **entrada})
+            if any(not math.isfinite(dados[campo]) for campo in entrada.keys() & (CAMPOS_MOEDA_EDICAO | CAMPOS_PERCENTUAL_EDICAO)):
+                return jsonify(erro="Informe um valor numérico válido."), 422
+            campos_refin = set(CAMPOS_FINANCEIROS_REFIN_EDICAO)
+            if entrada.keys() & campos_refin and not produto_eh_portabilidade_com_refin(dados):
+                return jsonify(erro="Os campos do refinanciamento estão indisponíveis para este produto."), 409
+            campos_resposta = set(entrada)
+            alteracoes = {campo: dados[campo] for campo in entrada if dados[campo] != base.get(campo)}
+            if "produto" in alteracoes:
+                campos_produto = {"status", "banco_atual", "nova_parcela", "margem_apos",
+                                  "numero_port_vinculada", "numero_refin_vinculada"}
+                alteracoes.update({campo: dados[campo] for campo in campos_produto if dados[campo] != base[campo]})
+                campos_resposta.update(campos_produto)
+            if alteracoes.keys() & {"cpf", "nb_matricula"}:
+                cpf, nb = chave_cliente(dados["cpf"], dados["nb_matricula"])
+                cliente = db.execute(
+                    "SELECT * FROM clientes WHERE cpf = ? AND NORMALIZAR_MATRICULA(nb_matricula) = ?",
+                    (cpf, nb),
+                ).fetchone()
+                if cliente:
+                    alteracoes.update({campo: cliente[campo] for campo in CAMPOS_CADASTRAIS_EDICAO - entrada.keys()})
+                if "nb_matricula" in alteracoes and "beneficio_bloqueado" not in entrada:
+                    alteracoes["beneficio_bloqueado"] = beneficio_bloqueado_global(nb, dados["beneficio_bloqueado"])
+                campos_resposta.update(alteracoes)
+            dados = {**base, **alteracoes}
+            sincronizar_refin = produto_eh_portabilidade_com_refin(dados) and bool(
+                alteracoes.keys() & (CAMPOS_CADASTRAIS_EDICAO | campos_refin | {
+                    "produto", "numero_proposta", "banco_digitado", "banco_atual", "promotora", "beneficio_bloqueado",
+                })
+            )
+            if sincronizar_refin:
+                refin = next(iter(buscar_propostas_vinculadas(proposta) or buscar_propostas_vinculadas(dados)), None)
+                for campo, coluna in CAMPOS_FINANCEIROS_REFIN_EDICAO.items():
+                    valor_atual = (refin[coluna] or 0) if refin else 0
+                    dados[campo] = alteracoes.get(campo, valor_atual)
+                campos_resposta.update(campos_refin)
+            for campo in campos_refin:
+                alteracoes.pop(campo, None)
+            atualizar = bool(alteracoes) or (
+                sincronizar_refin and any(
+                    campo in entrada and (not refin or dados[campo] != (refin[coluna] or 0))
+                    for campo, coluna in CAMPOS_FINANCEIROS_REFIN_EDICAO.items()
+                )
+            )
+        else:
+            dados = dados_formulario(proposta)
+            alteracoes = {campo: valor for campo, valor in dados.items()
+                          if campo not in CAMPOS_FINANCEIROS_REFIN_EDICAO and campo != "refin_numero_proposta"}
+            sincronizar_refin = True
+            atualizar = True
+
         if not dados["nome"]:
+            if automatico:
+                return jsonify(erro="Informe o nome do cliente."), 422
             flash("Informe o nome do cliente.", "erro")
             return render_template("editar_proposta.html", proposta={**dict(proposta), **dados}, status_por_funil=status_por_funil())
 
         status_anterior = proposta["status"]
-        db = get_db()
-        data_encerramento = data_encerramento_para_status(
-            status_anterior,
-            dados["status"],
-            proposta["data_encerramento"] if "data_encerramento" in proposta.keys() else None,
-        )
-        atualizado_em = agora_iso()
-        cliente_id_atualizado = salvar_cliente_dos_dados(dados)
-        db.execute(
-            """
-            UPDATE propostas SET
-                cliente_id = ?, nome = ?, cpf = ?, nascimento = ?, nb_matricula = ?, especie = ?, numero_proposta = ?, numero_port_vinculada = ?, numero_refin_vinculada = ?, tipo_cliente = ?, banco_atual = ?,
-                banco_destino = ?, banco_digitado = ?, produto = ?, promotora = ?, beneficio_bloqueado = ?, valor_caiu_promotora = ?, valor_sacado = ?, parcela_atual = ?, nova_parcela = ?, troco = ?,
-                comissao_percentual = ?, comissao = ?, margem_apos = ?, status = ?, responsavel = ?, telefone = ?, endereco = ?, dados_bancarios = ?, data_atualizacao = ?, data_encerramento = ?,
-                proxima_acao = ?, data_retorno = ?, observacoes = ?
-            WHERE id = ?
-            """,
-            (
-                cliente_id_atualizado, dados["nome"], dados["cpf"], dados["nascimento"], dados["nb_matricula"], dados["especie"], dados["numero_proposta"],
-                dados["numero_port_vinculada"], dados["numero_refin_vinculada"], dados["tipo_cliente"],
-                dados["banco_atual"], dados["banco_destino"], dados["banco_digitado"], dados["produto"],
-                dados["promotora"], dados["beneficio_bloqueado"], dados["valor_caiu_promotora"], dados["valor_sacado"], dados["parcela_atual"], dados["nova_parcela"], dados["troco"], dados["comissao_percentual"], dados["comissao"], dados["margem_apos"],
-                dados["status"], dados["responsavel"], dados["telefone"], dados["endereco"], dados["dados_bancarios"], atualizado_em, data_encerramento,
-                dados["proxima_acao"], dados["data_retorno"], dados["observacoes"], proposta_id,
-            ),
-        )
-        sincronizar_beneficio_bloqueado(
-            dados["nb_matricula"],
-            dados["beneficio_bloqueado"],
-            proposta_id,
-            atualizado_em,
-        )
-        refin_id, refin_criado, refin_status = sincronizar_refin_da_portabilidade(
-            proposta_id,
-            dados,
-            atualizado_em,
-        )
-        sincronizar_dados_cadastrais_nas_propostas(
-            cliente_id_atualizado,
-            dados,
-            atualizado_em,
-        )
-        db.commit()
-        if status_anterior != dados["status"]:
-            registrar_historico(proposta_id, status_anterior, dados["status"], "Status alterado na edição")
-        else:
-            registrar_historico(proposta_id, status_anterior, dados["status"], "Dados da proposta atualizados")
-        if refin_id:
+        if atualizar:
+            atualizado_em = agora_iso()
+            atualizar_cliente = bool(alteracoes.keys() & CAMPOS_CADASTRAIS_EDICAO)
+            if atualizar_cliente:
+                alteracoes["cliente_id"] = salvar_cliente_dos_dados(dados)
+            if "status" in alteracoes:
+                alteracoes["data_encerramento"] = data_encerramento_para_status(
+                    status_anterior, dados["status"], proposta["data_encerramento"],
+                )
+            alteracoes["data_atualizacao"] = atualizado_em
+            atribuicoes = ", ".join(f"{campo} = ?" for campo in alteracoes)
+            db.execute(f"UPDATE propostas SET {atribuicoes} WHERE id = ?", (*alteracoes.values(), proposta_id))
+            if "beneficio_bloqueado" in alteracoes:
+                sincronizar_beneficio_bloqueado(dados["nb_matricula"], dados["beneficio_bloqueado"], proposta_id, atualizado_em)
+            if sincronizar_refin:
+                refin_id, refin_criado, refin_status = sincronizar_refin_da_portabilidade(proposta_id, dados, atualizado_em)
+                if refin_id:
+                    registrar_historico(
+                        refin_id, None if refin_criado else refin_status, refin_status,
+                        "Dados do refinanciamento atualizados pela proposta unificada.", confirmar=False,
+                    )
+            if atualizar_cliente:
+                sincronizar_dados_cadastrais_nas_propostas(alteracoes["cliente_id"], dados, atualizado_em)
             registrar_historico(
-                refin_id,
-                None if refin_criado else refin_status,
-                refin_status,
-                "Dados financeiros do refinanciamento atualizados pela proposta unificada.",
+                proposta_id, status_anterior, dados["status"],
+                "Status alterado na edição" if status_anterior != dados["status"] else "Dados da proposta atualizados",
+                confirmar=False,
             )
-        observacao_antiga = limpar_texto(proposta["observacoes"])
-        if dados.get("observacoes") and dados["observacoes"] != observacao_antiga:
-            registrar_anotacao(proposta_id, dados["observacoes"])
-        acao = request.form.get("acao")
-        if acao == "salvar_abrir_proxima" and urlsplit(origem).path == "/hoje":
+            if dados["observacoes"] and dados["observacoes"] != limpar_texto(proposta["observacoes"]):
+                registrar_anotacao(proposta_id, dados["observacoes"], confirmar=False)
+        valores_salvos = {}
+        if automatico and campos_resposta:
+            proposta_salva = dict(buscar_proposta(proposta_id))
+            valores_salvos = campos_edicao_proposta({
+                campo: dados.get(campo) if campo in CAMPOS_FINANCEIROS_REFIN_EDICAO else proposta_salva.get(campo)
+                for campo in campos_resposta
+            })
+        db.commit()
+        if automatico and not acao:
+            return jsonify(valores=valores_salvos)
+        if not automatico and acao == "salvar_abrir_proxima" and urlsplit(origem).path == "/hoje":
             proxima = proxima_tarefa_hoje(origem, excluir_proposta_id=proposta_id)
             if proxima:
                 flash("Proposta salva com sucesso.", "ok")
@@ -6748,11 +6846,13 @@ def editar_proposta(proposta_id: int):
             flash("Todas as tarefas da fila foram concluídas.", "ok")
             return redirect(url_interna_com_parametros(origem, "/hoje", destaque_proposta=proposta_id))
         flash("Proposta salva com sucesso.", "ok")
+        destino = url_for("detalhe_proposta", proposta_id=proposta_id, origem=origem)
         if acao == "salvar_voltar":
             if urlsplit(origem).path in {"/funil", "/hoje"}:
-                return redirect(url_interna_com_parametros(origem, "/propostas", destaque_proposta=proposta_id))
-            return redirect(origem)
-        return redirect(url_for("detalhe_proposta", proposta_id=proposta_id, origem=origem))
+                destino = url_interna_com_parametros(origem, "/propostas", destaque_proposta=proposta_id)
+            else:
+                destino = origem
+        return jsonify(destino=destino) if automatico else redirect(destino)
 
     vinculadas = buscar_propostas_vinculadas(proposta)
     refin_vinculado = next((item for item in vinculadas if proposta_eh_refin_vinculado(item)), None)
@@ -6762,6 +6862,7 @@ def editar_proposta(proposta_id: int):
         refin_vinculado=refin_vinculado,
         STATUS_LIST=nomes_status(funil_da_proposta(proposta)),
         status_por_funil=status_por_funil(),
+        salvamento_automatico=True,
     )
 
 

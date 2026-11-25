@@ -6,8 +6,8 @@
     <div class="card stack proposal-main-card">
         <div class="detail-header">
             <div>
-                <span class="badge">{{ proposta.status }}</span>
-                <h2>{{ proposta.nome }}</h2>
+                <span class="badge" data-proposta-salva="status">{{ proposta.status }}</span>
+                <h2 data-proposta-salva="nome">{{ proposta.nome }}</h2>
                 <p>{{ proposta.produto }} · Banco digitado: {{ banco_digitado_exibicao(proposta) or '-' }}</p>
             </div>
             <div class="detail-actions">
@@ -100,7 +100,7 @@
                 </div>
                 <div class="summary-card">
                     <small>Nº proposta</small>
-                    <strong>{{ proposta.numero_proposta or '-' }}</strong>
+                    <strong data-proposta-salva="numero_proposta">{{ proposta.numero_proposta or '-' }}</strong>
                 </div>
                 <div class="summary-card">
                     <small>Previsão de saldo</small>
@@ -117,17 +117,17 @@
                     <div class="finance-highlight-box">
                         <div>
                             <small>{% if refin_vinculado %}Valor da portabilidade{% else %}Valor{% endif %}</small>
-                            <strong>{{ br_moeda(proposta.troco) }}</strong>
+                            <strong data-proposta-salva="troco">{{ br_moeda(proposta.troco) }}</strong>
                         </div>
                         {% if refin_vinculado %}
                         <div>
                             <small>Valor do troco</small>
-                            <strong>{{ br_moeda(refin_vinculado.troco) }}</strong>
+                            <strong data-proposta-salva="refin_troco">{{ br_moeda(refin_vinculado.troco) }}</strong>
                         </div>
                         {% endif %}
                         <div>
                             <small>Comissão</small>
-                            <strong>{{ br_moeda((proposta.comissao or 0) + (refin_vinculado.comissao or 0 if refin_vinculado else 0)) }}</strong>
+                            <strong data-proposta-comissao-total data-comissao="{{ proposta.comissao or 0 }}" data-refin-comissao="{{ refin_vinculado.comissao or 0 if refin_vinculado else 0 }}">{{ br_moeda((proposta.comissao or 0) + (refin_vinculado.comissao or 0 if refin_vinculado else 0)) }}</strong>
                         </div>
                     </div>
 
@@ -164,12 +164,12 @@
                     <div><small>Telefone</small><span>{{ proposta.telefone or '-' }}</span></div>
                     <div class="wide-info"><small>Endereço</small><span>{{ proposta.endereco or '-' }}</span></div>
                     <div class="wide-info"><small>Dados bancários</small><span>{{ proposta.dados_bancarios or '-' }}</span></div>
-                    <div><small>Parcela atual</small><span>{{ br_moeda(proposta.parcela_atual) }}</span></div>
-                    {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Nova parcela</small><span>{{ br_moeda(proposta.nova_parcela) }}</span></div>{% endif %}
-                    <div><small>{% if refin_vinculado %}Valor da portabilidade{% else %}Valor{% endif %}</small><span>{{ br_moeda(proposta.troco) }}</span></div>
+                    <div><small>Parcela atual</small><span data-proposta-salva="parcela_atual">{{ br_moeda(proposta.parcela_atual) }}</span></div>
+                    {% if produto_tem_campos_portabilidade(proposta.produto) %}<div><small>Nova parcela</small><span data-proposta-salva="nova_parcela">{{ br_moeda(proposta.nova_parcela) }}</span></div>{% endif %}
+                    <div><small>{% if refin_vinculado %}Valor da portabilidade{% else %}Valor{% endif %}</small><span data-proposta-salva="troco">{{ br_moeda(proposta.troco) }}</span></div>
                     <div><small>{% if refin_vinculado %}% comissão da portabilidade{% else %}% comissão{% endif %}</small><span>{{ br_percentual(proposta.comissao_percentual) }}</span></div>
                     {% if refin_vinculado %}
-                    <div><small>Valor do troco</small><span>{{ br_moeda(refin_vinculado.troco) }}</span></div>
+                    <div><small>Valor do troco</small><span data-proposta-salva="refin_troco">{{ br_moeda(refin_vinculado.troco) }}</span></div>
                     <div><small>% comissão do refinanciamento</small><span>{{ br_percentual(refin_vinculado.comissao_percentual) }}</span></div>
                     {% endif %}
                     <div><small>Valor caiu na promotora</small><span>{{ proposta.valor_caiu_promotora or 'NÃO' }}</span></div>
@@ -210,8 +210,11 @@
                     <button form="quickEditForm" class="btn" type="submit" name="acao" value="salvar_voltar"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salvar e voltar</span></button>
                 </div>
             </div>
-            <form id="quickEditForm" method="post" action="{{ url_for('editar_proposta', proposta_id=proposta.id) }}" class="stack quick-edit-form">
+            <form id="quickEditForm" method="post" action="{{ url_for('editar_proposta', proposta_id=proposta.id) }}" class="stack quick-edit-form"{% if salvamento_automatico %} data-salvamento-automatico{% endif %}>
                 <input type="hidden" name="origem" value="{{ url_retorno_padrao() }}">
+                {% if salvamento_automatico %}
+                <small class="muted" data-estado-salvamento role="status">As alterações são salvas ao sair de cada campo.</small>
+                {% endif %}
                 {% include '_form.html' %}
                 <div class="actions">
                     <button class="btn btn-primary" type="submit" name="acao" value="salvar"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Salvar alterações</span></button>
